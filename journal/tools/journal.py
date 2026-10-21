@@ -1301,6 +1301,12 @@ def append_index_entry(entry_file: Path, kind: str) -> bool:
     except Exception:
         return False
     events = load_status_events()
+    # BEFORE THE INSERT, not after (2026-10-21). The entry FILE is already on disk; taking the
+    # signature here means a second writer that lands a file during this insert makes the
+    # recorded signature differ from the tree at the next read, so `cache_fresh()` reports stale
+    # and the next reader rebuilds. Taken after the insert it would have claimed freshness for a
+    # tree whose newest entry was never indexed.
+    sig = tree_signature()
 
     # The critical section is one INSERT and one line append: milliseconds, and it keeps two
     # concurrent appends from interleaving a half line into the TSV.
@@ -1356,7 +1362,6 @@ def append_index_entry(entry_file: Path, kind: str) -> bool:
     # fingerprint (7,615 stats, 1.4 s) is the price of that honesty, and it is still 6x cheaper
     # than re-parsing the entries.
     try:
-        sig = tree_signature()
         stamp = read_stamp()
         stamp.update(sig)
         stamp["built"] = now_utc()
@@ -1379,11 +1384,19 @@ def rebuild_cache(compute_drift: bool = False) -> dict:
     refs = _collect_refs(entries)
     idir = index_dir()
     idir.mkdir(parents=True, exist_ok=True)
+    # THE SIGNATURE IS TAKEN BEFORE THE DERIVED WRITES, ON PURPOSE (2026-10-21).
+    # It used to be taken AFTER `entries.tsv` and `journal.db` were written, which made the
+    # cache lie under concurrency: a writer landing an entry inside that window put its FILE in
+    # the tree but not in the index, and the stamp then recorded the signature of a tree the
+    # index did not describe -- so `cache_fresh()` answered True with the newest entry missing.
+    # Taken first, any change during the rebuild makes the recorded signature differ from the
+    # tree at read time, and the cache is correctly reported stale instead. Fail-closed, and it
+    # costs one signature either way.
+    stamp = tree_signature()
     atomic_write(idir / "entries.tsv", "\n".join(_entries_tsv_rows(entries, events)) + "\n")
     if not (idir / "aliases.tsv").exists():
         atomic_write(idir / "aliases.tsv", ALIAS_HEADER + "\n")
     db_note = _write_db(entries, aliases, refs)
-    stamp = tree_signature()
     ceiling = {kind: max_number(kind) for kind in KINDS}
     prev = read_stamp()
     # CARRY FORWARD EVERY KEY THIS FUNCTION DOES NOT OWN (P1, 2026-10-21). It used to carry only
@@ -1571,6 +1584,35 @@ def from_index_db():
     return out, ("index/journal.db" if out else "")
 
 
+def _overlay_status(entries: list) -> None:
+    """Apply the resolve log to a catalog view, in place.
+
+    PORTED 2026-10-21 from the authority's `journal.py` (blob 699db475), which fixed this on
+    2026-10-18 and this lineage never received. Two defects came back with it:
+
+    * `show` and `list` printed the entry MARKER, so a resolved entry still read `open` and
+      `--status done` matched nothing from the file tier.
+    * `--since` with a status filter compared the WRITTEN date, so `--status done --since today`
+      could never match a closure: the 15 entries closed that day had all been written weeks
+      earlier, and the caller read "nothing was closed".
+
+    It sits in `catalog()` rather than in two commands because this lineage now has THREE read
+    tiers (`entries.tsv`, `journal.db`, `entries/`) and they disagree about status: the TSV is
+    written with `effective_status()` applied, the database and the parsed files carry the raw
+    marker. Overlaying at the one point they all return through makes the tier invisible to
+    every caller. `check` and the drift counters call `load_entries()` directly and still see
+    the raw marker, which is what they must compare.
+    """
+    events = load_status_events()
+    if not events:
+        return
+    for e in entries:
+        row = events.get((e["kind"], e["id_full"]))
+        if row:
+            e["status"] = row[0]
+            e["status_date"] = row[1]
+
+
 def catalog():
     """The entry list used by every read command. Never needs a subprocess."""
     fresh = ensure_cache()
@@ -1585,6 +1627,7 @@ def catalog():
     if not entries:
         source = "entries/"
         entries, _problems = load_entries()
+    _overlay_status(entries)
     return entries, source, fresh
 
 
@@ -2025,10 +2068,15 @@ def _matches(e: dict, args, texts=None) -> bool:
     if st and (e.get("status") or "open") != st:
         return False
     since = getattr(args, "since", None)
-    if since and (e.get("date") or "")[:10] < since:
+    # WITH A STATUS FILTER THE DATE THAT MATTERS IS WHEN THE STATUS CHANGED (ported 2026-10-21
+    # from the authority's blob 699db475, 2026-10-18). A closure is always newer than the entry,
+    # so comparing the written date made `--status done --since today` structurally unable to
+    # match a closure -- and the honest reading of "no rows" is "nothing was closed".
+    _date = (e.get("status_date") or e.get("date")) if st else e.get("date")
+    if since and (_date or "")[:10] < since:
         return False
     until = getattr(args, "until", None)
-    if until and ((e.get("date") or "9999")[:10] or "9999") > until:
+    if until and (((_date or "9999")[:10]) or "9999") > until:
         return False
     tag = getattr(args, "tag", None)
     if tag:
@@ -2157,6 +2205,10 @@ def cmd_show(args) -> int:
             continue
         e = load_one(want) or load_one(want.upper())              # exact path: one open
         if e is not None:
+            # `show` reads ONE FILE, so it never passes through `catalog()` and would print the
+            # entry's own marker: a resolved entry still read `open` (ported 2026-10-21 from the
+            # authority's blob 699db475, fixed there 2026-10-18).
+            _overlay_status([e])
             # A live entry is never shadowed by an alias or by a base-id expansion.
             amap = alias_map()
             a = amap.get(e["id_full"]) or amap.get(want.upper())
