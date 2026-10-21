@@ -6,7 +6,7 @@ Updated: 2026-10-21
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 642 row(s) read, 23 pending, generated 2026-10-21 11:08 UTC on SECRATARY-CLOUD.
+Provenance: 643 row(s) read, 24 pending, generated 2026-10-21 12:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -33,5 +33,6 @@ Provenance: 642 row(s) read, 23 pending, generated 2026-10-21 11:08 UTC on SECRA
 | 908 | 2026-10-21 | medium | The NJ DOL penalty bill for Q2 is still unpaid: 122.71 dollars, being 115.76 penalty + 1.95 interest + 5.00 WR-30. Pay it online now, or send the notarized abatement request I drafted? If you already paid it, reply PAID. | I recommend paying the 122.71 now. The bill is arithmetically correct and the tax is already paid, and a notarized abatement request would cost you more in time than the bill is worth. If you want it waived on principle, |
 | 909 | 2026-10-21 | medium | Gusto told you on 9/30 it would file your Q3 payroll returns, then you canceled on 10/8. Did Gusto file the Q3 941, or should I treat it as unfiled? | Check Gusto Tax documents for a Q3 2026 941 first. If none is there, the return is fully prepared in docs/finance/FORM-941-Q3-2026-PACK.md and is due 11/02; the balance is likely 0.00 because the deposits were already ma |
 | 911 | 2026-10-21 | medium | May I switch on AI review and screenshot accountability, and which AI account should pay for it? | Run the review on a local Ollama model on lpt-apps-01 first: no per-frame vendor bill and no child screenshot leaves the building, then move to a hosted model once volume is measured. |
+| 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
 
 Closed since the queue opened: 619. Answered questions move to `entries/decisions/` with the owner's own words.
