@@ -177,9 +177,28 @@
 # `authorization` and `deepseek-account` stay disabled: they are the interactive
 # account/Models surfaces, not a credential source, and a one-shot needs neither.
 # Only `credentials` is re-enabled, because only it was missing.
+#
+# THE GATE IS NOT COSMETIC — DO NOT REMOVE IT AND THEN SYNC EVERYWHERE.
+# `dsh-llm-deepseek-api-key` reads:
+#     const credentials = ctx.get("credentials");
+#     if (credentials !== void 0) { const hit = await credentials.resolve(ref); if (hit !== void 0) return ...; }
+#     else { ...ambient environment... }
+#     throw new LlmError(..., "MISSING_CREDENTIAL")
+# So once the service is MOUNTED there is NO environment fallback: an empty store
+# is worse than no store. Measured 2026-10-21: `zabz-tech-linux`'s store holds only
+# a `records:` browser-session and NO `refs:` section at all — that node's key is
+# `DEEPSEEK_API_KEY` in `/etc/dsh-worker.env`, sourced by its `/usr/local/bin/dsh`
+# executor, which is the right design for a systemd-launched worker. Mounting the
+# store there would replace a working environment lookup with a throw.
+# Hence the linux gate: this estate's only linux worker is on the environment
+# path. Give it a `refs:` section first, then delete the gate.
+#
+# Verified with the store in place: ZABZ-TECH and ZABZ-YOGA (Windows, key in the
+# managed store) and lakewooechsmini (macOS, key in the managed store) resolve it;
+# `zabz-tech-linux` keeps its executor and its worker env file.
 - id: credentials
   name: '@deepseek-ai/dsh-credentials-local'
-  disabled: false
+  disabled: !!js process.platform === 'linux'
 
 - id: llm-deepseek
   name: "@deepseek-ai/dsh-llm-deepseek-api-key"
