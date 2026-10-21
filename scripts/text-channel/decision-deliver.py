@@ -60,10 +60,12 @@ STATE_DB = STATE_DIR / "state.db"
 CEILING = 160
 TARGET = 120
 
-#: "one at a time ... don't overdo it or spam me" (2026-09-22). Two a day is the ceiling
-#: he has tolerated; the measured useful rate is about one question a day.
-MAX_PER_DAY = int(os.environ.get("DECISION_DELIVER_MAX_PER_DAY", "2"))
-MIN_GAP_MINUTES = int(os.environ.get("DECISION_DELIVER_MIN_GAP_MINUTES", "30"))
+#: "one at a time ... don't overdo it or spam me" (2026-09-22). Raised from 2 to 6 by the owner
+#: on 2026-10-21, his words: "it doesnt have to be limited at two a day. Probably the limit
+#: should be 6 a day." The gap went 30 -> 60 minutes with it, so 6 questions cannot arrive in a
+#: burst: 6 a day across his 10-hour window is one about every 100 minutes at the ceiling.
+MAX_PER_DAY = int(os.environ.get("DECISION_DELIVER_MAX_PER_DAY", "6"))
+MIN_GAP_MINUTES = int(os.environ.get("DECISION_DELIVER_MIN_GAP_MINUTES", "60"))
 
 #: The sending window, in UTC. His local hours are 12:00-17:00 and 19:00-23:00
 #: (OWNER-PROTOCOL 2026-09-30); the estate runs UTC with him at UTC-4.

@@ -4,9 +4,9 @@
 # THE PACING IS THE POINT. He asked for "a question one at a time" and "don't overdo it or
 # spam me" (2026-09-22). A queue of 97 answered all at once is the same failure as a queue
 # of 97 answered never: it spends his attention and teaches him to ignore the channel. So
-# this runs often and sends almost never -- the deliverer itself enforces max 2/day, a
-# 30-minute gap and his waking hours, and this wrapper adds the one thing the deliverer
-# cannot know: whether the owner has approved the queue's content.
+# this runs often and sends almost never -- the deliverer itself enforces max 6/day, a
+# 60-minute gap and his waking hours (owner raised it from 2 on 2026-10-21), and this wrapper
+# adds the one thing the deliverer cannot know: whether the owner has approved the queue's content.
 #
 # THE APPROVAL SENTINEL
 #   ~/.decision-deliver/APPROVED  exists  -> live sends

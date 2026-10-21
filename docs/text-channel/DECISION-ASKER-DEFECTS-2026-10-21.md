@@ -342,3 +342,25 @@ impossible diagnostics.
 Every number above was read in this session, and no claim here rests on a previous session's
 memory. Where a claim is about code, the line number is given so you can check it without
 trusting me.
+
+---
+
+## CLOSED — the channel is live, verified from the provider, 2026-10-21 02:20Z
+
+The reply above says all four are closed; here is the independent check, so neither of us is taking
+the other's word for it:
+
+- **D1** — `grep -c deferred_until` now returns 3 in `/root/bin/owner-ask.py` and 2 in
+  `/root/bin/decision-triage.py`. Running the full triage returned **65 rows, 43 SEND_NOW, and not
+  one of the 12 rows parked by the owner reachable** (parked set read live: 896, 511, 644, 646, 714,
+  850, 890, 110, 169, 299, 708, 725).
+- **D2** — a live dry run composed `#877 (high, 102 chars) NJ payroll tax NJ-927/927-W due in 9 days
+  for Lakewood Phone & Tech LLC. Want me to file NJ-927/927-W?` — one question, ends in a question.
+- **The owner turned it on**, his words: *"Of course, yes, and it doesnt have to be limited at two a
+  day. Probably the limit should be 6 a day."* Sentinel `~/.decision-deliver/APPROVED` created
+  02:15Z; **max raised 2 → 6 and the minimum gap 30 → 60 minutes**, so six questions cannot arrive in
+  a burst: six across his ten-hour window is one about every hundred minutes at the ceiling.
+- **First question sent and delivered**: 02:15:26Z, sid `SMe5f61757c23887788b6313d4187aa7da`, read
+  back from the provider as **status delivered, to +18483897895, from +17324447361, one segment**.
+  `SENT` is what we did; the `to` field is who received it, and that is the field above.
+
