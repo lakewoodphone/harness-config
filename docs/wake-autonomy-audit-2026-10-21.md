@@ -362,3 +362,25 @@ guessed.
 Consequence, stated plainly: until that shard is green, **production does not carry** D23 (no public
 prices — the site still prints figures on seven routes), the lead form (G1-1), or the payment-on-create
 fix. All three are live on test and waiting on the same one thing.
+
+**Round 10 — the red shard was ours, and the log named it.** The annotation showed only `exit code 1`;
+the job log (fetched by stripping the Authorization header on the S3 redirect — forwarding it returns
+`InvalidAuthenticationInfo`) named it in one line:
+
+```
+FAIL src/features/work-orders/pages/__tests__/CreateWorkOrderPage.unsaved-changes.test.tsx
+  > should NOT show unsaved changes...
+```
+
+It asserted the placeholder `Redirecting…` that **PR #596 removed on purpose**. So the promotion was
+not blocked by a pre-existing failure: it was blocked by **my own regression**, shipped to `test`
+with a green 14-check run because the test that covered the old behaviour was in the shard set that
+skipped on the PR. Fixed on `fix/owner-pay-test-20261021` (`4622c1986`, PR #600): the same test now
+asserts the new surface — form gone, payment step up, open-the-order button present because the mock
+returns no order body — and the behaviour under test (no unsaved-changes dialog after a create) is
+unchanged. Ledger **#1094** carries the diagnosis so no shift has to re-derive it.
+
+**What that taught, in the file's own terms:** `ci-artifacts/test/` was empty for the shard, so the
+failure arrived with no report attached and no test name. The lesson is not "read harder" — it is that
+**a shard which uploads nothing cannot be diagnosed from the check that ran it**, and the log is the
+only place the name exists.
