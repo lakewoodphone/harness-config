@@ -508,7 +508,21 @@ def compose(row: dict) -> str:
     if ask_sentence:
         room = CEILING - len(ask_sentence) - 2
         context = ""
+        # A SENTENCE NAMING A FILE OUTRANKS OTHER CONTEXT. Measured 2026-10-21 on the first
+        # result report: "Done: Document the NJ-927 filing ... / At docs/finance/NJ-927-Q3-...
+        # FILING-PACK.md / Want me to walk you through it?" composed WITHOUT the path, because
+        # the generic context rule took the first sentence that fitted. For a result, the path
+        # is the answer -- "done, want a walkthrough?" with no location sends him looking.
+        _PATHY = re.compile(r"(?:docs|scripts|src|app|/root|/home)/[\w./-]+", re.I)
         for s in sentences:
+            if s == ask_sentence:
+                continue
+            if _PATHY.search(s) and len(s) <= room:
+                context = s.rstrip(". ")
+                break
+        for s in sentences:
+            if context:
+                break
             if s == ask_sentence:
                 break
             cand = s.rstrip(". ")
