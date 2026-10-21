@@ -692,7 +692,8 @@ def classify(row: dict) -> dict:
         r"\?|\b(sim|price|cost|how much|buy|order|purchase|repair|fix|screen|battery|"
         r"fixable|available|in stock|appointment|come in|drop off|quote|charge|pay)\b", re.I)
     if (str(row.get("source") or "").startswith("gv-ingest:")
-            and re.match(r"^\s*(Text|Missed call|Voicemail) from\b", q, re.I)):
+            and re.match(r"^\s*(\d+\s+)?(texts?|missed calls?|voicemails?|"
+                         r"text from|missed call from|voicemail from)\b", q, re.I)):
         if _COMMERCIAL.search(q):
             out.update(disposition="SEND_NOW", why="")
             # fall through to normal composition: this is a customer enquiry, not an echo
@@ -790,7 +791,14 @@ def classify(row: dict) -> dict:
         # The test is not whether the work is technical; it is whether I can do it at all.
         r"key|keys|token|credential|credentials|account|accounts|login|password|"
         r"console|sign in|log in)\b", re.I)
-    if _ENG.search(q) and not _HIS.search(q):
+    # THE IMPERATIVE IS OFTEN THE SECOND SENTENCE. Measured 2026-10-21: #846 reads
+    # "Three of the twelve benchmark questions cannot be answered by the current search at all.
+    # Build meaning-based search?" -- the start-anchored version missed it, because the
+    # statement comes first and the instruction second, which is how most of these read.
+    _IMPERATIVE = re.compile(
+        r"(?:^|[.!?]\s+)(build|archive|prune|delete|remove|drop|install|provision|refactor|"
+        r"rename|upgrade|configure|migrate|reindex|deploy)\b", re.I)
+    if (_ENG.search(q) or _IMPERATIVE.search(q)) and not _HIS.search(q):
         out.update(disposition="ENGINEERING",
                    why="a development decision -- architecture, tooling, branch or index "
                        "housekeeping -- which his standing instruction and this session's rules "
