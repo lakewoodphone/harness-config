@@ -123,8 +123,10 @@ THREE GUARDS, MEASURED FROM HIS OWN TEXTS (2026-10-19)
 
     quiet_hours        (rule 1f) the message was fine and the HOUR was not. 112 of
                        548 delivered outbound texts (20.4%) arrived 23:00-07:00
-                       America/New_York, including reminders at 02:29, 02:55, 03:09.
-                       Window 23:00-07:30 local, overridable by
+                       America/New_York, including reminders at 02:29, 02:55, 03:09 --
+                       the measurement that put this guard in. Window 02:00-08:00 local
+                       since the owner's ruling of 2026-10-21, verbatim: "quiet times
+                       are 2 am to 8 am est". Overridable by
                        OWNER_TEXT_QUIET_START / OWNER_TEXT_QUIET_END (HH:MM).
                        Bypassed by `urgency in INTERRUPTING_URGENCIES` (urgent,
                        critical, stuck -- the app gate's own set), by
@@ -744,8 +746,12 @@ QUIET_TZ = "America/New_York"
 QUIET_START_ENV = "OWNER_TEXT_QUIET_START"
 QUIET_END_ENV = "OWNER_TEXT_QUIET_END"
 QUIET_AWAKE_ENV = "OWNER_TEXT_QUIET_AWAKE_MINUTES"
-QUIET_START_DEFAULT = "23:00"
-QUIET_END_DEFAULT = "07:30"
+#: THE OWNER'S RULING, 2026-10-21, verbatim: "quiet times are 2 am to 8 am est".
+#: The old window was 23:00-07:30 ET; he moved BOTH edges. Do not "round" these back:
+#: the window is his, the env overrides below still win for a one-off, and
+#: decision-deliver.py's gate is the same 02:00-08:00 ET window on purpose.
+QUIET_START_DEFAULT = "02:00"
+QUIET_END_DEFAULT = "08:00"
 QUIET_AWAKE_DEFAULT = 60.0
 QUIET_UNKNOWN = "quiet hours not evaluated"
 _TZ_WARNED = False
@@ -819,7 +825,7 @@ def _hhmm(raw, default: str, name: str):
 
 
 def _quiet_window():
-    """(start_minutes, end_minutes, problem) -- 23:00-07:30 unless the env overrides."""
+    """(start_minutes, end_minutes, problem) -- 02:00-08:00 ET unless the env overrides."""
     start, p1 = _hhmm(os.environ.get(QUIET_START_ENV), QUIET_START_DEFAULT, QUIET_START_ENV)
     end, p2 = _hhmm(os.environ.get(QUIET_END_ENV), QUIET_END_DEFAULT, QUIET_END_ENV)
     problems = [p for p in (p1, p2) if p]
@@ -832,13 +838,12 @@ def quiet_hours_now(now) -> tuple:
     `inside` True means DO NOT SEND. `now` is a UTC datetime (this store's convention);
     a naive one is read as UTC.
 
-    THE WINDOW. 23:00-07:30 America/New_York -- his clock, which is why the hours are
-    these: he wakes around 11:00, works the shop 12:30-17:00, and 112 of 548 delivered
-    outbound texts (20.4%) arrived between 23:00 and 07:00 local, including reminders at
-    02:29, 02:55 and 03:09. Override the edges with OWNER_TEXT_QUIET_START /
-    OWNER_TEXT_QUIET_END (HH:MM). The window may wrap midnight; start == end means no
-    quiet hours at all, which is the only reading of a zero-length window that cannot
-    silence a whole day.
+    THE WINDOW. 02:00-08:00 America/New_York -- his clock and his hours. THE OWNER'S RULING,
+    2026-10-21, verbatim: "quiet times are 2 am to 8 am est". It replaces 23:00-07:30: he
+    moved the start three hours later and the end thirty minutes later, so 23:00-02:00 is now
+    his to receive in. Override the edges with OWNER_TEXT_QUIET_START / OWNER_TEXT_QUIET_END
+    (HH:MM). The window may wrap midnight; start == end means no quiet hours at all, which is
+    the only reading of a zero-length window that cannot silence a whole day.
 
     TIME ZONE. zoneinfo `America/New_York` when the host has a zone database, otherwise a
     fixed US-Eastern offset that still follows the US DST rule (-4 / -5) and SAYS SO in

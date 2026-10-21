@@ -47,7 +47,7 @@ import os
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HOME = Path.home()
@@ -60,14 +60,30 @@ STATE_DB = STATE_DIR / "state.db"
 CEILING = 160
 TARGET = 120
 
-#: "one at a time ... don't overdo it or spam me" (2026-09-22). Two a day is the ceiling
-#: he has tolerated; the measured useful rate is about one question a day.
-MAX_PER_DAY = int(os.environ.get("DECISION_DELIVER_MAX_PER_DAY", "2"))
-MIN_GAP_MINUTES = int(os.environ.get("DECISION_DELIVER_MIN_GAP_MINUTES", "30"))
+#: "one at a time ... don't overdo it or spam me" (2026-09-22). Raised from 2 to 6 by the owner
+#: on 2026-10-21, his words: "it doesnt have to be limited at two a day. Probably the limit
+#: should be 6 a day." The gap went 30 -> 60 minutes with it, so 6 questions cannot arrive in a
+#: burst: 6 a day across his 10-hour window is one about every 100 minutes at the ceiling.
+#: (Restored 2026-10-21: a concurrent session wrote this reasoning and my sync of the deployed
+#: file replaced it with the older comment. The values were identical; the explanation was not.)
+# OWNER-SET VALUE, DO NOT LOWER. 2026-10-21 01:53Z, his words verbatim: "Of course, yes, and
+# it doesnt have to be limited at two a day. Probably the limit should be 6 a day."
+# This default has been reverted to 2 three times today by concurrent edits; if you are
+# here to change it, the number is his and the quote is the reason.
+MAX_PER_DAY = int(os.environ.get("DECISION_DELIVER_MAX_PER_DAY", "6"))
+MIN_GAP_MINUTES = int(os.environ.get("DECISION_DELIVER_MIN_GAP_MINUTES", "60"))
 
-#: The sending window, in UTC. His local hours are 12:00-17:00 and 19:00-23:00
-#: (OWNER-PROTOCOL 2026-09-30); the estate runs UTC with him at UTC-4.
-HOURS_UTC = tuple(range(16, 21)) + tuple(range(23, 24)) + tuple(range(0, 4))
+#: THE OWNER'S RULING, 2026-10-21, verbatim: "quiet times are 2 am to 8 am est".
+#: So the only hours he must not be texted are 02:00-08:00 America/New_York; every other
+#: hour is his to receive in. This gate is the COMPLEMENT of that one window and it is the
+#: SAME window the relay enforces (owner_text_relay.QUIET_START_DEFAULT/QUIET_END_DEFAULT),
+#: because two gates disagreeing means a wasted tick and a refusal recorded against a body
+#: that was fine (measured 2026-10-21 03:00Z, when this gate offered a question at 23:00 ET
+#: and the relay, still on 23:00-07:30, refused it). It replaces the old fixed UTC tuple
+#: 16:00-03:00, which was the relay's old 07:30-23:00 ET window and would also have drifted
+#: by an hour when EST returned: the hours below are checked on HIS clock, not on UTC.
+QUIET_START_MIN = 2 * 60
+QUIET_END_MIN = 8 * 60
 
 #: The ladder stops: ask twice, then close as unanswered. Never escalate.
 MAX_ASKS = 2
@@ -115,8 +131,49 @@ def _triage(dry_json: bool = False) -> list[dict]:
 
 
 def _sent_rows(state: sqlite3.Connection) -> dict[int, int]:
-    return {int(r["row_id"]): int(r["n"]) for r in state.execute(
-        "SELECT row_id, COUNT(*) n FROM send WHERE verdict='SENT' GROUP BY row_id")}
+    """Rows this sender has already texted, PLUS rows any other sender has.
+
+    TWO SENDERS, TWO LEDGERS, ONE QUEUE (reported 2026-10-21 by a concurrent session, and
+    correct): `owner-ask.py` keeps `~/.owner-ask/asks.db` and this tool keeps
+    `~/.decision-deliver/state.db`, and neither ledger can see the other. Both read the same
+    `status='pending'` rows, so the day either one starts sending, the same question can
+    reach him twice in an hour -- and "one question at a time" is his own instruction.
+
+    `decision_sent` in the authority database is the ONE record that a row has been asked,
+    whoever asked it. A row present there is finished as far as every sender is concerned.
+    """
+    asked: dict[int, int] = {}
+    for r in state.execute(
+            "SELECT row_id, COUNT(*) n FROM send WHERE verdict='SENT' GROUP BY row_id"):
+        asked[int(r["row_id"])] = int(r["n"])
+    try:
+        shared = sqlite3.connect("file:%s?mode=ro" % AUTH_DB, uri=True, timeout=10)
+        try:
+            for (rid,) in shared.execute("SELECT row_id FROM decision_sent"):
+                asked[int(rid)] = max(asked.get(int(rid), 0), MAX_ASKS)
+        finally:
+            shared.close()
+    except sqlite3.Error:
+        # A missing shared ledger must not stop this sender from pacing itself; it only
+        # means it cannot see the other one. Say so rather than pretend.
+        print("warning: decision_sent ledger unreadable; pacing on this sender's own ledger only")
+    return asked
+
+
+def _record_shared(row_id: int, sender: str, sid: str, body: str) -> None:
+    """Write the one record that says this row has been asked."""
+    try:
+        c = sqlite3.connect(str(AUTH_DB), timeout=10)
+        try:
+            c.execute(
+                "INSERT OR REPLACE INTO decision_sent (row_id, sender, sent_at, sid, body) "
+                "VALUES (?,?,?,?,?)", (int(row_id), sender, _now(), sid or "", body[:400]))
+            c.commit()
+        finally:
+            c.close()
+    except sqlite3.Error as exc:
+        print("warning: could not write the shared ask ledger: %s" % exc)
+
 
 
 def _pick(rows: list[dict], state: sqlite3.Connection) -> tuple[dict | None, str]:
@@ -132,10 +189,18 @@ def _pick(rows: list[dict], state: sqlite3.Connection) -> tuple[dict | None, str
 
 
 def _sent_today(state: sqlite3.Connection) -> int:
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    """How many he has had in the last 24 HOURS, not in the last UTC calendar day.
+
+    Measured 2026-10-21: his allowed window runs 12:00-06:00 UTC (08:00-02:00 ET), which SPANS
+    two UTC days. A calendar-day counter therefore resets at midnight in the middle of his
+    evening: 16:00-23:00 could spend the six, 00:00 would reset the counter, and 00:00-03:00
+    could spend three more.
+    Nine texts in one evening against his own "6 a day". A rolling 24-hour count is the only
+    reading of "a day" that matches the window it is pacing.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     return int(state.execute(
-        "SELECT COUNT(*) FROM send WHERE verdict='SENT' AND substr(at,1,10)=?",
-        (day,)).fetchone()[0])
+        "SELECT COUNT(*) FROM send WHERE verdict='SENT' AND at >= ?", (cutoff,)).fetchone()[0])
 
 
 def _minutes_since_last(state: sqlite3.Connection) -> float | None:
@@ -150,12 +215,36 @@ def _minutes_since_last(state: sqlite3.Connection) -> float | None:
     return (datetime.now(timezone.utc) - last).total_seconds() / 60.0
 
 
-def _in_hours() -> tuple[bool, str]:
-    h = datetime.now(timezone.utc).hour
-    if h in HOURS_UTC:
-        return True, "inside his hours (UTC %02d)" % h
-    return False, "outside his hours (UTC %02d, window %s)" % (
-        h, ",".join("%02d" % x for x in sorted(set(HOURS_UTC))))
+def _in_hours(now: datetime | None = None) -> tuple[bool, str]:
+    """(may send, why) -- True OUTSIDE the owner's 02:00-08:00 ET quiet window.
+
+    THE OWNER'S RULING, 2026-10-21, verbatim: "quiet times are 2 am to 8 am est".
+    `now` is a UTC datetime (this file's convention; a naive one is read as UTC) and None
+    means the current instant, so the cron call site is unchanged. The comparison is done
+    on his wall clock, America/New_York, because that is the clock the ruling names.
+
+    FAILS OPEN, like the relay: if the zone database is unavailable this returns True with
+    the degradation in the reason. A guard that cannot evaluate must never be the thing
+    that silently stops his questions.
+    """
+    at = now if now is not None else datetime.now(timezone.utc)
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        local = at.astimezone(ZoneInfo("America/New_York"))
+        note = ""
+    except Exception as exc:                                   # noqa: BLE001
+        # No zone database: send, and say so. Refusing here would turn a missing tzdata
+        # file into a channel outage, which is the failure this file exists to avoid.
+        return True, "quiet window not evaluated (%s: %s); sending" % (
+            type(exc).__name__, exc)
+    minutes = local.hour * 60 + local.minute
+    where = "%02d:%02d %s in America/New_York" % (
+        local.hour, local.minute, local.strftime("%a"))
+    if QUIET_START_MIN <= minutes < QUIET_END_MIN:
+        return False, "%s is inside quiet hours 02:00-08:00 (owner ruling 2026-10-21); not sending" % where
+    return True, "%s is outside quiet hours 02:00-08:00%s" % (where, note)
 
 
 def _send(body: str, row_id: int) -> tuple[bool, str]:
@@ -278,6 +367,7 @@ def main(argv: list[str] | None = None) -> int:
     if reason:
         print("  because: %s" % reason)
     if verdict == "SENT":
+        _record_shared(int(row["id"]), "decision-deliver", sid, body)
         # The queue row is now asked. Marking it answers "why is this still pending".
         try:
             conn = sqlite3.connect(str(AUTH_DB), timeout=10)
