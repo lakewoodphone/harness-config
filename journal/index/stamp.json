@@ -8,13 +8,13 @@
   "pain": 10059,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-21T18:00:10Z",
+ "ceiling_refreshed_at": "2026-10-21T18:15:27Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
   "lessons": "refs/heads/hk/528-dedupe-before-ceiling",
   "pain": "refs/heads/hk/528-dedupe-before-ceiling",
-  "wins": "ZABZ-YOGA live working tree"
+  "wins": "ZABZ-TECH live working tree"
  },
  "db": "journal.db + fts5",
  "db_error": null,
