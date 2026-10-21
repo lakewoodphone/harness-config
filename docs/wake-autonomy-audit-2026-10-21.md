@@ -236,3 +236,63 @@ liveness : last release 2.3 min ago | fan-out tick 0.5 min (LIVENESS) | sources 
   diagnosed; both numbers come from the same store, so one of them counts something other than what
   the word says. Recorded here rather than guessed at.
 
+
+---
+
+## 7. Ten-round follow-up, 2026-10-21 22:10-22:45Z
+
+**Round 1 — the first fix verified itself.** Every one of the eight overdue blockers was closed by
+the shift with a proof-carrying attempt (`work.py show <id>`), and `work.py due` now answers *"no
+blocked item is past its revisit time"*. Item 457 was dropped as a duplicate of 337; 337 became one
+owner-queue row with a date; 296 became row #924; 130 was proven done (the iPad HAD checked in six
+days earlier than the stored measurement said).
+
+**Round 2 — the reconciler was closing items on commit ancestry, which is how it lied.** Twelve boxes
+were `done`-in-ledger, unchecked-in-roadmap. Measuring each on BOTH deployed hosts after
+`lpt-deploy-status.py --live` confirmed `deployed test dfa92f05bdd6 MATCH`:
+
+| box | production | test | verdict |
+|---|---|---|---|
+| F1-11 | 301 × 3 | 301 × 3 | **ticked** |
+| F1-12 | 5,905 visible chars, no error | same | **ticked** |
+| F1-18 | 21 questions in the body, 22 aria-controls all resolve | same | **ticked** |
+| F0-15 | route table, 126 tests | — | **ticked** |
+| D1-5 | due 8 → 0 | — | **ticked** |
+| G1-1 | form absent | lead-name/lead-need/lead-phone present | **promotion-blocked** |
+| G1-2 | figures 1/1/8/8/8/8/9 on seven routes | 0 on all 13 | **promotion-blocked** |
+| F1-16 | homepage document | homepage document | **FALSE done — reopened** |
+
+`/intake`, `/kiosk`, `/login` and `/customer-portal/login` still answer 86,692 bytes with the
+homepage title and canonical `/`, differing from `/` by 8 lines. Item #901 had been closed by
+`lpt-reconcile` because commit 49c2efbf8 is an ancestor of `origin/test`. **A merge is proof of
+integration, not of behaviour.** Two guards were added and are live hourly:
+
+- **D1b** — an item whose own DoD names the deployed host (`deployed|served|no-JS|curl|document|…`)
+  is split out of D1 and is never auto-closed from ancestry.
+- **D4** — ledger `done` whose commits are not ancestors of `origin/test`, bounded to the last 3
+  days and to tokens `git` itself confirms (the first run reported 50, because `20261020` parsed as a
+  sha). Current reading: **14**, which is a worklist of squash-merges and unlanded closes.
+
+**Round 3 — the promotion.** Three more `done` items were reopened the same way (#959, #976, #980:
+their branches are pushed and NOT ancestors of `origin/test`). PR #594 (`test` → `main`, 94 commits,
+49 files) is open with the full CI as the second read RULE 1b requires; G1-1 and G1-2 cannot be ticked
+until it lands.
+
+**Round 4 — no PR lives past a day.** Eleven PRs were open into `test`: four green and unmerged (one
+12 days old), five with red checks, one 16 days old with no CI. Four were brought up to date with
+`test` in worktrees (#583 → `1c0d40f2d`, #564 → `19b809b84`, #563 → `3d83f9a19`); #355 conflicts in 23
+files and cannot be merged mechanically. New source `sources/lpt-pr-age.py` files **one flag a day**
+while any PR is older than 24 h, with GitHub's own state per PR. First run:
+`open=11 old=9 oldest=400.2h red=5 priority=high`.
+
+**Round 5 — the owner's live defect, which outranks the audit.** Reported from the counter: no way to
+take a payment on the work-order creation page, and opening a work order bounced back to the list.
+Both measured and fixed on branch `lpt/owner-pay-on-create-20261021` (PR #596):
+
+- `CreateWorkOrderPage` replaced itself with `<div>Redirecting…</div>` on create. It now holds the
+  page and mounts `StaffNewOrderMoney` (the same `StaffOrderChargePanel`, in deposit mode) against the
+  id the server returned, with the customer id read back from the created order.
+- `readQueueDeepLinkFromLocation()` was called ONLY from a `useState` initialiser, so
+  `/work-orders?order=<id>` arriving by client-side navigation left the queue on screen and the id
+  was read by nobody. That is the bounce, exactly as described. The page now re-reads it, seeded with
+  the id it already handled so closing a job does not reopen it.
