@@ -1,0 +1,119 @@
+# music curator
+
+The owner's daily playlist. Built 2026-10-21 from a conversation with him; every number in it is
+quoted from his answers and stored in the `prefs` table, not in this file and not in the code.
+
+**What it does:** once a day it assembles 100 tracks to his stored spec, writes them into one private
+Spotify playlist (`Daily for Zabz`, id `7ln4sb9XuMXy4Q5zMIIjyn`), and watches what he actually plays
+so the next build is better than the last.
+
+---
+
+## Where it runs
+
+| piece | path on `secratary-cloud` | when |
+|---|---|---|
+| builder | `/opt/company/music/build_v2.py` | cron `30 13 * * *` UTC = **09:30 Eastern** |
+| play poller | `/opt/company/music/poll.py` | cron `*/30` — Spotify only ever returns the last 50 plays |
+| skip sampler | `/opt/company/music/sampler.py` | cron `* * * * *` — infers skip vs completion |
+| state | `/opt/company/music/taste.db` (sqlite) | written by all three |
+| credential | `/opt/company/music/spotify-token.json` (mode 600, root) | refreshed automatically |
+| logs | `/var/log/music-daily.log`, `music-poller.log`, `music-sampler.log` | |
+
+The authority is WRITABLE (the sole writer of `authority.db`); the office box `secratary` is the
+frozen rollback anchor and is not involved in any of this.
+
+The repo copy of these three scripts is the source of truth. Deploy with:
+
+```bash
+scp scripts/music/{poll,sampler,build_v2}.py secratary-cloud:/opt/company/music/
+ssh secratary-cloud 'chmod 700 /opt/company/music/*.py'
+```
+
+## The spec — everything here came from him
+
+| pref | value | his words |
+|---|---|---|
+| `daily_composition` | 100 = 50 familiar + 35 adjacent new + 10 one-genre-over + 5 way out | "50 new 50 familiar" |
+| `familiar_artist_definition` | >= 3 distinct tracks played, last play within 90 days | "only familiar if i play a few of their songs, not just one" |
+| `familiar_max_played_7d` | 2 | "only 2 that played in the last 7" |
+| `familiar_max_played_21d` | 10 | "only 10 songs that played in the last 21 days" |
+| `familiar_remainder` | deep cuts by those artists, or tracks last played 21+ days ago | "the rest can either be before 21 days or very similar songs from the same artists" |
+| `novelty_ratio` | 0.50 | "50 new 50 familiar" |
+| `new_adjacent` / `new_step_out` / `new_wild` | 35 / 10 / 5 | "35 adjacent 10 step one genre over and 5 way out there" |
+| `jewish_share` | 15 of 100 | "it should probably be about 15 percent of the songs" — confirmed as an evening mood too |
+| `order_policy` | none — do not sequence | "i shuffle it" |
+| `exclusions_policy` | none | "don't ditch anybody" |
+| `familiar_pool` | derived from plays, 90-day rolling | "over time as you introduce me to new things my familiar artists will change" |
+| `skip_drivers` | 1 tempo, 2 recognition | "tempo then recognition i think" |
+| `daytime_lane` | office account (Duo second seat) plays jewish music all day for customers; not this account | "the office spotify which is only jewish music to keep customers happy" |
+| `playlist_scope` | evening / personal only | "it's mostly at night" |
+| `rebuild_policy` | owner decides when it rebuilds | "don't rebuild it after every answer" |
+
+Directions chosen by the agent after he said "you decide": americana fills the 10 step-outs
+(Zach Bryan, Tyler Childers, Noah Kahan), neo-soul/jazz-vocal fills the 5 wild (Leon Bridges,
+Michael Kiwanuka, Black Pumas, Yola, Durand Jones).
+
+## Data model (`taste.db`)
+
+- `plays(track_id, played_at, artist, title, context, source, captured_at)` — unique on
+  `(track_id, played_at)`. The only complete record of his history: the API shows 50 plays and no more.
+- `listens(track_id, artist, title, device, started_at, last_seen, max_progress_ms, duration_ms, ended_at, verdict)`
+  — the sampler's reconstruction. `verdict` is `completed` (>=92% of duration), `skipped` (<35%),
+  `partial`, or `unknown`.
+- `runs(id, kind, created_at, playlist_id, prompt, n_tracks, note)` — one row per build.
+- `served(run_id, track_id, served_at, artist, title, src)` — exactly what was put in front of him,
+  with its bucket. This is what makes "did it work" answerable later.
+- `prefs(key, value, updated_at, source)` — the spec above. The builder reads it at runtime; change a
+  preference here, not in the code.
+- `lane_artists(artist, lane)` — the jewish-lane seed list.
+- `cache` / `resolve_cache` — MusicBrainz MBIDs and ISRC -> Spotify track ids, so resolution is paid for once.
+
+## Auth — how to re-authorise when it eventually breaks
+
+App: "personal playlist curator", client id `8ecbe0880e6e40d187cbe0b177fb43e4`, PKCE only.
+**No client secret is stored anywhere and none is needed.** Redirect URI is
+`http://127.0.0.1:8888/callback` (Spotify rejects `localhost`; loopback IP only).
+
+The flow: generate a verifier + S256 challenge, open
+`https://accounts.spotify.com/authorize?...scope=...&code_challenge_method=S256`, catch the code on a
+loopback listener, exchange it at `/api/token`. Scopes in use:
+`user-read-playback-state user-read-currently-playing user-read-recently-played user-top-read
+user-library-read user-library-modify user-follow-read playlist-read-private playlist-read-collaborative
+playlist-modify-private playlist-modify-public`.
+
+Deliberately NOT requested: `user-modify-playback-state` — nothing here needs to pause or skip his music.
+Refresh tokens live 180 days but are refreshed on every use, so the loop keeps it alive while it runs.
+
+## Failure modes already met — read before debugging
+
+- **429** — a few hundred requests in a burst trips it. Both scripts honour `Retry-After`; a sampler
+  that dies on 429 looks like a broken feature.
+- **403 `Insufficient client scope`** on `GET /me/playlists` means `playlist-read-private` is missing.
+- **Feb 2026 API changes**: playlist writes survive as `POST /me/playlists` and
+  `POST|PUT /playlists/{id}/items`; the playlist **entry field is `item`, not `track`**;
+  `GET /me` no longer returns `product` or `country`; search caps at 10 results per page.
+- **Spotify `/audio-features` answers 403 for this app** — no tempo, energy or danceability. Tempo is
+  learned from skip behaviour instead. AcousticBrainz is a frozen 2015–2022 archive with holes.
+- **Deezer `/artist/{id}/top` does not include `isrc`** — the track object must be fetched per track.
+  This cost a debugging round; do not "optimise" it away.
+- **Deezer `rank`** (popularity, higher = more popular) is the only popularity signal available and is
+  used to down-weight globally familiar tracks from unknown artists.
+
+## Known gaps, stated so nobody assumes otherwise
+
+1. **Offsite backup of `/opt/company/music` is NOT verified and almost certainly does not exist.**
+   Nothing on the authority ships it: there is no rclone, no restic, and
+   `/opt/company/scripts/server/company-offsite-push.sh` runs on the *office* box and backs up
+   `/home/zabz/secretary-backups` — the company database, not this. A nightly local snapshot is the
+   only copy. Closing this is the top open item; the cheap route is to include
+   `/opt/company/music` in whatever ships the authority database offsite.
+2. **No adaptation yet.** Verdicts accumulate in `listens` but nothing turns them into weights. That
+   step needs a week of data before it can be written honestly.
+3. **The familiar half undershoots on a thin ledger.** With 7 familiar artists and a 6-deep-cuts
+   cap, day one produced 38 familiar + 12 extra adjacent. It grows to 50 as the ledger fills.
+4. **The step-out bucket is homogeneous** — all Tyler Childers on day one, because seed order is fixed.
+   Rotate the seeds.
+5. **Carry-over is not implemented in v2.** v1 held unreached tracks over; the current builder
+   assembles a fresh 100 each time. The spec is compatible with carrying over; the code is not there yet.
+6. **Tempo cannot be measured.** Skip-driven learning is the substitute until a BPM source is added.
