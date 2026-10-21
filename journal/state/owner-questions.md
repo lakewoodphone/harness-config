@@ -6,7 +6,7 @@ Updated: 2026-10-21
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 643 row(s) read, 24 pending, generated 2026-10-21 12:08 UTC on SECRATARY-CLOUD.
+Provenance: 644 row(s) read, 25 pending, generated 2026-10-21 13:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -34,5 +34,6 @@ Provenance: 643 row(s) read, 24 pending, generated 2026-10-21 12:08 UTC on SECRA
 | 909 | 2026-10-21 | medium | Gusto told you on 9/30 it would file your Q3 payroll returns, then you canceled on 10/8. Did Gusto file the Q3 941, or should I treat it as unfiled? | Check Gusto Tax documents for a Q3 2026 941 first. If none is there, the return is fully prepared in docs/finance/FORM-941-Q3-2026-PACK.md and is due 11/02; the balance is likely 0.00 because the deposits were already ma |
 | 911 | 2026-10-21 | medium | May I switch on AI review and screenshot accountability, and which AI account should pay for it? | Run the review on a local Ollama model on lpt-apps-01 first: no per-frame vendor bill and no child screenshot leaves the building, then move to a hosted model once volume is measured. |
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
+| 918 | 2026-10-21 | medium | May I restart the personality-test container on lpt-apps so the new version (6b77d09) goes live? The site is down for a few seconds while its one container is replaced. | I recommend yes, ship it. Staging has run this exact commit healthy for 6 days and passes every anonymous security check, rollback is one command and the old image is still on the box. One honest gap: nobody has done the |
 
 Closed since the queue opened: 619. Answered questions move to `entries/decisions/` with the owner's own words.
