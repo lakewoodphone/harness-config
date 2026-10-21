@@ -47,8 +47,16 @@ for name in "${files[@]}"; do
     src="$HERE/$name"
     live="$LIVE_DIR/$name"
     [ -r "$src" ] || { echo "REFUSED: not in the mirror: $src"; exit 1; }
-    python3 -c "import py_compile,sys; py_compile.compile(sys.argv[1], doraise=True)" "$src" \
-        || { echo "REFUSED: $name does not byte-compile — nothing deployed"; exit 1; }
+    # The mirror holds Python tools and small shell wrappers.  A Python-only check here
+    # refused model-catalog-refresh.sh with a SyntaxError, which is a check that cannot
+    # see the file it is checking.
+    case "$name" in
+        *.py) python3 -c "import py_compile,sys; py_compile.compile(sys.argv[1], doraise=True)" "$src" \
+                  || { echo "REFUSED: $name does not byte-compile — nothing deployed"; exit 1; } ;;
+        *.sh) bash -n "$src" \
+                  || { echo "REFUSED: $name has a shell syntax error — nothing deployed"; exit 1; } ;;
+        *)    echo "REFUSED: $name has no syntax check in this deployer"; exit 1 ;;
+    esac
     [ -f "$live" ] && cp -p "$live" "$BACKUP/$name"
     want=$(md5sum "$src" | cut -d' ' -f1)
 
