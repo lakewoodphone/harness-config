@@ -8,7 +8,7 @@
   "pain": 9867,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-21T06:45:08Z",
+ "ceiling_refreshed_at": "2026-10-21T07:00:09Z",
  "ceiling_source": {
   "decisions": "refs/heads/lpt/roadmap-supply-821-20261020",
   "handoff": "refs/heads/lpt/roadmap-supply-821-20261020",
@@ -29,7 +29,7 @@
   "decisions": 9536,
   "handoff": 12456,
   "lessons": 12413,
-  "pain": 9930,
+  "pain": 9994,
   "wins": 7194
  },
  "ledger_ceiling": {
