@@ -1,15 +1,15 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 58,
+ "bands_refs_read": 57,
  "ceiling": {
-  "decisions": 9408,
+  "decisions": 9472,
   "handoff": 12392,
   "lessons": 12285,
   "pain": 9930,
   "wins": 7194
  },
  "ceiling_source": {
-  "decisions": "refs/heads/lpt/roadmap-supply-821-20261020",
+  "decisions": "local bands.tsv",
   "handoff": "refs/heads/lpt/roadmap-supply-821-20261020",
   "lessons": "refs/heads/lpt/roadmap-supply-821-20261020",
   "pain": "refs/heads/lpt/roadmap-supply-821-20261020",
@@ -17,14 +17,14 @@
  },
  "claimed_gap_rows": [],
  "entries_high_water": {
-  "decisions": "D9287",
+  "decisions": "D9414",
   "handoff": "H12332",
   "lessons": "L12226",
   "pain": "P9867",
   "wins": "W7134"
  },
  "high_water": {
-  "decisions": "D9408",
+  "decisions": "D9472",
   "handoff": "H12392",
   "lessons": "L12285",
   "pain": "P9930",
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-21T04:30:14Z",
+ "refreshed_at": "2026-10-21T04:45:11Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 11.2,
- "sources_seen": 13955
+ "seconds": 9.6,
+ "sources_seen": 13375
 }

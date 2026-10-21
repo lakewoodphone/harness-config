@@ -1,16 +1,16 @@
 {
- "built": "2026-10-21 04:44 UTC",
+ "built": "2026-10-21 04:56 UTC",
  "cache_version": 2,
  "ceiling": {
-  "decisions": 9414,
-  "handoff": 12332,
-  "lessons": 12226,
+  "decisions": 9474,
+  "handoff": 12393,
+  "lessons": 12288,
   "pain": 9867,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-21T04:30:14Z",
+ "ceiling_refreshed_at": "2026-10-21T04:45:11Z",
  "ceiling_source": {
-  "decisions": "refs/heads/lpt/roadmap-supply-821-20261020",
+  "decisions": "local bands.tsv",
   "handoff": "refs/heads/lpt/roadmap-supply-821-20261020",
   "lessons": "refs/heads/lpt/roadmap-supply-821-20261020",
   "pain": "refs/heads/lpt/roadmap-supply-821-20261020",
@@ -18,15 +18,15 @@
  },
  "db": "journal.db + fts5",
  "db_error": null,
- "drift_measured": "2026-10-21 04:20 UTC",
- "entries": 6056,
- "entries_count": 6056,
- "entries_sig": "55027ff8a708422f74f7188e625a88683d58c889",
+ "drift_measured": "2026-10-21 04:56 UTC",
+ "entries": 6062,
+ "entries_count": 6062,
+ "entries_sig": "3eb68f248c6d80efdb098ce116a1e95e79b410be",
  "fetch_rc": 128,
- "fetched_at": 1792557186.5871282,
+ "fetched_at": 1792558546.8023832,
  "flat_sig": "aa5d5d902a3166dffbcc8803845af4dbd130e22c",
  "git_ceiling": {
-  "decisions": 9408,
+  "decisions": 9472,
   "handoff": 12392,
   "lessons": 12285,
   "pain": 9930,
@@ -44,7 +44,7 @@
  "parse_problems": 0,
  "remote_ids": {
   "refs_sig": "6705e2a64772eaf0be6f411191347019932a3038",
-  "scanned_at": "2026-10-21 04:33 UTC",
+  "scanned_at": "2026-10-21 04:55 UTC",
   "tops": {
    "decisions": 3995,
    "handoff": 3778,
