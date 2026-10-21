@@ -110,9 +110,32 @@ function parseArgs(argv) {
 }
 
 /** Find the local dsh entry point: explicit, env, the npx cache, or PATH. */
+/**
+ * Which `dsh` this process runs a LOCAL child with.
+ *
+ * ORDER MATTERS AND IT WAS WRONG UNTIL 2026-10-21. This used to scan
+ * `%LOCALAPPDATA%\npm-cache\_npx\*` first and return the first candidate it found,
+ * which on ZABZ-TECH is dsh **0.1.5-rc.1** while the frozen pin `~/.dsh/engine`
+ * holds **0.2.1-rc.2**. The old engine cannot load the profile patches this fleet
+ * ships, so every local child died three seconds in with
+ * `code: 'ERR_MODULE_NOT_FOUND'`, and the run reported only
+ * `outcome: failed, reason: parent exit 1`. Measured 2026-10-21: the same prompt
+ * through the pin answered `LOCAL_MESH_OK`, through this function it did not.
+ *
+ * The `@deepseek-ai/dsh/lib/bin.js` under `_npx` is not a pin: any `npx` invocation
+ * can rewrite or add to that directory. This is `lib/nodes.js`'s 2026-10-08 lesson
+ * ("a path a stray npx can rewrite is not a pin") one file over, so it gets the
+ * same answer: the frozen pin first, the cache only as a last resort, and an
+ * explicit operator override (`-DshBin` or `MESH_LOCAL_DSH_BIN`) ahead of both.
+ */
 function resolveDshBin(explicit) {
   if (explicit !== undefined) return explicit;
   if (process.env.MESH_LOCAL_DSH_BIN) return process.env.MESH_LOCAL_DSH_BIN;
+  // THE FROZEN PIN FIRST. `~/.dsh/engine` is what the GUI, the profiles and every
+  // roster row on this estate are versioned against.
+  const pin = path.join(homedir(), '.dsh', 'engine', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js');
+  if (existsSync(pin)) return pin;
+  // LAST RESORT, and it may be an old release: see the header.
   const cache = path.join(process.env.LOCALAPPDATA ?? path.join(homedir(), 'AppData', 'Local'), 'npm-cache', '_npx');
   try {
     for (const entry of readdirSync(cache)) {
