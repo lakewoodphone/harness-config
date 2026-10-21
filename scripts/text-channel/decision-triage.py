@@ -864,6 +864,31 @@ def classify(row: dict) -> dict:
                        "is no question to ask -- it is information" % _todo[:40])
         return out
 
+    # 4c. A SEVERITY FLOOR FOR CONSEQUENCE, because severity is set once at creation and nothing
+    # revisits it. Measured 2026-10-21: #901 (Dialpad auto-texting customers, violating a rule he
+    # stated himself) sat at medium filed by me hours earlier and ranked BEHIND a nine-day-old
+    # billing notice, and #858 (a customer trying to buy six SIM cards) was medium too. A row's
+    # urgency should not depend on which producer happened to guess it. This only ever RAISES a
+    # row to the floor; it never lowers one, so a producer that said critical keeps critical.
+    _RANK = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+    _floor = None
+    _t = (q + " " + _todo).lower()
+    if re.search(r"\b(automatically|auto-repl|no human|without (a )?human|unattended)\b", _t):
+        _floor = "high"          # something is acting on its own, which he has ruled against
+    elif re.search(r"\b(charge|charged|card|paid|payment|buy|price|order|refund)\b", _t) and \
+            re.search(r"\b(customer|alon|yocheved|customer's)\b", _t):
+        _floor = "high"          # money and a person waiting on the other end
+    elif re.match(r"^\s*(?:\d+\s+)?(?:text|texts) from [^:]{2,30}:", q, re.I):
+        # A PERSON TEXTED THE SHOP AND IS WAITING. Measured: #858 is Alon asking "Can I get 6 of
+        # them? Do you need to activate them?" -- a sale, and it contains no money word at all, so
+        # the rule above missed it and only my manual pass caught it. The signal is not the
+        # vocabulary, it is that somebody wrote to the shop and has not been answered.
+        _floor = "high"
+    if _floor and _RANK.get(str(row.get("severity") or "low").lower(), 1) < _RANK[_floor]:
+        out["severity"] = _floor
+        out["why"] = (out.get("why") or "") + "; raised to %s: the row shows %s" % (
+            _floor, "something acting without a human" if _floor == "high" else "money")
+
     # 5. compose and judge
     body = compose(row)
     ok, reasons = _gate(body)
