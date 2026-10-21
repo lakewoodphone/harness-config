@@ -202,6 +202,52 @@ def _file_work_for_answer(row_id: int, answer: str, question: str) -> int | None
     return int(m.group(1)) if m else None
 
 
+#: How long an ASKED and unanswered question stays open before it is closed. His rule 8: "Ask
+#: once. After ~12 hours, ask once more only if the action is now blocked. After two silences,
+#: the item goes to the tab and stops being texted." The ledger kept the "stops being texted"
+#: half (decision_sent excludes it from re-asking) and dropped the "goes to the tab" half, so an
+#: ignored question sat `pending` for ever: neither asked again nor ended. Measured 2026-10-21.
+UNANSWERED_GRACE_HOURS = float(os.environ.get("DECISION_UNANSWERED_GRACE_HOURS", "48"))
+
+
+def close_unanswered(dry: bool = True) -> list[tuple[int, str]]:
+    """End a question that was asked and never answered, with the reason on the row."""
+    out = []
+    ro = _ro(AUTH_DB)
+    try:
+        rows = [dict(r) for r in ro.execute(
+            "SELECT d.row_id, d.sent_at, q.question FROM decision_sent d "
+            "JOIN owner_decision_queue q ON q.id = d.row_id "
+            "WHERE q.status = 'pending'")]
+    finally:
+        ro.close()
+    now = datetime.now(timezone.utc)
+    for r in rows:
+        sent = _dt(r["sent_at"])
+        if sent is None:
+            continue
+        age_h = (now - sent).total_seconds() / 3600.0
+        if age_h < UNANSWERED_GRACE_HOURS:
+            continue
+        out.append((int(r["row_id"]), "asked %.0f h ago and never answered" % age_h))
+    if dry or not out:
+        return out
+    rw = _rw(AUTH_DB)
+    try:
+        for rid, why in out:
+            rw.execute(
+                "UPDATE owner_decision_queue SET status='dismissed', resolved_at=?, "
+                "resolution=? WHERE id=? AND status='pending'",
+                (datetime.now(timezone.utc).isoformat(),
+                 "Asked by text and not answered. Closed by decision-answer-capture after the "
+                 "grace period, per his rule 8: after two silences the item stops being texted. "
+                 "It is not deleted -- it can be reopened by naming it.", rid))
+        rw.commit()
+    finally:
+        rw.close()
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--apply", action="store_true")
@@ -216,6 +262,16 @@ def main(argv: list[str] | None = None) -> int:
                                     p["question"][:50]))
         print("        said: %s" % p["answer"]["text"][:90])
 
+    # A QUESTION ASKED AND IGNORED MUST END. Without this the row stayed `pending` for ever:
+    # excluded from re-asking by the shared ledger, and never closed by anything -- the limbo
+    # state this whole programme exists to remove, one layer up from the message queue.
+    stale = close_unanswered(dry=not args.apply)
+    if stale:
+        print("asked and unanswered past the grace period: %d" % len(stale))
+        for rid, why in stale:
+            print("  #%-4s %s" % (rid, why))
+        if args.apply:
+            print("  closed as dismissed with the reason written on the row")
     if not attributed:
         return 0
     if not args.apply:
