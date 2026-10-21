@@ -66,6 +66,10 @@ TARGET = 120
 #: burst: 6 a day across his 10-hour window is one about every 100 minutes at the ceiling.
 #: (Restored 2026-10-21: a concurrent session wrote this reasoning and my sync of the deployed
 #: file replaced it with the older comment. The values were identical; the explanation was not.)
+# OWNER-SET VALUE, DO NOT LOWER. 2026-10-21 01:53Z, his words verbatim: "Of course, yes, and
+# it doesnt have to be limited at two a day. Probably the limit should be 6 a day."
+# This default has been reverted to 2 three times today by concurrent edits; if you are
+# here to change it, the number is his and the quote is the reason.
 MAX_PER_DAY = int(os.environ.get("DECISION_DELIVER_MAX_PER_DAY", "6"))
 MIN_GAP_MINUTES = int(os.environ.get("DECISION_DELIVER_MIN_GAP_MINUTES", "60"))
 
