@@ -107,18 +107,38 @@ def clean(body: str) -> str:
 
 def list_ids(service, days: int, limit: int) -> list[str]:
     newer = f"newer_than:{max(1, days)}d"
+    # ── THE FOURTH QUERY, AND WHY IT EXISTS ──────────────────────────────────
+    # This list used to stop at three: inbox, sent, and everything-else-minus-spam.
+    # The middle line of that third query is `-in:spam`, so Gmail's junk folder was
+    # the one folder no pipeline on this estate ever read, and nobody owned it.
+    #
+    # Measured cost of that gap, 2026-10-20: LRRC's "Section 8 Housing Voucher (HUD)
+    # Applications Open for a Limited Time" — a notice that Lakewood's Section 8
+    # waiting list opens 2026-11-02 and that 3,000 households will be drawn by
+    # lottery — landed in SPAM (labelIds UNREAD/CATEGORY_UPDATES/SPAM). It never
+    # entered this corpus, never reached `email_catalog`, never got an
+    # `owner_mail_verdict`, and never reached the owner. He heard it from someone
+    # else. A false positive in Gmail is invisible to every layer below Gmail, so
+    # the folder that Gmail is WRONG about is exactly the folder worth reading.
+    #
+    # Volume is small and known: over 14 days the five mailboxes held 25, 27, 107,
+    # 109 and (unmeasured) spam rows — so reading them costs a few hundred serial
+    # fetches twice a day, and the judge still decides on the body. Rows keep their
+    # `labels`, so a rescued message stays identifiable as one that came from spam.
+    spam_days = max(1, min(int(days), 14))
     queries = [
-        f"in:inbox {newer}",
-        f"in:sent {newer}",
-        f"in:anywhere -in:inbox -in:sent -in:spam -in:trash {newer}",
+        (f"in:inbox {newer}", limit),
+        (f"in:sent {newer}", limit),
+        (f"in:anywhere -in:inbox -in:sent -in:spam -in:trash {newer}", limit),
+        (f"in:spam newer_than:{spam_days}d", min(limit, 250)),
     ]
     ids: list[str] = []
     seen: set[str] = set()
-    for q in queries:
+    for q, cap in queries:
         token = None
         fetched = 0
-        while fetched < limit:
-            kwargs = {"userId": "me", "q": q, "maxResults": min(100, limit - fetched)}
+        while fetched < cap:
+            kwargs = {"userId": "me", "q": q, "maxResults": min(100, cap - fetched)}
             if token:
                 kwargs["pageToken"] = token
             resp = service.users().messages().list(**kwargs).execute()
