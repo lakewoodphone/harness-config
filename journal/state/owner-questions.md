@@ -6,7 +6,7 @@ Updated: 2026-10-21
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 644 row(s) read, 22 pending, generated 2026-10-21 14:08 UTC on SECRATARY-CLOUD.
+Provenance: 645 row(s) read, 21 pending, generated 2026-10-21 15:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -26,11 +26,10 @@ Provenance: 644 row(s) read, 22 pending, generated 2026-10-21 14:08 UTC on SECRA
 | 862 | 2026-10-20 | medium | May a shift use one sacrificial Android 15+ handset for the five anti-reset device tests, and which handset? | Use a shop-owned, already-unsellable Android 15+ handset and connect it with USB debugging to zabz-yoga-ts; do not risk a customer device. |
 | 883 | 2026-10-20 | medium | The leaked GitHub token is still live and is still the only credential that can read lakewoodphone/lpt-hub. Only your account can issue a replacement or revoke it. Do you want to issue a fine-grained token for lpt-hub so I can swap it in and kill the old one? | Yes. Issue it for lakewoodphone/lpt-hub with Contents read/write and Metadata read; I will install it, verify the repo, restart company-api in a window, then revoke the old token. I have already removed the old token fro |
 | 887 | 2026-10-20 | medium | Were reader rows 3401, 3403, 3404 and 3405 from 2026-10-18 ad-hoc counter sales, or do they belong to work orders I should link? (staff notes: filter removal, LG Exalt charging port, data transfer, phone plus filter and apps) | Treat them as ad-hoc counter sales: no matching work order exists, and the money already agrees with Stripe; no further action unless you recognize one. |
-| 903 | 2026-10-21 | medium | Done: the NJ-927 Q3 filing pack is ready at docs/finance/NJ-927-Q3-2026-FILING-PACK.md. Want me to walk you through it? | yes, tell him how to use it |
 | 906 | 2026-10-21 | medium | Should agent-initiated texts on the shop line stay live with no per-message approval, or be drafts you approve? | I recommend draft-only: agents prepare the text and you send or approve it, matching your no-automatic-texts rule. |
 | 908 | 2026-10-21 | medium | The NJ DOL penalty bill for Q2 is still unpaid: 122.71 dollars, being 115.76 penalty + 1.95 interest + 5.00 WR-30. Pay it online now, or send the notarized abatement request I drafted? If you already paid it, reply PAID. | I recommend paying the 122.71 now. The bill is arithmetically correct and the tax is already paid, and a notarized abatement request would cost you more in time than the bill is worth. If you want it waived on principle, |
-| 909 | 2026-10-21 | medium | Gusto told you on 9/30 it would file your Q3 payroll returns, then you canceled on 10/8. Did Gusto file the Q3 941, or should I treat it as unfiled? | Check Gusto Tax documents for a Q3 2026 941 first. If none is there, the return is fully prepared in docs/finance/FORM-941-Q3-2026-PACK.md and is due 11/02; the balance is likely 0.00 because the deposits were already ma |
 | 911 | 2026-10-21 | medium | May I switch on AI review and screenshot accountability, and which AI account should pay for it? | Run the review on a local Ollama model on lpt-apps-01 first: no per-frame vendor bill and no child screenshot leaves the building, then move to a hosted model once volume is measured. |
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
+| 920 | 2026-10-21 | medium | AmTrust confirms the PWC1292029 cancellation was processed 10/20 but its notice omits the effective date; the signed form says 10/07/2026 12:01 AM. Can you get the AmTrust cancellation notice from the portal, or approve a one-line email to NEXT (ref 2643901) confirming the date? | I recommend treating 10/07/2026 12:01 AM as the effective date and reconciling any final premium or refund to it; I will ask NEXT to confirm only if you approve the email. |
 
-Closed since the queue opened: 622. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 624. Answered questions move to `entries/decisions/` with the owner's own words.
