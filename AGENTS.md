@@ -392,3 +392,54 @@ the `mv` belongs to the caller — including when the "content did not change".
 **Why this is a rule and not a note:** the failures it produces look like defects in the code being
 deployed. They survive review, they survive `bash -n`, and they survive a passing selftest, because the
 code on disk IS correct — it is the running copy that is not.
+
+---
+
+## 9. The wake loop and the promotion gate — what changed on 2026-10-21/22, and why each matters
+
+Measured during a ten-round audit of the autonomous wake system. Full numbers and the command behind
+every one: `docs/wake-autonomy-audit-2026-10-21.md`. This section exists because these facts were
+learned by losing time to them, and a rule that lives only in a transcript reaches nobody.
+
+**Three sources now carry work the loop used to only report.** `sources/ledger-blockers.py` spends one
+release a day re-measuring blocked ledger items whose own revisit time has passed and forbids closing
+one `blocked` with the same text it already had; `sources/lpt-pr-age.py` files one flag a day while any
+PR into `test` is older than 24 h; `wake-staging-prune.sh` keeps 30 days of the dispatcher's staging
+files. In the first night they took open PRs from 11 to 2 (none over a day) and blocked items past
+their revisit from 8 to 1.
+
+**`roadmap-supply` distinguishes a fresh row from a standing gap.** A `LEDGER-UNMAPPED` row under 24
+hours old is printed as `LEDGER-UNMAPPED-NEW` and does **not** exit non-zero; a row still outside the
+register a day later does. Before this the source exited 1 on every tick because a shift was filing
+follow-ups faster than the register could name them.
+
+**`lpt-reconcile` reports five directions**, not three: D1 (open but landed), **D1b** (landed but the
+DoD is a deployed-host claim — never auto-closed from ancestry), D2 (box ticked, item open), D3 (box
+unchecked, item done), **D4** (ledger `done` whose commits are not ancestors of `origin/test`, last 3
+days, only tokens git confirms) and **D5** (a live ledger row no roadmap box names — 41 of 94 on
+2026-10-22). D1b exists because F1-16 was closed `done` from a merge while both deployed hosts still
+served the homepage document.
+
+**Promoting to production — the gate, measured, not assumed.**
+`main` requires **four** contexts (`CI Validation (PR Pre-Check)`, `Check for Phantom Dependencies`,
+`Build image and assert the sha label`, `Validate PR Source (Test Branch Only)`) with `strict: true` and
+`enforce_admins: true`. Consequences:
+
+* A PR whose head is `test` can **never** be up to date with `main` (main carries commits test does
+  not) — `strict` refuses it. A PR cut at a stable sha is refused by the source gate. The only flow
+  that works is **`guardian/promote-test-to-main-<date>`** = `origin/test` with `origin/main` merged in.
+* Use `scripts/lpt/land-pr.py <branch> [--base-main] [--strict-all]`. It reads the required set from
+  `/branches/<base>/protection`, updates the branch, waits for those contexts, and for a `main`
+  promotion requires **every** completed check to be success or skipped (the required set does not
+  include the test shards, so a red shard would otherwise reach the shop).
+* **Never re-run a workflow while its jobs are in flight.** The workflows use
+  `concurrency: cancel-in-progress`, so a second trigger cancels the first run's jobs — and a
+  **cancelled job is a failed required context** (the aggregator blocks on `cancelled` as well as
+  `failure`). Three rounds were lost to this on 2026-10-22: the same commit went green on an undisturbed
+  run after failing twice on re-runs.
+* A `failure` whose annotation is only `Process completed with exit code 1` names nothing. The job log
+  is reachable by requesting `/actions/jobs/<id>/logs` with no redirect-following and then fetching the
+  `Location` **without** the Authorization header (forwarding it returns
+  `InvalidAuthenticationInfo` from S3). That is how `CreateWorkOrderPage.unsaved-changes.test.tsx`,
+  `routeDecision.test.ts`, and the deploy-verify `ENOENT …/customer-portal/login.html` were each named
+  in one line.
