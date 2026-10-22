@@ -420,3 +420,26 @@ On 2026-10-21 that is exactly what happened. For a `main` promotion the lander n
 completed check to be success or skipped, with two named exceptions that cannot have a verdict on a PR
 head: a `cancelled` run, and `Deploy verification tests` (it verifies a deployment; on a PR it is
 killed by concurrency, exit 143).
+
+**F1-16 is done, and the shard that blocked the promotion was the proof of it.** Measured on the
+deployed test host at 00:50Z, after `b52fcd423` deployed:
+
+| route | bytes | title | canonical |
+|---|---|---|---|
+| `/intake` | 8,613 | Start a Repair | `/intake` |
+| `/kiosk` | 8,610 | Drop-Off Kiosk | `/kiosk` |
+| `/login` | 8,579 | Staff Sign In | `/login` |
+| `/customer-portal/login` | 8,685 | Customer Portal Sign In | `/customer-portal/login` |
+| `/` (for comparison) | 86,692 | — | `/` |
+
+Four routes that served the homepage document now serve their own. `PUBLIC_DOCUMENT_PATHS` grew
+13 → 18, and that is why Test Frontend (Shard 3/4) was red on the promotion: `routeDecision.test.ts`
+asserted the old count **and** that `/customer-portal/login` was `SERVE_APP`. Both were true before the
+fix and false after — **the test failed on an improvement**. Replaced the count with the contract (a
+floor plus the four named routes) and ticked F1-16 in the roadmap from the deployed measurement, in one
+PR (#604, merged `14920fdb0`). Ledger #901 closed `done` on that measurement (attempt 2122) — its first
+close, on 2026-10-21, came from commit ancestry and was false.
+
+**The general shape, and it is the third time tonight:** a test that encodes a *number* rather than a
+*contract* fails the moment the system improves, and the failure arrives looking exactly like a
+regression. Two of the three red shards in this batch were that shape (`Redirecting…`, and `13`).
