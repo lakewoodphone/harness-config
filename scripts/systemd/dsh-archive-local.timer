@@ -1,0 +1,11 @@
+[Unit]
+Description=Ship the authority's own DSH sessions into authority.db, hourly
+
+[Timer]
+OnCalendar=*:17
+AccuracySec=60s
+Persistent=true
+Unit=dsh-archive-local.service
+
+[Install]
+WantedBy=timers.target

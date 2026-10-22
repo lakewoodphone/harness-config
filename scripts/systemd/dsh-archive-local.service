@@ -1,0 +1,39 @@
+[Unit]
+Description=DSH session archive shipper for the phone engine's local DSH_HOME
+Documentation=file:/root/code/harness-config/scripts/push-dsh-sessions.mjs
+After=network-online.target company-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/code/harness-config
+# WHY THIS EXISTS. phone-engine.service runs with DSH_HOME=/root/.dsh, so the
+# authority itself creates DSH sessions. Until 2026-10-18 no shipper was
+# scheduled here: the shipper had always been a CLIENT cron, and the engine
+# moved to this box at the 2026-10-11 cutover without its shipper. The parsed
+# projection therefore stopped at 2026-10-11T03:32:42Z while the engine kept
+# writing; 93 sessions were only on this disk.
+#
+# The identity stays `secratary` on purpose. This corpus is the phone engine's
+# continuous history (525 of its 618 sessions were already stored under that
+# source_machine); dsh_sessions is keyed on (source_machine, session_id), so
+# labelling the same sessions `secratary-cloud` would fork one history into two
+# machines instead of continuing it. The cursor's `machine` field says the same.
+Environment=DSH_HOME=/root/.dsh
+Environment=DSH_ARCHIVE_MACHINE=secratary
+# LOCAL, not the public endpoint: the API is on this box (127.0.0.1:8002), and
+# docs/mesh/138-PORT-INGESTION.md measured that route answering here. It avoids
+# sending the authority's own data out through Cloudflare and back.
+Environment=DSH_ARCHIVE_ENDPOINT=http://127.0.0.1:8002/api/v1/owner/dsh-sessions/ingest
+Environment=DSH_ARCHIVE_TRANSPORT=http
+ExecStart=/usr/local/node22/bin/node scripts/push-dsh-sessions.mjs
+Nice=10
+IOSchedulingClass=idle
+# The first (backfill) pass decoded 226 MB / 216,738 rows and its largest single
+# session took RSS to 2.02 GB (measured 2026-10-18 on the first attempt, which
+# peaked at 1.97 GB under a 3G scope). 3G leaves room for that one session while
+# still bounding a re-run of --all so it cannot compete with company-api.
+MemoryMax=3G
+MemorySwapMax=1G
+TimeoutStartSec=1800
