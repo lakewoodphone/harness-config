@@ -615,3 +615,45 @@ document path (#608) → the document count was hardcoded at 13 (#610, fixed by 
 settle step and the portal used raw buttons (#611, #612) → my Button import was one level short
 (#615) → `StaffOrderNextAction` had another raw button, now gated at PR time (#616) → the portal's
 fail-closed test asserted the old redirect target, which U5-1 had improved (#617).
+
+---
+
+## 13. Round 5 — "shifts close what they open", measured, and the half of it the loop was missing
+
+**The measurement that started it** (attempts in the previous 24 h, `/root/work/work.db`):
+
+```
+attempts=475  exit0=268 (56%)  no-proof=125 (26.3%)
+by state_after:  todo 192 | done 167 | None 49 | blocked 37 | dropped 22 | running 8
+```
+
+192 of 475 attempts left the item in `todo` and **49 attempts were never closed at all**
+(`state_after` NULL). The samples name the cause: `reaper — lease expired (held by
+zabz-orchestrator until …)`. A shift claimed an item, was killed before its close step, and
+`work.py reap` returned the **item** to todo and wrote its own recovery row — but the **original
+attempt** stayed open for ever. So the ledger could not answer *"what happened to this attempt"*,
+which is the exact question every proof/closability number is built on.
+
+**Fixed:** `work.py reap` now closes the abandoned attempt in the same transaction, with the reason
+and the holder, and reports `attempts_closed` in its output. `work.py selftest` passes.
+
+**Proven on a throwaway copy, never production** (the estate has polluted this ledger before with a
+test that wrote to a real store):
+
+```
+before: ended_at=None state_after=None
+reap:   reaped {"attempts_closed": 1, "count": 1, "items": [1145], ...}
+after : ended_at='2026-10-22T07:22:47Z' state_after='todo'
+        did=worked for a while and then the session died | CLOSED BY THE REAPER: the lease expired
+        (held by proof-worker until 2026-10-22T06:00:00Z) before the shift closed it
+RESULT: PASS - the abandoned attempt is closed with its reason
+```
+
+**Why this is the right half of the problem to fix in the loop, not in the shift.** A session killed at
+its bound cannot run a close step; making the *prompt* ask harder cannot fix that. What can be fixed is
+the ledger's honesty: every attempt now ends with a state and a reason, whichever process ended it. The
+retry is unchanged — the item goes back to todo and the next shift starts fresh, which is what it wants.
+
+The other half — *why* so many shifts are killed mid-item — is the 45-minute envelope: 16 releases in 11
+days died at the wall before it was raised to 45 minutes on 2026-10-21, and the retry rate is the
+number to watch next.
