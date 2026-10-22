@@ -697,3 +697,47 @@ phone (`cf-name`), and a lead form beside it is a second chooser, not a second c
 (`fc183df0d`). So the final set is: the lead form on every indexable **service** page, the finder on
 its own questionnaire, and `/privacy` + `/terms` with the footer's contact details. That is the
 judgement `D5` cannot make and a human can.
+
+---
+
+## 15. Round 7 — G1-1 done from a sitemap walk, and a gate that cannot fail found underneath it
+
+**Batch 3 shipped.** `main` `63ef0c67d`, deployed `63ef0c67dc34`. The walk of `sitemap.xml` on
+production, not a sample:
+
+```
+10 of 13 routes carry the lead form   (/, /phone-repair, /screen-repair, /battery-replacement,
+                                       /laptop-repair, /data-recovery, /tablet-repair,
+                                       /kosher-flip-phones, /kosher-waze, /contact)
+13 of 13 offer Call and Text          (a tel: link and an sms: link on every route, measured)
+/find-a-computer                      its own questionnaire - the exception, caught by Shard 3/4
+/privacy, /terms                      the footer's contact details
+POST /api/computer-request            400 on an empty body at the API host: it exists and validates
+```
+
+**G1-1 is ticked from that** (PR #625, `a2c0ecec2`) and ledger **#1142** closed on the same measurement
+(attempt 2295). The three-page sample that reported `3/3, 3/3, 0/3` was wrong by nine pages.
+
+**Then the typecheck gate.** Writing the *ten* locations into the component made the compiler speak:
+
+```
+$ npx tsc --noEmit -p frontend/tsconfig.json     (on main 63ef0c67d)
+src/pages/BatteryReplacementPage.tsx(85,46): error TS2322: Type '"battery-replacement"' is not
+assignable to type 'LeadRequestLocation'.   ... and six more
+```
+
+**Seven real type errors were live on main**, and `TypeScript Type Checking` concluded **success** on the
+very PRs that introduced them. The job's own line is
+`pnpm -w run typecheck:frontend:json || echo "Frontend typecheck completed with issues"` — the failure
+is swallowed there on purpose, and the aggregator is meant to read the error count out of
+`ci-artifacts/typecheck/*.json`. Whatever that chain does, the measured outcome is a green check over
+seven errors — **the same shape as the jammed pre-check gate**, and worse than it, because Vite strips
+types without checking so production served them.
+
+Fixed the errors (`d570a46ad`; the same tsc command now reports **0**), and filed the gate itself as
+**#1157** with a DoD that requires a planted TS2322 to turn the check red — proving the chain rather
+than one step.
+
+**The lesson, stated for the third time tonight:** a gate that has never been seen to fail is not a
+gate. The pre-check jammed on a comparison of two identical-looking values; this one swallows its
+subprocess failure and reports on an artifact nobody verified. Both were green over a real defect.
