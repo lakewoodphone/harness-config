@@ -5,7 +5,7 @@
   "decisions": 9728,
   "handoff": 12584,
   "lessons": 12797,
-  "pain": 10186,
+  "pain": 10250,
   "wins": 7194
  },
  "ceiling_source": {
@@ -27,7 +27,7 @@
   "decisions": "D9728",
   "handoff": "H12584",
   "lessons": "L12797",
-  "pain": "P10186",
+  "pain": "P10250",
   "wins": "W7194"
  },
  "host": "secratary-cloud",
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-22T00:45:11Z",
+ "refreshed_at": "2026-10-22T01:00:20Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 9.3,
- "sources_seen": 15155
+ "seconds": 18.2,
+ "sources_seen": 15157
 }
