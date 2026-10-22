@@ -91,3 +91,24 @@ Two read-only children measured the parts I had estimated. Where their numbers b
 **Corrected order of work:** split the session corpus into its own database file (fixes the backup, ~3–5 days) → tier cold days into a queryable archive before **3 November** (the real fix, ~5–8 days) → `VACUUM INTO` with `auto_vacuum=INCREMENTAL` in the same quiet window (returns 10.07 GiB once, needs 34 GB scratch — which we now have). Page size 4096→8192 is a multi-hour rewrite for 1–2 GB: not worth it alone.
 
 **Corrected runway: late November to the first days of December, not January.** 62 GB free, ~0.9 GB/day of growth that exists today (transcripts 0.66 GiB/day, chroma 0.21 GB/day), and after 3 November another ~0.94 GB/day from the database. About 27 days after the flex point.
+
+## 8. The search index — measured, and it kills the "exclude generated trees" idea
+
+The queue row that started all this offered "cap the index at 10 GB by excluding generated/binary trees". A child measured the actual index (`/root/.usearch/usearch.db`, 15,072,550,912 B, port 3095, `MemoryMax=600M`) and the idea is **worth ~18 MB**: there are **zero** indexed documents under `node_modules`, `.venv`, `__pycache__`, `dist`, `build` or `site-packages`, and essentially no binaries (6 zero-byte PNGs, 480 PDFs totalling 17.5 MB). **Do not cap by tree — it would cost searchability and save nothing.**
+
+What the 15 GB actually is, by `dbstat`:
+
+| object | size | what it is |
+|---|---|---|
+| `chunks_content` | **8.97 GB** | the chunk TEXT itself, stored inside the FTS5 content table — more bytes than the 6.98 GB of source, because 5.29 M chunks average 1,695 B against 1,318 B of source per document (chunk overlap or per-chunk headers) |
+| `chunks_data` | 2.53 GB | the inverted index postings |
+| `chunks_meta` | 844 MB | ~160 B per chunk: two 64-char hashes (`embed_key`, `sha`) plus overhead |
+| `idx_cm_model` + `idx_cm_key` | 926 MB | two indexes on `embed_key` |
+| `ngram_*` | 589 MB | trigram index for filename search |
+| `docs` | 446 MB | the documents |
+
+**1.26 GB of that is dead scaffolding**: `embeddings` is **empty**, yet `embed_key` is stored on all 5.29 M chunks (339 MB of hex text) and indexed twice (926 MB). Dropping the column and its two indexes is a rebuild, not a data loss — the index is derived from the files.
+
+Also measured: the index's own freelist is 418 MB (102,147 pages), it holds 133 orphan `chunks_meta` rows and 225,724 empty `sha` values, there is only **one** copy of it on disk (no superseded duplicate), and its rowids run to 13.85 M against 735,911 live documents — a delete-and-reinsert churn per sync, which is why it fragments.
+
+**Consequence for the plan:** the index is *not* a candidate for the cheap win. Leave it on local NVMe — moving it to a network volume would slow search, which the owner ruled out — and if it must shrink, the levers are dropping the unused embedding scaffolding and reducing per-chunk duplication, both of which need a rebuild measured in hours.
