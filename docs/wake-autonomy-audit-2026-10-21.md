@@ -384,3 +384,39 @@ unchanged. Ledger **#1094** carries the diagnosis so no shift has to re-derive i
 failure arrived with no report attached and no test name. The lesson is not "read harder" — it is that
 **a shard which uploads nothing cannot be diagnosed from the check that ran it**, and the log is the
 only place the name exists.
+
+---
+
+## 8. Round 2 of the follow-up, 2026-10-22 00:05-00:35Z
+
+**The loop's overnight numbers, measured on the authority at 00:13Z.** These are the changes the
+sources added last night doing their work while nobody was awake:
+
+| reading | 2026-10-21 22:00Z | 2026-10-22 00:13Z | what moved it |
+|---|---|---|---|
+| PRs open into `test` | 11 (oldest 400 h) | **2, none over 24 h** | `sources/lpt-pr-age.py` filed once; the shift it woke merged and closed them |
+| blocked ledger items past their revisit | 8 | **1** | the ledger-blockers shift, re-measuring each |
+| blocked items citing a RESOLVED owner row | 22 | **8** | the same shift, working the STALE list |
+| blocked items, total | 85 | **72** | re-measurement, not deletion |
+| source runs exiting non-zero | every tick (roadmap-supply) | **none in the last two ticks** | the 24-hour grace window |
+
+**The promotion gate, read rather than assumed.** `main` requires **four** contexts — `CI Validation
+(PR Pre-Check)`, `Check for Phantom Dependencies`, `Build image and assert the sha label` and
+`Validate PR Source (Test Branch Only)` — with `strict: true` and `enforce_admins: true`, so there is
+no bypass. Two consequences that each cost a round:
+
+1. A PR **from `test` itself can never be up to date with `main`** (main carries 13 commits test does
+   not), and `strict` refuses a head that is behind. `land-pr.py` now reads the required set per base
+   from `/branches/<base>/protection` instead of assuming one list.
+2. A promotion cut at a **stable sha** (PR #602, `promote/test-20261022`) is refused by the repo's own
+   source gate, whose rule is a NAME plus a content assertion: the head must be `test` or
+   `guardian/promote-test-to-main*`, and every non-merge commit it would add to `main` must already be
+   contained in `origin/test`. Closed with that reason, and re-cut the sanctioned way: `origin/test`
+   with `origin/main` merged in — 0 conflicts, 0 behind — as PR #603.
+
+**`--strict-all` exists because the required set is not the safety set.** Neither `main`'s four
+contexts nor `test`'s three include the frontend or backend shards, so a red shard merges and deploys.
+On 2026-10-21 that is exactly what happened. For a `main` promotion the lander now requires every
+completed check to be success or skipped, with two named exceptions that cannot have a verdict on a PR
+head: a `cancelled` run, and `Deploy verification tests` (it verifies a deployment; on a PR it is
+killed by concurrency, exit 143).
