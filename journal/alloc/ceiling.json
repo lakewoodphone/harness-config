@@ -15,15 +15,7 @@
   "pain": "refs/heads/hk/528-dedupe-before-ceiling",
   "wins": "ZABZ-TECH live working tree"
  },
- "claimed_gap_rows": [
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "wins",
-   "reserved_from": 7195,
-   "reserved_through": 7258,
-   "stamp": "2026-10-22 16:30 UTC"
-  }
- ],
+ "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D9665",
   "handoff": "H12586",
@@ -51,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-22T16:30:09Z",
+ "refreshed_at": "2026-10-22T16:45:11Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 7.3,
- "sources_seen": 16956
+ "seconds": 8.8,
+ "sources_seen": 16958
 }
