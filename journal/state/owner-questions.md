@@ -6,7 +6,7 @@ Updated: 2026-10-22
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 649 row(s) read, 18 pending, generated 2026-10-22 03:23 UTC on SECRATARY-CLOUD.
+Provenance: 650 row(s) read, 19 pending, generated 2026-10-22 04:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -15,6 +15,7 @@ Provenance: 649 row(s) read, 18 pending, generated 2026-10-22 03:23 UTC on SECRA
 | 646 | 2026-10-18 | high | Data recovery shop asks you to confirm drive received so they can delete backup | Confirm receipt and ask them to hold the backup a bit longer until he verifies the files — deletion is irreversible |
 | 850 | 2026-10-20 | high | Rotate the live SerpAPI key? It was printed into a session transcript tonight and must be treated as exposed. | Rotate BOTH keys in their dashboards. Then tell me and I will swap them into /opt/company/.env and the DSH credential stores, reload the API, and verify with a live call each (a search for SerpAPI is optional if we keep  |
 | 890 | 2026-10-20 | high | Approve the DNS-filter change that restores location on the fleet's iOS 26 phones — the two-name allowlist fix now, and the chain-following fix after it passes the canary? | Do the two-minute A/B first: DRN 26 (iPhone 17e, iOS 26.5.1, DNS->Cloudflare) vs DRN 1007 (same model and OS, DNS->our filter), Waze outdoors on both. If 26 locates and 1007 does not, approve allowing cl2.apple.com, cl3. |
+| 927 | 2026-10-22 | high | Sticker reprint: place the Printleaf order before 4 pm ET if Sticky Brand still has no tracking? | Place it before 4 pm ET if #828330 still shows no tracking: free ground from a print shop 30 miles away is a day in transit, and no vendor published a Friday date for both pieces anyway. Pickup only if Friday is a hard r |
 | 110 | 2026-09-18 | medium | The 2022 Elantra needs about $400 of work and setup right now: the IVT transmission fluid is overdue, plus the Bluelink/OBD odometer setup is half done. | A. The IVT is the single most expensive failure mode this car has (adjacent-year Elantras have failed in the 80k range at ~$4,800 out of pocket), it is past its severe-duty 60,000-mile interval, and there is no service h |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
 | 299 | 2026-10-06 | medium | How long should we keep customer device photos, and who may see them after the repair is done? | 12 months from intake with open and disputed jobs exempt. It covers a warranty claim and a chargeback window, which is what the photos are actually for, and it stops the shop accumulating other people's device photograph |
