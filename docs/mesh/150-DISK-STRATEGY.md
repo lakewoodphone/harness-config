@@ -73,3 +73,21 @@ How each tree was made safe to remove, in order:
 **Alarm installed:** `/usr/local/bin/disk-alarm.sh`, cron `7 * * * *`. It fires at **88% used or under 25 GB free** (the old guard only spoke at 90/95 into a log) and appends a **journal pain entry** — the record every session reads at start. Both branches were proved: quiet branch `used=78% … below threshold`, forced branch `journal pain appended`. One real cron path, one self-test entry (P11339/P11340) resolved immediately.
 
 **Runway now, honestly:** 43 GB free. The database's freelist was 10.07 GiB on 2026-10-22 and is being consumed at ~0.88 GiB/day, so the file starts growing again around **2026-11-02**, after which 43 GB buys about **six weeks**. This change buys the end of January at best. **The reclamation is protection against worktrees, not against the database.** Phase 3 is still the only permanent lever.
+
+## 7. Corrections after the fleet reported (same day, 18:10Z) — supersedes §6's numbers where they differ
+
+Two read-only children measured the parts I had estimated. Where their numbers beat mine, theirs are used.
+
+**Total reclaimed: 39 GB, not 20.** A second tranche of worktrees existed outside the globs the first pass used — 44 more trees under `/root/repos/_wt*`, `/root/_hk293_*`, `/root/_lpt218_wt`, `/home/zabz/wt-item600` — reaped with the same archive-first reaper for a further 18.6 GB, plus 924 MB of Playwright cache and 2.1 GB of three stale `/opt/dsh-phone.failed2|failed3|prev` deploy copies. Final `df -h /`: **`225G 155G 62G 72%`** from `225G 194G 23G 90%`. The reaper's glob list was widened to cover every one of those roots, so the nightly job now sees what I missed.
+
+**The database does NOT grow 1 GiB a day right now.** Measured properly: the file grew **7.9 MB in 3.4 days**; the growth is being absorbed by free pages, and it is the **freelist** that is falling — 3,352,593 pages on 2026-10-19 → 2,639,454 today = **942 MB/day**. At that rate the 10.07 GiB of free pages is gone in **11.5 days (≈2026-11-03)**, and only then does the file itself start growing. Anyone quoting "the file grows a gigabyte a day" is quoting the wrong clock.
+
+**The composition of the database, measured with `dbstat` (3 m 21 s, not estimated):** `dsh_session_events` 13,916 MiB + its FTS data 4,655 MiB + two indexes 421 MiB = **19.96 GB, 85.7% of allocated space**. Everything else in the database is 3.3 GB and flat.
+
+**Two archive tools already exist and must not be duplicated:** `dsh_session_events_retention.py` (planner, dry-run only) and `dsh_session_events_archive.py` (per-day zstd JSONL, re-read verification, "ARCHIVE, NEVER DELETE", prune owner-gated). The gap is that JSONL is not queryable by SQL, so archived days fall out of esearch — that is the work to do, not a third tool.
+
+**The backup has one version of each key and no rotation.** `authority/secretary.db.gz` 6.84 GB, `authority/data/authority-data.tar.gz` 4.16 GB, `authority/accounting.db.gz` 6.7 MB — one object each, newest 12 hours old. A corrupt run overwrites the last good copy, and the DB leg streams the whole 32 GB at 7.1 GB RSS on a box that OOM-killed twice on 2026-10-22.
+
+**Corrected order of work:** split the session corpus into its own database file (fixes the backup, ~3–5 days) → tier cold days into a queryable archive before **3 November** (the real fix, ~5–8 days) → `VACUUM INTO` with `auto_vacuum=INCREMENTAL` in the same quiet window (returns 10.07 GiB once, needs 34 GB scratch — which we now have). Page size 4096→8192 is a multi-hour rewrite for 1–2 GB: not worth it alone.
+
+**Corrected runway: late November to the first days of December, not January.** 62 GB free, ~0.9 GB/day of growth that exists today (transcripts 0.66 GiB/day, chroma 0.21 GB/day), and after 3 November another ~0.94 GB/day from the database. About 27 days after the flex point.
