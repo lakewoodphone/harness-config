@@ -443,3 +443,39 @@ close, on 2026-10-21, came from commit ancestry and was false.
 **The general shape, and it is the third time tonight:** a test that encodes a *number* rather than a
 *contract* fails the moment the system improves, and the failure arrives looking exactly like a
 regression. Two of the three red shards in this batch were that shape (`Redirecting…`, and `13`).
+
+**The promotion is blocked by a jammed gate, and the gate is now diagnosed and being repaired.**
+
+`main` requires four contexts with `strict: true` and `enforce_admins: true`, so there is no bypass.
+On promotion PR #605 (head `8af61f528`, run 39704415549) **every real job concluded success** — Detect
+Changed Files, all four frontend shards, all three backend shards, both linters, type checking, runtime
+imports, scripts smoke — plus the other three required workflows. The only failures were the two
+aggregators, and the log shows why:
+
+```
+if [[ "success" != "success" ]]; then
+  echo "::error::detect-changes concluded 'success'; change detection did not succeed..."
+  exit 1
+```
+
+A condition that reads false while its own body runs means the two sides print identically and do not
+compare equal. A gate that cannot pass jams **every** promotion to main — which is why production has
+stayed on `afaddedcc` while test carried D23, the lead form, the payment step and F1-16.
+
+Not bypassed: main has `enforce_admins`, and widening a gate to make it work is forbidden. Repair:
+strip whitespace from the value before comparing it and print it between delimiters so the difference
+the log hid becomes visible; the gate still refuses anything but `success`. PR #606, filed against
+`test` because `Validate PR Source (Test Branch Only)` correctly refuses any non-merge commit on a
+promotion branch that is not already on `test` — the first attempt, committed straight onto the
+promotion branch, was refused by exactly that rule (measured, not guessed).
+
+Ledger **#1106** (p1) carries the measurement, and **#1094** the earlier red-shard diagnosis.
+
+**What is proven and waiting, on test only:**
+
+| claim | measured on the deployed test host |
+|---|---|
+| D23, no public prices | 0 currency figures on all 13 indexable routes |
+| G1-1 lead form | `lead-name`/`lead-need`/`lead-phone` on `/`, `/screen-repair`, `/phone-repair` |
+| payment on create | `CreateWorkOrderPage-Dlly9bvu.js` carries the settle step; `StaffNewOrderMoney-*` the surface |
+| F1-16 | the four routes serve their own 8.6 kB documents, not the 86.6 kB homepage |
