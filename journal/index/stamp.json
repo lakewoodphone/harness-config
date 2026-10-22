@@ -8,7 +8,7 @@
   "pain": 11275,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-22T17:15:11Z",
+ "ceiling_refreshed_at": "2026-10-22T17:30:10Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
