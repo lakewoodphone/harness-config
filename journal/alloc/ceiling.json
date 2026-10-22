@@ -18,9 +18,9 @@
  "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D9665",
-  "handoff": "H12585",
-  "lessons": "L12734",
-  "pain": "P10316",
+  "handoff": "H12586",
+  "lessons": "L12739",
+  "pain": "P10317",
   "wins": "W7134"
  },
  "high_water": {
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-22T04:15:14Z",
+ "refreshed_at": "2026-10-22T04:30:11Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 12.0,
+ "seconds": 8.6,
  "sources_seen": 15163
 }
