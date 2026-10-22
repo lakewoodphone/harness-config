@@ -57,3 +57,19 @@ Five read-only children are running: full inventory of the authority; the `autho
 ## 5. The number that decides the money
 
 At ~1 GiB/day of database growth, **no fixed disk size is permanent** — 365 GiB a year. So the purchase question is only "how much time does this buy" and it must be answered *after* Phase 0 and Phase 3, not instead of them.
+
+## 6. What was actually implemented, 2026-10-22 (measured before and after)
+
+**`df -h /` before: `225G 194G 23G 90%` → after: `225G 174G 43G 81%`. Twenty gigabytes reclaimed, verified by `df`, not by estimate.**
+
+How each tree was made safe to remove, in order:
+
+1. **Archive first.** `/root/wt-archive/` (58 MB) now holds, per tree: `dirty.patch`, `status.txt`, `staged.patch`/`unstaged.patch` where the diff against HEAD was empty, `untracked.txt` plus a copy of every untracked file under 200 KB, `stashes.txt`, and an `INFO.md` with the remote and the exact restore commands. The two big ones captured real work: `pr-wt-247` 25 MB of patch over 2,614 changed paths, `pr-wt-355` 15 MB over 1,730, `pr-wt-446` 12 MB over 1,458.
+2. **Prove removal cannot lose a commit.** `git -C <tree> rev-parse --git-dir`: 71 of 83 were **worktrees**, whose object store is the parent repo's — removing the checkout cannot lose a ref. The four that were not worktrees were already broken before this session (their `.git` pointed at `/root/wt777c`, which no longer existed), so they were tarred whole (`orphaned-broken-clones-20261022.tar.gz`, 127 MB, 24,483 entries) before removal.
+3. **Remove.** 71 worktrees via `git worktree remove --force` + `git worktree prune` in the parent, 7 pytest basetemp dirs, and the 4 broken clones after the tar verified.
+
+**Reaper installed:** `/usr/local/bin/worktree-reaper.sh` (sha256 `9ae131fc…`), cron `17 4 * * *` via `cron-wrap.sh`. It only touches the three scratch roots, only trees with **no file modified in 48 h**, captures before removing, skips clones, and skips any tree whose capture fails. Dry run after install: `reaped=0 freed=0MB skipped=12` — nothing left to take.
+
+**Alarm installed:** `/usr/local/bin/disk-alarm.sh`, cron `7 * * * *`. It fires at **88% used or under 25 GB free** (the old guard only spoke at 90/95 into a log) and appends a **journal pain entry** — the record every session reads at start. Both branches were proved: quiet branch `used=78% … below threshold`, forced branch `journal pain appended`. One real cron path, one self-test entry (P11339/P11340) resolved immediately.
+
+**Runway now, honestly:** 43 GB free. The database's freelist was 10.07 GiB on 2026-10-22 and is being consumed at ~0.88 GiB/day, so the file starts growing again around **2026-11-02**, after which 43 GB buys about **six weeks**. This change buys the end of January at best. **The reclamation is protection against worktrees, not against the database.** Phase 3 is still the only permanent lever.
