@@ -134,3 +134,30 @@ A child reconstructed the incident history from the journal before its transport
 **The interval between fills: 2 days, 5, 8, then 1, 2, 2, 3 — and it did not change when the volume went 76 → 152 → 225 GiB.** That is the whole answer to "every week you make me resize again": the recurrence is driven by discrete 18–29 GB writes and by producers with no ceiling, so the size of the disk never enters the equation. The estate's own record already had the lesson (L3932: a host at 97% turned SQLite writes into waits and wedged the running loop, and the fix was a disk budget in every child brief, plus a disk reading before and after every fleet run). It was written on 2026-10-14 and the same failure recurred on 2026-10-18 with five parallel agents.
 
 One more thing this session learned the hard way, worth carrying: **two of the five research children died at their 30-minute transport ceiling because their own measurements saturated the box** — a recursive `du` over 194 GB on a shared 8-vCPU host. The children that used bounded queries (`dbstat where aggregate=1`, one streaming pass with `sum(case …)`) returned complete answers. Reading this host heavily is itself an outage risk; every measurement here must be bounded, `ionice`d and time-limited.
+
+## 10. Phase 3 implemented: the session corpus now has a fixed window
+
+**Done 2026-10-22 19:20–20:18Z, after the owner's conditional approval ("as long as you research it and understand it fully and know all the variables").**
+
+The variables, each measured before a row was touched:
+
+| variable | measured |
+|---|---|
+| what the table costs | `dsh_session_events` 13,916 MiB + FTS data 4,655 MiB + two indexes 421 MiB = **19.96 GB, 85.7% of the database** |
+| how it grows | file grew only **7.9 MB in 3.4 days**; the freelist drains at **942 MB/day**; ~174k rows/day |
+| what a delete does to the index | three FTS5 external-content triggers exist (`ai`, `ad`, `au`), so a row delete removes its index entry automatically — no FTS repair step |
+| what a delete does to search | the esearch adapters (`localdb/sync.py`, `secretary/sync.py`) contain **no DELETE at all**; they copy into `usearch.db` and never prune it, so archived days stay searchable |
+| what tooling already existed | `dsh_session_events_archive.py` (writes one zstd JSONL per day, re-reads it, compares sha256 **and** row count, prints `ARCHIVED+VERIFIED`, and performs no DELETE) — used as-is, not rebuilt |
+| the row distribution | 38 days in the table, 2026-09-11 .. 2026-10-22 |
+
+**The run.** Kept 14 days; archived the 24 older days: **1,647,127 rows, 7.20 GB of raw JSONL → 1.14 GiB of zstd, every day `ARCHIVED+VERIFIED` with its sha256**. Then `prune-archived-days.py` (new, ~120 lines, the only thing that deletes) refused to touch any day whose archive did not decompress to exactly the row count the database held — all 24 matched — and deleted in 25,000-row range batches with short transactions so `company-api`'s 10 s busy timeout was never exceeded. Took **207 seconds**.
+
+**Result, measured before and after:** freelist **2,599,701 → 4,365,432 pages = 9.92 → 16.65 GiB of reusable space**, file size unchanged at 31.75 GB (SQLite does not shrink), rows 3.37 M → 1.73 M, live window 2026-10-08 .. 2026-10-22.
+
+**Why this is the permanent fix and not another resize:** the live set is now a fixed 14-day window. Each night the day that ages out is archived, verified, deleted, and the pages it frees are immediately reused by that day's ingest. The file stops growing — it does not need to shrink to be safe. `VACUUM INTO` remains available at any time to return the 16.6 GiB to the filesystem (it needs ~23 GB of scratch and a quiet window); it is now optional housekeeping, not a rescue.
+
+**Durability.** The archives are the only copy of those days, so they are in Cloudflare R2 under `authority/session-archive/<day>.jsonl.zst` — 25 objects, every size read back from the object after upload (`uploaded=25 skipped=0 failed=0`). Locally they stay in `/root/archive/dsh-session-events`.
+
+**Scheduled:** `dsh-session-archive-nightly.sh` at **03:30** via `cron-wrap.sh` (cron line 272). It refuses to run under 12 GB free, aborts the prune if the archive step exits non-zero, and writes a dated line per step to `/root/archive/nightly.log`. Tested end to end as a no-op the same evening: `archive exit=0`, `prune exit=0`, `offsite exit=0`, `OK`.
+
+**Two things a future session must not do:** re-archive a day whose archive already exists without `--force` (it would rewrite a verified file), and delete a day without an archive whose decompressed record count matches the row count — the delete is irreversible and the archive is the only copy.
