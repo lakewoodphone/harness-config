@@ -8,7 +8,7 @@
   "pain": 10059,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-22T00:30:14Z",
+ "ceiling_refreshed_at": "2026-10-22T00:45:11Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
@@ -43,8 +43,8 @@
  "log_sig": "34168cb27c3349bbdfc5a93d3f631aaf4a780a71",
  "parse_problems": 0,
  "remote_ids": {
-  "refs_sig": "59c3ca9d1a2492e2611c6c69b2a55a4656212947",
-  "scanned_at": "2026-10-21 23:49 UTC",
+  "refs_sig": "9c6930f74c240fb1fd835b70744fa52207d2ef9e",
+  "scanned_at": "2026-10-22 00:47 UTC",
   "tops": {
    "decisions": 3995,
    "handoff": 3778,
