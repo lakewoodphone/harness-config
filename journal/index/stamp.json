@@ -8,7 +8,7 @@
   "pain": 11340,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-22T18:00:11Z",
+ "ceiling_refreshed_at": "2026-10-22T18:15:09Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
@@ -29,7 +29,7 @@
   "decisions": 9728,
   "handoff": 12648,
   "lessons": 12861,
-  "pain": 11338,
+  "pain": 11402,
   "wins": 7258
  },
  "ledger_ceiling": {
