@@ -6,7 +6,7 @@ Updated: 2026-10-22
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 650 row(s) read, 19 pending, generated 2026-10-22 05:23 UTC on SECRATARY-CLOUD.
+Provenance: 651 row(s) read, 20 pending, generated 2026-10-22 06:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -29,5 +29,6 @@ Provenance: 650 row(s) read, 19 pending, generated 2026-10-22 05:23 UTC on SECRA
 | 924 | 2026-10-21 | medium | Run one small card payment on a shop counter device so I can prove the new web filter does not break Stripe? | Run it on the counter iPad (DRN 2003) - it applied the profile most recently (2026-10-20T16:24Z), so it is the device that still has to prove a Stripe charge goes through with the filter on. Any small real sale is enough |
 | 926 | 2026-10-22 | medium | Seven pickup orders carry a status note saying 'paid $X' totaling $745, but have no order total and no payment row. Should I record the amount the note names? | Record the $745 the notes name as order totals with an audited pricing_edit row, because the note was written at the counter and $0 understates revenue; do not create payment rows without your confirmation that the cash/ |
 | 925 | 2026-10-21 | low | The outside-door stuck-open alert is live and both cause branches are proven. May I send one test push to your phones (iPhone 15 and Zabz Waze) to confirm the phone leg actually arrives? | Yes - one test push now closes the only unproven leg; otherwise the automation stays proved in HA and sends only real alerts. |
+| 930 | 2026-10-22 | low | What was the 1.50 charge at neuman company on 20 Oct (card ending 2005) - we can see 'Neuman Company', but no category: what this merchant sells and whether the charge is business or personal? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 
 Closed since the queue opened: 631. Answered questions move to `entries/decisions/` with the owner's own words.
