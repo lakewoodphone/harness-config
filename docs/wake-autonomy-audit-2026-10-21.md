@@ -780,3 +780,34 @@ fix.
 **Two links that could not fail, found and closed anyway — and one left honest.** This is the fourth
 gate defect tonight (pre-check jam, typecheck swallow, collector lie, aggregator reading an unverified
 artifact) and the only one where the proof did not come good. A fix without a proof is a claim.
+
+**Round 9 — the second proof failed too, and it narrowed the defect to one reading away.**
+
+Proof PR #631 removed the merge-hides-the-plant hypothesis by using a **brand-new file**,
+`frontend/src/proof/planted-type-error.ts`, which is inside `frontend/tsconfig.json`'s `include: ['src']`
+and exists on one branch only. The CI typecheck job still reported:
+
+```
+📊 Summary: 0 errors, 0 warnings
+backend typecheck rc=0
+frontend typecheck rc=0
+```
+
+While the **same collector, on this host, with the same file present**:
+
+```
+📊 Summary: 9 errors, 0 warnings
+❌ TypeScript found 9 type errors
+exit=1
+```
+
+and its artifact names eight `.tsx` files including `src/pages/PhoneRepairPage.tsx`. So the two links
+fixed in round 8 are **proven at the collector**, and the remaining link is that **the CI job does not
+compile the tree the PR contains** — or is skipped in a way that still reports success. That is a
+bigger finding than a swallowed exit: the frontend typecheck may be checking almost nothing, which is
+consistent with seven real errors having reached production.
+
+#1157 carries the whole chain and one concrete next reading: a temporary step printing `git rev-parse
+HEAD`, `ls frontend/src/proof`, and `npx tsc --noEmit --listFiles | wc -l` inside the job, compared with
+the local 9-errors/8-files. **One reading will decide it; a plausible explanation will not**, so the item
+stays open.
