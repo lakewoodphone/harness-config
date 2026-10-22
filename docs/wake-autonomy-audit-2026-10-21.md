@@ -811,3 +811,13 @@ consistent with seven real errors having reached production.
 HEAD`, `ls frontend/src/proof`, and `npx tsc --noEmit --listFiles | wc -l` inside the job, compared with
 the local 9-errors/8-files. **One reading will decide it; a plausible explanation will not**, so the item
 stays open.
+
+**The D5 classification, added to §16's neighbour at 11:20Z.** 45 orphans: **16** carry a roadmap ID
+that v3 retired (`F0-5..F1-9`, `L1-3`, `L1-4`, `U1-1`, `U3-1`, `U4-5..U4-7`, `F1-8`), **0** are rename
+drift, and **29** carry no ID — several plainly belong to another project (`#540` SOCKS/DNS data plane,
+`#572` rentals PRs) and were filed here because lpt-website was the selected project at the time.
+
+The reconciler can see the disagreement but cannot settle it: every row needs one judgement — *was the
+box retired because the work landed, or retired by mistake?* That is #1058, and its DoD now forbids the
+two ways of making the number go away without answering it (a blanket close, a raised threshold) and
+requires the reconciler's own next run to read **D5 0 / VERDICT CLEAN**.
