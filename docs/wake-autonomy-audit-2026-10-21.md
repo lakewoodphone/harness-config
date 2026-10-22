@@ -479,3 +479,39 @@ Ledger **#1106** (p1) carries the measurement, and **#1094** the earlier red-sha
 | G1-1 lead form | `lead-name`/`lead-need`/`lead-phone` on `/`, `/screen-repair`, `/phone-repair` |
 | payment on create | `CreateWorkOrderPage-Dlly9bvu.js` carries the settle step; `StaffNewOrderMoney-*` the surface |
 | F1-16 | the four routes serve their own 8.6 kB documents, not the 86.6 kB homepage |
+
+---
+
+## 9. Where the promotion actually stands, 2026-10-22 02:30Z
+
+**Production has not moved: `main` is `afaddedcc`, `test` is `eaad63fe2`.** Everything the owner asked for
+is proven on test and none of it is live. The chain that blocks it was found by reading job logs, not by
+guessing, and every link is now fixed except the last:
+
+1. **`CI Validation (PR Pre-Check)` is a required context on `main`, and its aggregator depends on every
+   other job in its workflow** — including `Deploy verification tests`, which is deliberately run for
+   promotions (`if: github.base_ref == 'main'`). So a `main` promotion fails when *any* of them fails.
+2. **That job failed on F1-16's own fallout.** Its fixture writes every `PUBLIC_DOCUMENT_PATHS` entry at
+   `dist/<path>.html` and created only `dist/assets`; F1-16 added `/customer-portal/login`, so five
+   subtests died with `ENOENT …/dist/customer-portal/login.html`. Fixed on PR #608 (create the parent
+   directory per path) — waiting on CI.
+3. **A cancelled job is a failed required context.** On PR #608's first run `Validate Runtime Imports`
+   was `cancelled` by concurrency while four of my branches ran at once; the aggregator blocks on
+   `failure` OR `cancelled`, correctly, and the required context went red for a reason that has nothing
+   to do with the code. Re-ran the failed jobs.
+4. **Two workflows of mine were aimed at a gate that could not move.** A promotion cut at a stable sha
+   (PR #602) is refused by `Validate PR Source (Test Branch Only)`; a promotion whose head *is* `test`
+   (PR #594) can never be up to date with `main` (13 commits). Both closed with their reasons; the
+   sanctioned flow is `guardian/promote-test-to-main-<date>` = `origin/test` with `origin/main` merged
+   in, which is PR #607.
+
+Also fixed en route and landed on `test`: **the pre-check's own guard** (PR #606). Its rendered
+condition read `[[ "success" != "success" ]]` and its body still ran — a comparison of two values that
+print the same. It now strips whitespace and prints the value between delimiters, so the next reader can
+see the difference the log hid. The gate still refuses anything but `success`.
+
+**Honest summary of the night:** the loop, the ledger and the roadmap reconciliation are measurably
+better — 11 open PRs to 2, 8 blocked items past revisit to 1, 22 stale references to 8, zero failing
+sources — and three of my own changes turned out to be what was blocking production, each found by
+reading a job log rather than a diff. The last mile is one CI run away and it is a fixture, not a
+feature.
