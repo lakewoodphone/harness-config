@@ -515,3 +515,31 @@ better — 11 open PRs to 2, 8 blocked items past revisit to 1, 22 stale referen
 sources — and three of my own changes turned out to be what was blocking production, each found by
 reading a job log rather than a diff. The last mile is one CI run away and it is a fixture, not a
 feature.
+
+---
+
+## 10. Round 3, 2026-10-22 03:30-04:40Z — the promotion's last two inches, and the loop fixing them itself
+
+**The fixture fix landed** (PR #608, `fee5cb8a5`): the deploy-verify suite creates the parent directory
+for every public document, so `/customer-portal/login` no longer dies with `ENOENT`. Its own run went
+green on the first undisturbed attempt — after two failed attempts that were **my re-runs cancelling
+its jobs**, which is now a rule in `AGENTS.md` §9.
+
+**Then the same class of defect showed up twice more, and one of them was fixed by the loop itself.**
+
+* `verify-deploy-wait.test.mjs` asserted the wait's own output against the literal `/1\/13 document(s)/`
+  and `at all 13 public documents`. F1-16 took the table from 13 to 18, so the host under test printed
+  `1/18` and both assertions failed — **on an improvement**.
+* While I was reading it, the loop had already done the same work: `test` head `7f0b85505` carries
+  `857220ea4 Merge pull request #610 from lakewoodphone/hk/496-promotion-gate-count`. A shift filed,
+  wrote and merged the widening (`1/${PATHS.length}`), which is the wake system doing exactly what it
+  exists to do — and the third time tonight that a red check turned out to be a test encoding a number
+  rather than a contract (`Redirecting…`, `13` documents, `13` again).
+
+The promotion branch was updated onto that head (`56527e497`, 0 conflicts, 0 behind `main`) and the
+lander is re-running the full suite with `--strict-all`.
+
+**The count, three times in one night, is the finding worth keeping:** a test that asserts a NUMBER
+about the system fails whenever the system improves, and the failure is indistinguishable from a
+regression. Assert the contract — "every document in the table", "the table contains these four" — and
+the test survives the improvement it was written to protect.
