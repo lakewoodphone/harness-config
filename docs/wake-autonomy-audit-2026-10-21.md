@@ -690,3 +690,10 @@ address on every page. The judgement is recorded rather than silent.
 
 **Batch 3 opened as PR #622** with every check required. G1-1 gets ticked only after the same sitemap
 walk passes on production.
+
+**The exception, recorded.** `ComputerFinderPage` keeps its own form. Shard 3/4 caught the duplicate
+with `Found multiple elements with the text of: Your name` — the finder already asks for a name and a
+phone (`cf-name`), and a lead form beside it is a second chooser, not a second chance. PR #623
+(`fc183df0d`). So the final set is: the lead form on every indexable **service** page, the finder on
+its own questionnaire, and `/privacy` + `/terms` with the footer's contact details. That is the
+judgement `D5` cannot make and a human can.
