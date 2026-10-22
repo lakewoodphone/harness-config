@@ -2,7 +2,8 @@
 
 Written 2026-09-30 on `ZABZ-YOGA` after a session in which three wrong numbers were one step away
 from reaching the owner. It is the method, not the snapshot; the measured case is
-`inventory/zabz-yoga-2026-09-30.md` next to this file.
+`inventory/zabz-yoga-2026-10-21.md` next to this file (the first measurement of the laptop;
+`inventory/zabz-tech-2026-09-30.md` is a different machine and was renamed to say so on 2026-10-21).
 
 **The rule this document serves:** nothing is deleted on a guess. A number without a command, a
 path and a date behind it is not a measurement. And any deletion of a customer's data follows
