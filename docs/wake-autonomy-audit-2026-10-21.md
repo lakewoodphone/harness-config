@@ -543,3 +543,35 @@ lander is re-running the full suite with `--strict-all`.
 about the system fails whenever the system improves, and the failure is indistinguishable from a
 regression. Assert the contract — "every document in the table", "the table contains these four" — and
 the test survives the improvement it was written to protect.
+
+---
+
+## 11. Round 3 close, 2026-10-22 05:10Z — the promotion is one class of test behind, and the class is F1-16's footprint
+
+**Landed on `test` this round:** the deploy-verify fixture (#608, `fee5cb8a5`), the Count widening that
+the loop had already done itself (#610, `857220ea4`), my `Button` adoption on the settle step (#611,
+`6bd666a14`), and the portal's two raw buttons (#612, `a5f0777e6`). `test` head `a5f0777e6`, `main`
+still `afaddedcc`.
+
+**What each red check turned out to be — all four the same shape, three of them mine:**
+
+| red check | the real cause | who wrote it |
+|---|---|---|
+| Test Frontend 3/4 | `routeDecision.test.ts` asserted 13 documents and `SERVE_APP` for a route that is now a document | my roadmap tick exposed it |
+| Deploy verification | the fixture created `dist/assets` but not a nested `dist/customer-portal/` | my F1-16 fallout |
+| Test Frontend 2/4 | `primitive-guard`: a raw `<button>` in the settle step, then two more in the portal | my #596, then the U5-1 merge |
+| Test Frontend 1/4 | five `CustomerLoginGoogleStart` assertions that the login is app-rendered at `/customer-portal/login` | F1-16's footprint |
+
+**Filed: #1129 (p1).** Its DoD deliberately requires the fix to answer the question the tests cannot:
+*does `/customer-portal/login` still work end-to-end on the deployed test host* — a document that
+hydrates into the login surface — and quote the rendered control, not just a green run. A test that is
+made green without that measurement would hide a customer-facing break behind a passing suite.
+
+**What is proven on test and waiting on that one class:** D23 (0 currency figures on 13 routes), the
+lead form (G1-1), the payment step on the create page, F1-16 (four documents of their own). Production
+unchanged.
+
+**The pattern worth carrying forward, now three times in one night:** a test that encodes a NUMBER or a
+SHAPE about the system fails when the system improves, and the failure looks exactly like a regression.
+`Redirecting…`, `13` documents, `13` again, and now "the login route renders the app". Assert the
+contract; every one of these would then have survived the change it was written to protect.
