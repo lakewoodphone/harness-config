@@ -821,3 +821,49 @@ The reconciler can see the disagreement but cannot settle it: every row needs on
 box retired because the work landed, or retired by mistake?* That is #1058, and its DoD now forbids the
 two ways of making the number go away without answering it (a blanket close, a raised threshold) and
 requires the reconciler's own next run to read **D5 0 / VERDICT CLEAN**.
+
+---
+
+## 17. Round 10 — the gate went red, and the ten rounds close with a measured ledger
+
+**#1157 is PROVEN FIXED.** A planted `TS2322` in a brand-new file
+(`frontend/src/proof/planted-type-error.ts`), on a PR cut from the fixed `test` — run #689:
+
+```
+📊 Summary: 0 errors, 0 warnings (tsc exit 0, reference-build exit 0)   <- backend
+📊 Summary: 1 errors, 0 warnings (tsc exit 2, reference-build exit 0)   <- frontend, the plant
+backend typecheck rc=0
+frontend typecheck rc=1
+→ TypeScript Type Checking: failure
+→ PR Pre-Check Summary: failure
+→ CI Validation (PR Pre-Check): failure
+```
+
+Three links were closed to get there: the workflow's `|| echo` (#626), the collector's
+`process.exit(0)` after printing an error count (#628), and the reference-build exit the collector now
+also reports. **Two earlier proof attempts failed** (#627, #631) and were closed unmerged rather than
+dressed up — that refusal is why the third means something. The PR was closed unmerged; the gate is
+what was being proved.
+
+**The loop's own instrument now tells the two kinds of drift apart.** `lpt-reconcile.py` D5 read one
+number (45) that mixed two problems; it now prints:
+
+```
+D5 live-row-with-no-box   : 45  (16 retired-id, 29 unfiled)
+D5a retired-id            : #833(F1-1), #854(U4-6), #855(U4-7), #856(U4-5), #829(F0-5), #830(F0-6) …
+D5b unfiled               : #540, #1046, #1047, #1048, #1052, #1053, #1056, #1102, #572 …
+```
+
+and the JSON carries `d5_counts`. A retired-id row needs one judgement (*did the box go because the
+work landed, or by mistake?*); an unfiled row needs another (*which project owns this?*). One number
+made both look like drift.
+
+**What the ten rounds leave behind, honestly:**
+
+| leg of the objective | state |
+|---|---|
+| blocked work re-tests itself | **done, rounds 1–2** (`due --reopen`, `ledger-blockers.py`, 8 → 1 overdue) |
+| shifts close what they open | **done** — the reaper now closes the abandoned attempt too (49 in 24 h were never closed), proven on a throwaway copy |
+| the ledger reconciles with the roadmap | **instrument done, work owned** — D5 is now split and countable; the 45 rows are **#1058**, whose DoD forbids a blanket close |
+| every defect fixed with a measured proof | **all but the reconciliation rows**, each of which is classified and filed |
+| documented, committed, pushed | yes — audit §1–17, journal handoffs H12218…H12240, everything on `offsite` |
