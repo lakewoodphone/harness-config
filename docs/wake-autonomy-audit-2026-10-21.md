@@ -657,3 +657,36 @@ retry is unchanged — the item goes back to todo and the next shift starts fres
 The other half — *why* so many shifts are killed mid-item — is the 45-minute envelope: 16 releases in 11
 days died at the wall before it was raised to 45 minutes on 2026-10-21, and the retry rate is the
 number to watch next.
+
+---
+
+## 14. Round 6 — the lead form was missing on TEN pages, not one, and a sample is not a set
+
+**The correction that matters.** After batch 2 deployed (`581d4dae35df`) the three-page check read
+`/` 3/3, `/screen-repair` 3/3, `/phone-repair` 3/3 and I was one step from ticking G1-1. Walking the
+**sitemap** instead — the set the search engine sees — said something different:
+
+```
+/                     3/3     /battery-replacement  0/3     /tablet-repair      0/3
+/phone-repair         3/3     /laptop-repair        0/3     /kosher-flip-phones 0/3
+/screen-repair        3/3     /data-recovery        0/3     /kosher-waze        0/3
+                                                             /find-a-computer    0/3
+                                                             /contact            0/3
+                                                             /privacy, /terms    0/3
+```
+
+**Ten of thirteen indexable routes had no lead form.** The earlier sample of three pages answered a
+question nobody asked, and the sentence I wrote from it ("absent from `/phone-repair`") was true and
+badly incomplete. This is the same defect as `D5` and the same as the freshness readings: *a reading
+is only as good as the set it was taken from.*
+
+**Landed:** `fix/lead-form-service-pages-20261022` (PR #621, `e38c2cc8e`) puts the same
+`LeadRequestForm` on battery-replacement, laptop-repair, data-recovery, tablet-repair,
+kosher-flip-phones, kosher-waze, find-a-computer and contact — each carrying its own `location`, and
+each import path **derived from that file's own footer import** rather than copy-pasted, which is the
+mistake that broke module resolution in `PortalApprovalActions` on 2026-10-22. `/privacy` and `/terms`
+are deliberately left alone: legal documents, and the shared footer carries the phone, hours and
+address on every page. The judgement is recorded rather than silent.
+
+**Batch 3 opened as PR #622** with every check required. G1-1 gets ticked only after the same sitemap
+walk passes on production.
