@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-10-21
+Updated: 2026-10-22
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 648 row(s) read, 17 pending, generated 2026-10-21 23:23 UTC on SECRATARY-CLOUD.
+Provenance: 648 row(s) read, 17 pending, generated 2026-10-22 00:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
