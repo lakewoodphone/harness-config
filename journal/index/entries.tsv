@@ -6152,3 +6152,4 @@ wins	W7131	7131		2026-10-20	ZABZ-YOGA	open	**W7131 · 2026-10-20 · zabz timeout
 wins	W7132	7132		2026-10-20	ZABZ-YOGA	open	**W7132 · 2026-10-20 · Round 26-27: the journaling performance cliff under concurrent sessions.**	entries/wins/W7132.md	1	6	872780e9a5eafc34		
 wins	W7133	7133		2026-10-20	ZABZ-YOGA	open	**W7133 · 2026-10-20 · append churn probe.**	entries/wins/W7133.md	1	6	d3510853cd042853	probe	
 wins	W7134	7134		2026-10-20	ZABZ-YOGA	open	**W7134 · 2026-10-20 · single append timing probe.**	entries/wins/W7134.md	1	6	023a2b14caa35bd8		
+pain	P10699	10699		2026-10-22	SECRATARY-CLOUD	open	## P10699 — Estate monitor: disk_used_pct is critical (90.37 %) across 19 consecutive runs	entries/pain/P10699.md	1	23	d52ad3af55becc68	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
