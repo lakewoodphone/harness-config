@@ -6,16 +6,24 @@
   "handoff": 12648,
   "lessons": 12861,
   "pain": 11338,
-  "wins": 7194
+  "wins": 7258
  },
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
   "lessons": "refs/heads/hk/528-dedupe-before-ceiling",
   "pain": "refs/heads/hk/528-dedupe-before-ceiling",
-  "wins": "ZABZ-YOGA live working tree"
+  "wins": "ZABZ-TECH live working tree"
  },
- "claimed_gap_rows": [],
+ "claimed_gap_rows": [
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "wins",
+   "reserved_from": 7195,
+   "reserved_through": 7258,
+   "stamp": "2026-10-22 16:30 UTC"
+  }
+ ],
  "entries_high_water": {
   "decisions": "D9665",
   "handoff": "H12586",
@@ -28,7 +36,7 @@
   "handoff": "H12648",
   "lessons": "L12861",
   "pain": "P11338",
-  "wins": "W7194"
+  "wins": "W7258"
  },
  "host": "secratary-cloud",
  "live_peer_rows": 400,
@@ -43,11 +51,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-22T16:15:09Z",
+ "refreshed_at": "2026-10-22T16:30:09Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 7.4,
+ "seconds": 7.3,
  "sources_seen": 16956
 }
