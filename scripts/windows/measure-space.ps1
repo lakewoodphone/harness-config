@@ -37,10 +37,17 @@ function Measure-One {
   param([string] $Path)
   # /L list only, /XJ skip junctions, /BYTES raw bytes, /NJH /NFL /NDL quiet, /R:0 /W:0 no retries
   $o = cmd /c "robocopy `"$Path`" `"$probe`" /L /E /NFL /NDL /NJH /NP /BYTES /XJ /R:0 /W:0 2>nul"
-  $f = ($o | Select-String -Pattern '^\s*Files\s*:' | Select-Object -First 1)
-  $b = ($o | Select-String -Pattern '^\s*Bytes\s*:' | Select-Object -First 1)
-  $files = if ($f) { [int64](($f.ToString() -split '\s+')[3]) } else { 0 }
-  $bytes = if ($b) { [int64](($b.ToString() -split '\s+')[3]) } else { 0 }
+  # 'Bytes :  <Total>  <Copied>  <Skipped> ...'. Split on \s+ yields a LEADING EMPTY element
+  # because the line is indented, so a numeric index is off by one and silently reads a
+  # different column. Measured 2026-10-21 on C:\Users\ezabz\.cache: Total 8,085,154,005 =
+  # Copied 4,134,303,446 + Skipped 3,950,850,559 — every file counted twice through a
+  # self-referencing junction — while an independent Get-ChildItem -Recurse says
+  # 4,134,303,446. Copied is the column that matches the truth; read it by name, never by
+  # index. (On trees with no duplication Total and Copied are equal, which is why this hid.)
+  $num = [regex]::Match(($o -join "`n"), 'Bytes\s*:\s+(\d+)\s+(\d+)')
+  $bytes = if ($num.Success) { [int64]$num.Groups[2].Value } else { 0 }
+  $fm = [regex]::Match(($o -join "`n"), 'Files\s*:\s+(\d+)')
+  $files = if ($fm.Success) { [int64]$fm.Groups[1].Value } else { 0 }
   [pscustomobject]@{
     Path   = $Path
     Name   = Split-Path $Path -Leaf
