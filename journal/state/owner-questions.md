@@ -6,7 +6,7 @@ Updated: 2026-10-22
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 657 row(s) read, 25 pending, generated 2026-10-22 14:23 UTC on SECRATARY-CLOUD.
+Provenance: 657 row(s) read, 24 pending, generated 2026-10-22 15:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -28,7 +28,6 @@ Provenance: 657 row(s) read, 25 pending, generated 2026-10-22 14:23 UTC on SECRA
 | 906 | 2026-10-21 | medium | Should agent-initiated texts on the shop line stay live with no per-message approval, or be drafts you approve? | I recommend draft-only: agents prepare the text and you send or approve it, matching your no-automatic-texts rule. |
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
 | 924 | 2026-10-21 | medium | Run one small card payment on a shop counter device so I can prove the new web filter does not break Stripe? | Run it on the counter iPad (DRN 2003) - it applied the profile most recently (2026-10-20T16:24Z), so it is the device that still has to prove a Stripe charge goes through with the filter on. Any small real sale is enough |
-| 933 | 2026-10-22 | medium | Play Integrity attestation is inert on every phone until a Google Cloud project number exists. Do you want me to create/pay for that project, or should I delete the code path instead? | A. Create the project. It is a one-time setup on an account you control, the API is free at our volume, and it is the only way attestation ever works. Do not delete the path - deleting it loses a real capability that is  |
 | 935 | 2026-10-22 | medium | The thirty-day release wait: does the clock start when the shop seals the phone, or when the customer asks? The code says sealed; the decision document says the request. | A. Keep the code's rule - thirty days from setup - and correct the decision document. It is the stricter promise, it is predictable at the counter, and it cannot be gamed by asking late. 'From the request' would let a cu |
 | 936 | 2026-10-22 | medium | The disk is healthy again (27 GB free after this shift removed 16 GB of debris), but the 34 GB company database and the 15 GB search index have no size ceiling. When headroom next falls below 15%, should I cap the search index, or plan another volume resize? | Cap the index first. It is free, the index is derivable, and generated files are what make it 15 GB; resize only if the cap is not enough. I am not proposing to prune session history. |
 | 937 | 2026-10-22 | medium | Approve the lpt-apps deploy for the personality system: the engineered branch is pushed and every gate is green, and the host is read-only so nothing can be released without your yes. Deploy to staging first (same box, no public traffic) or straight to production? | Approve it, staging first: I run `deploy-staging.sh integrate/100pct`, re-run the eleven readiness assertions against staging, then `deploy-production.sh integrate/100pct` with the health gate that can now fail — roughly |
@@ -36,4 +35,4 @@ Provenance: 657 row(s) read, 25 pending, generated 2026-10-22 14:23 UTC on SECRA
 | 930 | 2026-10-22 | low | What was the 1.50 charge at neuman company on 20 Oct (card ending 2005) - we can see 'Neuman Company', but no category: what this merchant sells and whether the charge is business or personal? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 | 934 | 2026-10-22 | low | Knox Guard is not bought and its dead code path is deleted. Do you want to buy Knox Guard for Samsung devices, or is the VPN/DNS lane enough? | A. Do not buy it yet. The VPN lane covers every handset, there is no Samsung pilot, and a licence adds a vendor dependency before the first customer ships. Revisit when a dealer asks for the faster lane. |
 
-Closed since the queue opened: 632. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 633. Answered questions move to `entries/decisions/` with the owner's own words.
