@@ -1,0 +1,36 @@
+# final-crontab-fragment.txt — every remaining ported job, ready for install-crontab-fragment.sh
+#
+# Written 2026-10-11 by the manager session, after the ssh door was restored. It gathers, in one
+# file, what four workstreams had proved but could not install because they lost access to the box:
+#   134 (guards, retention, deadman, journal), 135 (freshness monitors), 138 (comms/Dialpad ingestion).
+# Workstream 139's three lines are ALREADY in root's crontab and are deliberately not repeated here.
+#
+# Every wrapped line is `cron-wrap.sh <name> <base64-of-command>`; the name is the office job's name
+# wherever the job is the same job, so /root/.cron-status/runs.tsv keeps reading true. The
+# installer verifies each payload decodes before it writes anything.
+#
+# NOT in this file, on purpose: anything that would send a message (nothing here transmits), anything
+# that needs a file that is still only on the office box, and the five systemd timers (workstream 137
+# installed some as units).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# == guards and self-checks (workstream 134) ==
+*/5 * * * * /usr/local/bin/cron-wrap.sh cron-target-guard L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9jcm9uLXRhcmdldC1ndWFyZC5weSAtLXdyaXRlLXN0YXR1cyA+PiAvcm9vdC8uY3Jvbi10YXJnZXRzL2d1YXJkLmxvZyAyPiYx
+*/5 * * * * /usr/local/bin/cron-wrap.sh cron-script-guard L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9jcm9uLXNjcmlwdC1ndWFyZC5weSA+PiAvcm9vdC8uY3Jvbi1zY3JpcHRzL2d1YXJkLmxvZyAyPiYx
+*/5 * * * * /usr/local/bin/cron-wrap.sh store-write-check L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9zdG9yZS13cml0ZS1jaGVjay5weSAtLWRiIC9yb290Ly5zdG9yZS13cml0ZS1jaGVjay9zY3JhdGNoLmRiIC0tc2xvd1NlY29uZHMgNSAtLXNsb3ctc2Vjb25kcyA1ID4+IC9yb290Ly5zdG9yZS13cml0ZS1jaGVjay9ndWFyZC5sb2cgMj4mMQ==
+*/5 * * * * /usr/local/bin/cron-wrap.sh deadman L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9kZWFkbWFuLnB5ID4+IC9yb290Ly5zbXMtaW5ib3gvZGVhZG1hbi5sb2cgMj4mMQ==
+*/15 * * * * /usr/local/bin/cron-wrap.sh guard-registry L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9ndWFyZC1yZWdpc3RyeS1jaGVjay5weSAtLXdyaXRlLXN0YXR1cyA+PiAvcm9vdC8uZ3VhcmQtcmVnaXN0cnkvY3Jvbi5sb2cgMj4mMQ==
+*/15 * * * * /usr/local/bin/cron-wrap.sh journal-commit L3Vzci9sb2NhbC9iaW4vam91cm5hbC1jb21taXQuc2g=
+*/15 * * * * /usr/local/bin/cron-wrap.sh text-channel-check L2Jpbi9iYXNoIC91c3IvbG9jYWwvYmluL3RleHQtY2hhbm5lbC1jaGVjay5zaCA+L2Rldi9udWxsIDI+JjE=
+*/20 * * * * /usr/local/bin/cron-wrap.sh tmpfs-reaper bWtkaXIgLXAgL3Jvb3QvdG1wLXJlc2N1ZSAmJiBNSU5fRlJFRV9NQj02MDAgVEFSR0VUX0ZSRUVfTUI9MTUwMCBSRVNDVUVfUk9PVD0vcm9vdC90bXAtcmVzY3VlIC9iaW4vYmFzaCAvdXNyL2xvY2FsL2Jpbi90bXBmcy1yZWFwZXIuc2ggPi9kZXYvbnVsbCAyPiYx
+*/30 * * * * /usr/local/bin/cron-wrap.sh tree-integrity-check VFJFRV9JTlRFR1JJVFlfRFJZX1JVTj0xIC9iaW4vYmFzaCAvdXNyL2xvY2FsL2Jpbi90cmVlLWludGVncml0eS1jaGVjay5zaCA+L2Rldi9udWxsIDI+JjE=
+*/30 * * * * /usr/local/bin/cron-wrap.sh report-offsite-age L3Vzci9sb2NhbC9iaW4vcmVwb3J0LW9mZnNpdGUtYWdlLnNoID4+IC9yb290L3JlcG9ydC1vZmZzaXRlLWFnZS5sb2cgMj4mMQ==
+45 5 * * * /usr/local/bin/cron-wrap.sh prune-backups L3Vzci9sb2NhbC9iaW4vcHJ1bmUtYmFja3Vwcy5zaCAvdmFyL2xpYi9hdXRob3JpdHktc25hcHNob3RzID4+IC92YXIvbG9nL2F1dGhvcml0eS1iYWNrdXAtcHJ1bmUubG9nIDI+JjE=
+17 4 * * 0 /usr/local/bin/cron-wrap.sh db-integrity-check U0VDUkVUQVJZX0RCPS9yb290L2F1dGhvcml0eS5kYiBEQl9JTlRFR1JJVFlfQkFDS1VQX1JPT1Q9L3Zhci9saWIvYXV0aG9yaXR5LXNuYXBzaG90cyAvdXNyL2Jpbi9weXRob24zIC91c3IvbG9jYWwvYmluL2RiLWludGVncml0eS1jaGVjay5weSAtLXdyaXRlLXN0YXR1cyA+PiAvcm9vdC8uZGItaW50ZWdyaXR5L2Nyb24ubG9nIDI+JjE=
+# == freshness monitors (workstream 135) ==
+7 * * * * /usr/local/bin/cron-wrap.sh site-uptime-check-cron U0lURV9VUFRJTUVfTE9HPS92YXIvbG9nL3NpdGUtdXB0aW1lLWNoZWNrLmxvZyBiYXNoIC91c3IvbG9jYWwvYmluL3NpdGUtdXB0aW1lLWNoZWNrLWNyb24uc2g=
+*/15 * * * * /usr/local/bin/cron-wrap.sh disk-guard RElTS19SRVRFTlRJT05fU0NSSVBUPS9vcHQvY29tcGFueS9zY3JpcHRzL3NlcnZlci9wcnVuZS1iYWNrdXBzLnNoIERJU0tfQkFDS1VQX1JPT1Q9L3Zhci9saWIvYXV0aG9yaXR5LWJhY2t1cCBESVNLX0NPTlNVTUVSUz0vb3B0L2NvbXBhbnkvZGF0YSwvb3B0L2NvbXBhbnkvYXJjaGl2ZSwvcm9vdC9hdXRob3JpdHkuZGIsL3RtcCAvdXNyL2Jpbi9weXRob24zIC91c3IvbG9jYWwvYmluL2Rpc2stZ3VhcmQucHkgLS13cml0ZS1zdGF0dXMgPj4gL3Zhci9sb2cvZGlzay1ndWFyZC5sb2cgMj4mMQ==
+* * * * * /usr/local/bin/cron-wrap.sh lpt-freshness-watchdog Y2QgL29wdC9jb21wYW55ICYmIGZsb2NrIC1uIC90bXAvbHB0LWZyZXNobmVzcy5sb2NrIGVudiBMUFRfUkVQTz0vb3B0L2NvbXBhbnkgTFBUX0VOVj0vb3B0L2NvbXBhbnkvLmVudiBMUFRfU0VDUkVUQVJZX0RCPS9yb290L2F1dGhvcml0eS5kYiBMUFRfUFk9L29wdC9jb21wYW55Ly52ZW52L2Jpbi9weXRob24gV0FUQ0hET0dfTE9HPS9yb290Ly5scHQtb3BzL2RpYWxwYWQvZnJlc2huZXNzLmxvZyBXQVRDSERPR19TVEFURT0vcm9vdC8ubHB0LW9wcy9kaWFscGFkL2ZyZXNobmVzcy1zdGF0ZS5qc29uIC9vcHQvY29tcGFueS8udmVudi9iaW4vcHl0aG9uIC91c3IvbG9jYWwvYmluL2xwdC1mcmVzaG5lc3Mtd2F0Y2hkb2cucHkgPj4gL3Zhci9sb2cvbHB0LWZyZXNobmVzcy13YXRjaGRvZy5sb2cgMj4mMQ==
+*/15 * * * * /usr/local/bin/cron-wrap.sh production-comms-freshness RlJFU0hORVNTX1NFQ1JFVEFSWV9EQj0vcm9vdC9hdXRob3JpdHkuZGIgRlJFU0hORVNTX0VOVl9GSUxFPS9vcHQvY29tcGFueS8uZW52IEZSRVNITkVTU19TVEFURT0vcm9vdC8ubHB0LXJlY29uL3Byb2R1Y3Rpb24tY29tbXMtZnJlc2huZXNzLmpzb24gL29wdC9jb21wYW55Ly52ZW52L2Jpbi9weXRob24gL3Vzci9sb2NhbC9iaW4vcHJvZHVjdGlvbi1jb21tcy1mcmVzaG5lc3MucHkgPj4gL3Zhci9sb2cvcHJvZHVjdGlvbi1jb21tcy1mcmVzaG5lc3MubG9nIDI+JjE=
+*/30 * * * * /usr/local/bin/cron-wrap.sh ai-gateway-health QUlfR0FURVdBWV9IRUFMVEhfREI9L3Jvb3QvYXV0aG9yaXR5LmRiIEFJX0dBVEVXQVlfSEVBTFRIX0NPTkZJRz0vb3B0L2NvbXBhbnkvYXBwL2NvbmZpZy5weSBB SV9HQVRFV0FZX0hFQUxUSF9DQVRBTE9HVUU9MSBBSV9HQVRFV0FZX0hFQUxUSF9LRVlfRklMRT0vb3B0L2NvbXBhbnkvLmVudiBBSV9HQVRFV0FZX0hFQUxUSF9USUVSX0NPTExBUFNFX0lTX0NPTkRJVElPTj0xIC9vcHQvY29tcGFueS8udmVudi9iaW4vcHl0aG9uIC91c3IvbG9jYWwvYmluL2FpLWdhdGV3YXktaGVhbHRoLnB5IC0tZGF5cyA3ID4+IC92YXIvbG9nL2FpLWdhdGV3YXktaGVhbHRoLmxvZyAyPiYx
+# == comms and Dialpad ingestion (workstream 138) ==

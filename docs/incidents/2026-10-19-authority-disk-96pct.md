@@ -1,3 +1,16 @@
+> ## ⚠ SUPERSEDED — DO NOT EXECUTE §4–§6
+>
+> **Read `2026-10-19-authority-disk-96pct-AUDIT.md` before acting on anything below.**
+> An audit at 01:20–02:00Z on 2026-10-19 re-measured every number here. Findings:
+> **the 90-day prune in §6 Step 4 deletes 0 rows** (the corpus is 38 days old, oldest row
+> `2026-09-11T19:19:34`), so every reclaim figure downstream of it is void; pruning at any
+> window that *would* delete rows is unsafe because the packed archive holds **nothing before
+> 2026-10-09** and has never pulled the machine `desktop-fgv6kmh` (42 sessions, database only);
+> and §5's "~9 GiB at peak" is wrong — the real requirement is 16–20 GiB. The lossless lever is
+> not retention but the 11.3 GiB duplicate copy of the same text inside `dsh_session_events_fts`.
+> §1's percentages were also stale within the hour: free space moved 6.44 GiB → 1.41 GiB →
+> 16.9 GiB inside twenty minutes. The audit document is the current record.
+
 # The authority is at 96% full — measured state, plan, and what needs the owner
 
 **Written:** 2026-10-19 01:40Z, session `76d2fc46` on ZABZ-YOGA (owner's laptop), during a queue session

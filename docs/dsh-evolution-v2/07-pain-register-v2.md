@@ -10,7 +10,7 @@ independent check that settles it is that **989 of 1,093 owner sessions (90.5 %)
 at all**, so the class is near-universal and a per-session tag cannot rank it. Separately, the corpus's
 own taxonomy is inflated: `failures.jsonl` marks 2,716 rows `exit_nonzero` whose matched text reads
 *"exit code: 0"* and 2,282 `rate_limit` quoting a successfully fetched page; the honest count is
-`err:true` = 7,491 of 54,730 (`L3798`, corrected by `L3813`). And every rolling-window figure below is
+`err:true` = 7,491 of 54,730 (`L3798`, corrected by `L3812`). And every rolling-window figure below is
 taken from a **day-grouped** query, because `> datetime('now','-N days')` against a `T`-format column
 silently covers N+1 days (`L3801`).
 

@@ -1,5 +1,16 @@
 # DSH on the iPhone — every system in the path, and how to check it
 
+> **PRE-CUTOVER — the HOST, the URLs and the home paths below are the office box, not the live path.**
+> This file was verified **2026-09-14**; the company cut over to `secratary-cloud` on **2026-10-11**.
+> Everything here that names `secratary` (no `-cloud`), `secratary.tail93e6e6.ts.net` or `/home/zabz`
+> is the office box — **FROZEN as the rollback anchor**: read `settings/machines/host-posture.tsv` and do
+> not check, start or unmask anything there. The live phone path is
+> **`secratary-cloud`**, `https://secratary-cloud.tail93e6e6.ts.net/`, with the engine owned by
+> `phone-engine.service` in `/opt/dsh-phone` under `DSH_HOME=/root/.dsh` — read
+> `03-CLOUD-CUTOVER-PHONE-REGRESSION.md` and `04-PHONE-UNREACHABLE.md` for the current readings.
+> The *mechanisms* described below (Serve, the gate, the injected layer, the probe, systemd ownership)
+> are still the design; only the host and the paths moved.
+
 Read `00-RESEARCH.md` for why each choice was made and `01-DESIGN-AND-PLAN.md` for the phases.
 This file is the **inventory**: what exists, where it lives, how it is kept alive, and the exact
 command that proves each part. Verified end to end on **2026-09-14** from a real browser at
