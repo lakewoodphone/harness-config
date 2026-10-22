@@ -575,3 +575,43 @@ unchanged.
 SHAPE about the system fails when the system improves, and the failure looks exactly like a regression.
 `Redirecting…`, `13` documents, `13` again, and now "the login route renders the app". Assert the
 contract; every one of these would then have survived the change it was written to protect.
+
+---
+
+## 12. THE 2026-10-22 BATCH IS LIVE ON PRODUCTION — 07:10Z
+
+`main` `cff4cd2ad`, deployed `cff4cd2ad172` (`/assets/index-IKrZ_5Qr.js`). Six landing cycles in one
+night, each one a red check of the same class, and the last of them was mine: my `Button` import in
+`PortalApprovalActions.tsx` was one directory short (`../../ui/primitives` instead of
+`../../../components/ui/primitives`), which broke module resolution for a whole chunk and showed up as
+**five customer-portal login test failures** — not, as first filed in #1129, as a routing regression.
+That correction matters: the deployed `/customer-portal/login` had been serving its own 8,685-byte
+document with its own title and canonical all along.
+
+**Measured on the deployed host at 07:10Z (`/root/_wakeaudit/verify-production.py`):**
+
+| claim | reading |
+|---|---|
+| **G1-2 (D23) no public price** | **PASS — 0 currency figures on all 13 indexable routes** |
+| **payment on the create page** | **PASS — in `CreateWorkOrderPage-2n1cGckA.js`** |
+| G1-1 lead form | 3/3 fields on `/` and `/screen-repair`; **0/3 on `/phone-repair`** |
+| F1-16 | the four routes serve their own 8.6 kB documents (homepage 86.6 kB) |
+
+G1-2 is **ticked from the production measurement** (roadmap RULE 4) and G1-1 is narrowed to the one
+page that is missing the form — filed as **#1142**, with the question the fix must settle (is
+`/phone-repair` retired under D24, or live and needing the form?).
+
+**Two blockers closed with their measurements:** #1094 (the promotion's red shard) and #1106 (the
+pre-check chain) — attempts 2264 and 2265.
+
+**The systemic change that stopped this class recurring:** the primitive guard now runs inside
+`lint-frontend`, which is in the aggregator's `needs` and therefore gates `CI Validation (PR
+Pre-Check)` at PR time (PR #616). Three separate raw-`<button>` violations had reached `test` because
+the guard lived only in the shards, which are not required. It cost one CI cycle per violation
+discovered at promotion; it now costs seconds at the PR.
+
+**What the six cycles actually were, in order:** the deploy-verify fixture could not create a nested
+document path (#608) → the document count was hardcoded at 13 (#610, fixed by the loop itself) → my
+settle step and the portal used raw buttons (#611, #612) → my Button import was one level short
+(#615) → `StaffOrderNextAction` had another raw button, now gated at PR time (#616) → the portal's
+fail-closed test asserted the old redirect target, which U5-1 had improved (#617).
