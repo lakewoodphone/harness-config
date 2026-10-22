@@ -6153,3 +6153,6 @@ wins	W7132	7132		2026-10-20	ZABZ-YOGA	open	**W7132 · 2026-10-20 · Round 26-27:
 wins	W7133	7133		2026-10-20	ZABZ-YOGA	open	**W7133 · 2026-10-20 · append churn probe.**	entries/wins/W7133.md	1	6	d3510853cd042853	probe	
 wins	W7134	7134		2026-10-20	ZABZ-YOGA	open	**W7134 · 2026-10-20 · single append timing probe.**	entries/wins/W7134.md	1	6	023a2b14caa35bd8		
 pain	P10699	10699		2026-10-22	SECRATARY-CLOUD	open	## P10699 — Estate monitor: disk_used_pct is critical (90.37 %) across 19 consecutive runs	entries/pain/P10699.md	1	23	d52ad3af55becc68	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
+lessons	L12798	12798		2026-10-22	SECRATARY-CLOUD	open	**L12798 · The authority owner_timezone is UTC - human wall-clock times must not read it**	entries/lessons/L12798.md	1	33	d39aa774d5a5f3ba	calendar,timezone,main.py	
+pain	P10827	10827		2026-10-22	SECRATARY-CLOUD	open	## P10827 — An appointment documented in a dossier was on no calendar and in no reminder - the owner had to ask	entries/pain/P10827.md	1	36	7eb02c8bc6c491f5	calendar,snap,owner-visibility	
+pain	P10828	10828		2026-10-22	SECRATARY-CLOUD	open	## P10828 — Estate monitor: oom_kills_24h is critical (3.0 ) across 70 consecutive runs	entries/pain/P10828.md	1	23	12fc40a02e902fc2	estate-monitor,auto-filed,not-the-owners	metrics/oom_kills_24h
