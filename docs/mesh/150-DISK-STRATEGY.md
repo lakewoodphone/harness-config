@@ -112,3 +112,25 @@ What the 15 GB actually is, by `dbstat`:
 Also measured: the index's own freelist is 418 MB (102,147 pages), it holds 133 orphan `chunks_meta` rows and 225,724 empty `sha` values, there is only **one** copy of it on disk (no superseded duplicate), and its rowids run to 13.85 M against 735,911 live documents — a delete-and-reinsert churn per sync, which is why it fragments.
 
 **Consequence for the plan:** the index is *not* a candidate for the cheap win. Leave it on local NVMe — moving it to a network volume would slow search, which the owner ruled out — and if it must shrink, the levers are dropping the unused embedding scaffolding and reducing per-chunk duplication, both of which need a rebuild measured in hours.
+
+## 9. The evidence that resizing was never the fix — every fill on record
+
+A child reconstructed the incident history from the journal before its transport died. The dates are the argument:
+
+| when (UTC) | host | state | what filled it | what was done |
+|---|---|---|---|---|
+| 2026-09-10 | office box | full | disk full → SQLite SIGBUS, core dumps ~45 min apart for days | — |
+| 2026-09-27/28 | office box | 100%, 17 MB free | 345 GB of 6-hourly snapshots | junk reclaim + retention |
+| 2026-09-30 | office box | 99%, 7.6 GB of 467 GB | 298 GB snapshots — `prune-backups.sh` deleted by a deploy, so retention had stopped | restored the script, freed 82 GB |
+| 2026-10-05 | office box | 99%, 6.4 GB | 15 snapshots ~253 GB; tier list was policy, not a budget | deleted 4 items, added `PRUNE_MAX_TOTAL_KB` |
+| 2026-10-11 | authority (new) | fresh 75 GB disk, 61% | cutover | — |
+| 2026-10-13 | authority | 97% → 98.7%, **0.0 GB free** | an 18.5 GB `cp` of `secretary.db` | killed at 18.7 GB |
+| 2026-10-14 | authority | **0 bytes free three times** (00:15, 14:45, 23:00) | child `cp -a` copies | filesystem **doubled 76 → 152 GB** at 01:15; still filled twice more that day |
+| 2026-10-16 | authority | 100%, 1.0 GB | `.cfo/backups` 33 GB, including one **28.72 GB `VACUUM INTO`** | ledger writer refused to run |
+| 2026-10-18/19 | authority | 96% → 100%, 1.41 GiB free | **five parallel audit agents** spilling unindexed aggregates into `/var/tmp` (5.8, 4.0, 5.0 GB) | recovered to 16.7 GiB |
+| 2026-10-19 | authority | resize to 225 GiB, 55%, **99 GB free** | CCX23 → CCX33 | — |
+| 2026-10-22 | authority | **90%, 23.9 GB free — three days later** | worktrees, index, CI image | 39 GB reclaimed today |
+
+**The interval between fills: 2 days, 5, 8, then 1, 2, 2, 3 — and it did not change when the volume went 76 → 152 → 225 GiB.** That is the whole answer to "every week you make me resize again": the recurrence is driven by discrete 18–29 GB writes and by producers with no ceiling, so the size of the disk never enters the equation. The estate's own record already had the lesson (L3932: a host at 97% turned SQLite writes into waits and wedged the running loop, and the fix was a disk budget in every child brief, plus a disk reading before and after every fleet run). It was written on 2026-10-14 and the same failure recurred on 2026-10-18 with five parallel agents.
+
+One more thing this session learned the hard way, worth carrying: **two of the five research children died at their 30-minute transport ceiling because their own measurements saturated the box** — a recursive `du` over 194 GB on a shared 8-vCPU host. The children that used bounded queries (`dbstat where aggregate=1`, one streaming pass with `sum(case …)`) returned complete answers. Reading this host heavily is itself an outage risk; every measurement here must be bounded, `ionice`d and time-limited.
