@@ -741,3 +741,42 @@ than one step.
 **The lesson, stated for the third time tonight:** a gate that has never been seen to fail is not a
 gate. The pre-check jammed on a comparison of two identical-looking values; this one swallows its
 subprocess failure and reports on an artifact nobody verified. Both were green over a real defect.
+
+---
+
+## 16. Round 8 — the typecheck gate: two links fixed, the proof failed, the item stays open
+
+**What was found** (round 7): seven TS2322 errors live on `main` while `TypeScript Type Checking` was
+green on the PRs that introduced them. **What round 8 did:** chase every link between the compiler and
+the verdict, and refuse to call it fixed without a proof.
+
+| link | state | what it was |
+|---|---|---|
+| `.github/workflows/pr-precheck.yml` | **fixed, #626 (`ad330dc20`)** | `pnpm ... typecheck:frontend:json \|\| echo "..."` — the failure swallowed, the step's status became the echo’s 0 |
+| `scripts/ci/collect-tsc.mjs` | **fixed, #628 (`b2ed5155b`)** | printed `❌ TypeScript found N type errors` and then `process.exit(0)` with the comment *"let the CI workflow handle validation"* |
+| the compiler invocation itself | **unidentified** | `npx tsc --noEmit --pretty false` in `frontend/` reports **0 errors** in CI for a file that reports a TS2322 locally |
+
+**The proof, and it failed.** Proof PR **#627** planted one line in `PhoneRepairPage.tsx`:
+
+```ts
+const plantedTypeError: number = 'this is a string'
+```
+
+With both fixes merged into its head (`c8a92a127`), the run reads:
+
+```
+backend typecheck rc=0
+frontend typecheck rc=0
+TypeScript analysis completed with no errors.
+📊 Summary: 0 errors, 0 warnings
+→ TypeScript Type Checking: success
+→ CI Validation (PR Pre-Check): success
+```
+
+So **the gate is still open**, and #1157 stays open with that measurement. The branch was closed
+unmerged after serving its purpose: it proved the gate is open, which is worth more than a plausible
+fix.
+
+**Two links that could not fail, found and closed anyway — and one left honest.** This is the fourth
+gate defect tonight (pre-check jam, typecheck swallow, collector lie, aggregator reading an unverified
+artifact) and the only one where the proof did not come good. A fix without a proof is a claim.
