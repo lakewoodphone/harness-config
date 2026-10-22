@@ -8,7 +8,7 @@
   "pain": 10317,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-22T10:00:12Z",
+ "ceiling_refreshed_at": "2026-10-22T10:15:12Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
@@ -29,7 +29,7 @@
   "decisions": 9728,
   "handoff": 12648,
   "lessons": 12797,
-  "pain": 10570,
+  "pain": 10634,
   "wins": 7194
  },
  "ledger_ceiling": {
@@ -43,8 +43,8 @@
  "log_sig": "34168cb27c3349bbdfc5a93d3f631aaf4a780a71",
  "parse_problems": 0,
  "remote_ids": {
-  "refs_sig": "8761e347114382e69ad605444859a33489de3c1d",
-  "scanned_at": "2026-10-22 10:12 UTC",
+  "refs_sig": "d1a8b418c317c80b07195c530e19f0783e9f1c52",
+  "scanned_at": "2026-10-22 10:22 UTC",
   "tops": {
    "decisions": 3995,
    "handoff": 3778,

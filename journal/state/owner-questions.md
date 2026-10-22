@@ -6,7 +6,7 @@ Updated: 2026-10-22
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 651 row(s) read, 20 pending, generated 2026-10-22 09:23 UTC on SECRATARY-CLOUD.
+Provenance: 654 row(s) read, 23 pending, generated 2026-10-22 10:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -28,7 +28,10 @@ Provenance: 651 row(s) read, 20 pending, generated 2026-10-22 09:23 UTC on SECRA
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
 | 924 | 2026-10-21 | medium | Run one small card payment on a shop counter device so I can prove the new web filter does not break Stripe? | Run it on the counter iPad (DRN 2003) - it applied the profile most recently (2026-10-20T16:24Z), so it is the device that still has to prove a Stripe charge goes through with the filter on. Any small real sale is enough |
 | 926 | 2026-10-22 | medium | Seven pickup orders carry a status note saying 'paid $X' totaling $745, but have no order total and no payment row. Should I record the amount the note names? | Record the $745 the notes name as order totals with an audited pricing_edit row, because the note was written at the counter and $0 understates revenue; do not create payment rows without your confirmation that the cash/ |
+| 933 | 2026-10-22 | medium | Play Integrity attestation is inert on every phone until a Google Cloud project number exists. Do you want me to create/pay for that project, or should I delete the code path instead? | A. Create the project. It is a one-time setup on an account you control, the API is free at our volume, and it is the only way attestation ever works. Do not delete the path - deleting it loses a real capability that is  |
+| 935 | 2026-10-22 | medium | The thirty-day release wait: does the clock start when the shop seals the phone, or when the customer asks? The code says sealed; the decision document says the request. | A. Keep the code's rule - thirty days from setup - and correct the decision document. It is the stricter promise, it is predictable at the counter, and it cannot be gamed by asking late. 'From the request' would let a cu |
 | 925 | 2026-10-21 | low | The outside-door stuck-open alert is live and both cause branches are proven. May I send one test push to your phones (iPhone 15 and Zabz Waze) to confirm the phone leg actually arrives? | Yes - one test push now closes the only unproven leg; otherwise the automation stays proved in HA and sends only real alerts. |
 | 930 | 2026-10-22 | low | What was the 1.50 charge at neuman company on 20 Oct (card ending 2005) - we can see 'Neuman Company', but no category: what this merchant sells and whether the charge is business or personal? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
+| 934 | 2026-10-22 | low | Knox Guard is not bought and its dead code path is deleted. Do you want to buy Knox Guard for Samsung devices, or is the VPN/DNS lane enough? | A. Do not buy it yet. The VPN lane covers every handset, there is no Samsung pilot, and a licence adds a vendor dependency before the first customer ships. Revisit when a dealer asks for the faster lane. |
 
 Closed since the queue opened: 631. Answered questions move to `entries/decisions/` with the owner's own words.
