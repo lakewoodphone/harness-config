@@ -1,14 +1,14 @@
 {
- "built": "2026-10-22 16:12 UTC",
+ "built": "2026-10-22 18:07 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 9665,
   "handoff": 12586,
   "lessons": 12798,
-  "pain": 11275,
+  "pain": 11340,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-22T17:45:09Z",
+ "ceiling_refreshed_at": "2026-10-22T18:00:11Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
@@ -19,11 +19,11 @@
  "db": "journal.db + fts5",
  "db_error": null,
  "drift_measured": "2026-10-22 11:49 UTC",
- "entries": 6159,
- "entries_count": 6159,
- "entries_sig": "cb33121dba082d0f2ed9d804a6b5dd7e74ac3aab",
+ "entries": 6161,
+ "entries_count": 6161,
+ "entries_sig": "ad01ed88a4494f299735ee2b73d0ad2e96e91a22",
  "fetch_rc": 128,
- "fetched_at": 1792669718.7610855,
+ "fetched_at": 1792692443.5670485,
  "flat_sig": "aa5d5d902a3166dffbcc8803845af4dbd130e22c",
  "git_ceiling": {
   "decisions": 9728,
@@ -43,14 +43,14 @@
  "log_sig": "34168cb27c3349bbdfc5a93d3f631aaf4a780a71",
  "parse_problems": 0,
  "remote_ids": {
-  "refs_sig": "efba1a1327c70af3638675b5ecb48b23035ded98",
-  "scanned_at": "2026-10-22 15:02 UTC",
+  "refs_sig": "1c364df92ba4bc4aad9beeaf51932d4bb3217166",
+  "scanned_at": "2026-10-22 18:07 UTC",
   "tops": {
-   "decisions": 3995,
-   "handoff": 3778,
-   "lessons": 3935,
-   "pain": 3817,
-   "wins": 2877
+   "decisions": 9362,
+   "handoff": 12312,
+   "lessons": 12252,
+   "pain": 9871,
+   "wins": 7195
   }
  },
  "unabsorbed": {},
