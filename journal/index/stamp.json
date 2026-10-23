@@ -1,47 +1,48 @@
 {
- "built": "2026-10-21 05:22 UTC",
+ "built": "2026-10-23 03:29 UTC",
  "cache_version": 2,
  "ceiling": {
-  "decisions": 9309,
-  "handoff": 12216,
-  "lessons": 12167,
-  "pain": 9676,
-  "wins": 7134
+  "decisions": 9314,
+  "handoff": 12396,
+  "lessons": 12287,
+  "pain": 9869,
+  "wins": 7140
  },
  "db": "journal.db + fts5",
- "drift_measured": "2026-10-21 05:30 UTC",
- "entries": 4804,
- "entries_count": 4804,
- "entries_sig": "0fcc6d6451ac42bb216ac7f7d213e4027bf754c4",
+ "db_error": null,
+ "drift_measured": "2026-10-23 03:29 UTC",
+ "entries": 4882,
+ "entries_count": 4882,
+ "entries_sig": "d72ee03198d42b5d5db98c8df645405f92e47cb7",
  "fetch_rc": 0,
- "fetched_at": 1792554093.0414917,
+ "fetched_at": 1792726151.2956438,
  "flat_sig": "fbebfc3a7b8e3f2d4f30fd7a2290b1b003d00cc4",
  "git_ceiling": {
-  "decisions": 7489,
-  "handoff": 12016,
-  "lessons": 10177,
-  "pain": 8587,
-  "wins": 6939
+  "decisions": 9314,
+  "handoff": 12395,
+  "lessons": 12197,
+  "pain": 9869,
+  "wins": 7140
  },
  "ledger_ceiling": {
-  "decisions": 9280,
-  "handoff": 12200,
-  "lessons": 12157,
-  "pain": 9866,
-  "wins": 7130
+  "decisions": 9408,
+  "handoff": 12392,
+  "lessons": 12285,
+  "pain": 9930,
+  "wins": 7258
  },
  "log_count": 9,
  "log_sig": "b3990b53ecb4ee05a54fd63c6a8c7790ae1fee84",
  "parse_problems": 0,
  "remote_ids": {
-  "refs_sig": "3342658f0d4065bce4ae5b5f2c033a2f56e3e5e9",
-  "scanned_at": "2026-10-21 03:42 UTC",
+  "refs_sig": "79d0c85d7057837b3ec7cf97350d64835f7b4fc0",
+  "scanned_at": "2026-10-23 03:29 UTC",
   "tops": {
-   "decisions": 3995,
-   "handoff": 3728,
-   "lessons": 3897,
-   "pain": 3817,
-   "wins": 2815
+   "decisions": 9314,
+   "handoff": 12395,
+   "lessons": 12197,
+   "pain": 9869,
+   "wins": 7140
   }
  },
  "unabsorbed": {},
