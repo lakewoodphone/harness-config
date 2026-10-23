@@ -1116,6 +1116,28 @@ def rows_history(src: sqlite3.Connection):
         }
 
 
+def _other_party(direction: str | None, from_number: str | None,
+                 to_number: str | None) -> str | None:
+    """The number on the far side of the message, not our own line.
+
+    MEASURED 2026-10-23 (ledger item 1195): `from_number or to_number` is right for
+    an INBOUND text and wrong for every OUTBOUND one, where `from_number` is the
+    shop's AI line (+17324447361). The index therefore keyed the owner's replies to
+    the shop instead of the customer, and `ps_comms_waiting` -- which compares the
+    last inbound party with an outbound on the SAME party -- kept listing
+    +18483897895 as unanswered after sms_log 4407 was delivered. Direction decides
+    which column is the other party; the fallback keeps a row addressable when one
+    column is empty.
+    """
+    inbound = str(direction or "").strip().lower() in (
+        "inbound", "in", "incoming", "received")
+    if inbound:
+        return (str(from_number).strip() if from_number
+                else (str(to_number).strip() if to_number else None))
+    return (str(to_number).strip() if to_number
+            else (str(from_number).strip() if from_number else None))
+
+
 def rows_call_log(src: sqlite3.Connection):
     if not _has_table(src, "call_log"):
         return
@@ -1136,7 +1158,9 @@ def rows_call_log(src: sqlite3.Connection):
             "ts": _ts_from(vals.get("created_at")),
             "direction": vals.get("direction"),
             "counterparty": vals.get("contact_name"),
-            "address": vals.get("from_number") or vals.get("to_number"),
+            "address": _other_party(vals.get("direction"),
+                                     vals.get("from_number"),
+                                     vals.get("to_number")),
             "subject": "call_log", "text": text,
             "source_table": "call_log",
         }
@@ -1163,7 +1187,9 @@ def rows_sms_log(src: sqlite3.Connection):
             "ts": _ts_from(vals.get("created_at")),
             "direction": vals.get("direction"),
             "counterparty": vals.get("contact_name"),
-            "address": vals.get("from_number") or vals.get("to_number"),
+            "address": _other_party(vals.get("direction"),
+                                     vals.get("from_number"),
+                                     vals.get("to_number")),
             "subject": "sms_log", "text": text, "source_table": "sms_log",
         }
 
