@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-10-22
+Updated: 2026-10-23
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 658 row(s) read, 23 pending, generated 2026-10-22 21:49 UTC on ZABZ-TECH.
+Provenance: 661 row(s) read, 24 pending, generated 2026-10-23 05:09 UTC on ZABZ-TECH.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -28,10 +28,11 @@ Provenance: 658 row(s) read, 23 pending, generated 2026-10-22 21:49 UTC on ZABZ-
 | 906 | 2026-10-21 | medium | Should agent-initiated texts on the shop line stay live with no per-message approval, or be drafts you approve? | I recommend draft-only: agents prepare the text and you send or approve it, matching your no-automatic-texts rule. |
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
 | 924 | 2026-10-21 | medium | Run one small card payment on a shop counter device so I can prove the new web filter does not break Stripe? | Run it on the counter iPad (DRN 2003) - it applied the profile most recently (2026-10-20T16:24Z), so it is the device that still has to prove a Stripe charge goes through with the filter on. Any small real sale is enough |
-| 936 | 2026-10-22 | medium | The disk is healthy again (27 GB free after this shift removed 16 GB of debris), but the 34 GB company database and the 15 GB search index have no size ceiling. When headroom next falls below 15%, should I cap the search index, or plan another volume resize? | No purchase. Approve the archive-and-prune of cold session-event days (existing tools: dsh_session_events_archive.py writes verified per-day zstd JSONL; the gap is making the archive SQL-queryable so search still sees ol |
 | 937 | 2026-10-22 | medium | Approve the lpt-apps deploy for the personality system: the engineered branch is pushed and every gate is green, and the host is read-only so nothing can be released without your yes. Deploy to staging first (same box, no public traffic) or straight to production? | Approve it, staging first: I run `deploy-staging.sh integrate/100pct`, re-run the eleven readiness assertions against staging, then `deploy-production.sh integrate/100pct` with the health gate that can now fail — roughly |
+| 943 | 2026-10-22 | medium | Quick Sale still has a Card button that files a card sale as if it were a counter cash entry. Should I take that button away and send card sales through the card-reader screen, which records the real charge? | Yes - take it away. The card-reader screen (Charge on the Spot) already records the real charge, and the newer staff sale screen already refuses to file a card sale as an offline payment. The Quick Sale button is what pu |
 | 925 | 2026-10-21 | low | The outside-door stuck-open alert is live and both cause branches are proven. May I send one test push to your phones (iPhone 15 and Zabz Waze) to confirm the phone leg actually arrives? | Yes - one test push now closes the only unproven leg; otherwise the automation stays proved in HA and sends only real alerts. |
-| 930 | 2026-10-22 | low | What was the 1.50 charge at neuman company on 20 Oct (card ending 2005) - we can see 'Neuman Company', but no category: what this merchant sells and whether the charge is business or personal? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
+| 930 | 2026-10-22 | low | What was the 1.50 charge at neuman company on 20 Oct (card ending 2005) - we can see 'Neuman Company', but no category: what this merchant sells and whether the charge is business or personal? | Dining (a vending snack or drink): Plaid says Food and Drink and the four Nayax vending charges in your book are already Dining. If it was the air/vacuum machine, say Home Improvement. |
 | 934 | 2026-10-22 | low | Knox Guard is not bought and its dead code path is deleted. Do you want to buy Knox Guard for Samsung devices, or is the VPN/DNS lane enough? | A. Do not buy it yet. The VPN lane covers every handset, there is no Samsung pilot, and a licence adds a vendor dependency before the first customer ships. Revisit when a dealer asks for the faster lane. |
+| 944 | 2026-10-23 | low | The 16.4 GB of freed pages inside the company database can be returned to the disk with a one-time VACUUM. Run it, or leave it? | Leave it. 56 GB free is comfortable, growth is already stopped, and a 15 to 23 GB rewrite of the live database tonight buys headroom we do not need while adding the one operation with a write-lock risk. Nothing is blocke |
 
-Closed since the queue opened: 635. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 637. Answered questions move to `entries/decisions/` with the owner's own words.
