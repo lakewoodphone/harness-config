@@ -244,6 +244,7 @@ else
   run mkdir -p "$BIN_DIR"
   install_file "$SRC_DIR/wake.py"     "$BIN_DIR/wake.py"         0755
   install_file "$SRC_DIR/dispatch.sh" "$BIN_DIR/wake-dispatch.sh" 0755
+  install_file "$SRC_DIR/runner-linux.sh" "$BIN_DIR/wake-run.sh" 0755
   install_file "$SRC_DIR/cron.txt"    "$BIN_DIR/wake-cron.txt"    0644
   if [ -d "$SRC_DIR/sources" ]; then
     run mkdir -p "$BIN_DIR/wake-sources"
