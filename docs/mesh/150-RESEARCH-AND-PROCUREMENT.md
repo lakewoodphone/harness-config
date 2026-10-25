@@ -34,7 +34,7 @@ fourth one. Check the table first.
 `lpt-hub/scripts/sourcing/ebay_api.py` — stdlib-only Browse API client plus `doctor`, `selftest`,
 `search`, `item`, `conditions`. Deployed to the authority as
 `/opt/company/data/tools/ebay_api.py` (byte-identical, sha256
-`cb2829c455b9dcbc63619b7ed185467c275635e88875cb1afd4cd10064fcf19e`) with the dispatcher wrapper
+`120ce68a1cd37f4683400909ff7ad09193e1efaa835e259d034abea7a7e3691a`) with the dispatcher wrapper
 `ebay_browse_search.py`, so company agents can search eBay without a browser.
 
 ```
@@ -65,12 +65,35 @@ answers `invalid_client` — indistinguishable from a mistyped secret. The App I
 byte-for-byte with the value the portal displays: **identical**, 40 characters, no differing
 position. Remediation, in order — **one change at a time, re-running `doctor` after each**:
 
-1. developer.ebay.com → your app → **Alerts & Notifications** → turn on **"Exempted from Marketplace
-   Account Deletion"** and Save (correct for us: public item data only, we receive no eBay user
-   data), or enter an HTTPS endpoint + verification token and Save. The label beside *Environment*
-   should leave "Non Compliant".
+1. **Subscribe** — developer.ebay.com → your app → **Alerts & Notifications** → leave the exemption
+   toggle OFF, set the endpoint to
+   `https://api.abletelsolutions.com/webhook/ebay-marketplace-account-deletion` and the verification
+   token to the contents of `/root/.secrets/ebay-deletion-token`, then Save. The label beside
+   *Environment* should leave "Non Compliant".
 2. If it still refuses, check the Cert ID belongs to this App ID.
 3. Only then re-copy App ID + Cert ID from Keys.
+
+**Why subscribe and not the exemption** — corrected 2026-10-25 after reading eBay's guide properly.
+The opt-out wording is *"I do not persist eBay data"*, and the sourcing ledger
+(`sourcing/listings/*.json`) keeps `title`, `price`, `condition`, image URLs and
+`seller_ledger.seller_name`. A seller display name is tied to an eBay user account — exactly the data
+a deletion request concerns — and the portal warns that incorrect information "may result in
+penalties or having your account disabled". So we subscribe. **This supersedes the opt-out advice in
+lesson `L13440`**, which was wrong on that point.
+
+**The endpoint is live and proven.** `personal-secretary-mvp/app/services/ebay_account_deletion.py`,
+routes under `/webhook/` (already public in `_api_access_guard`, every handler verifying itself).
+Verified 2026-10-25 over the real public hostname: `GET ?challenge_code=…` returned `200` with a
+`challengeResponse` equal to a SHA-256 computed independently on the calling machine, both before and
+after a clean `company-api` restart; `POST` of a synthetic notification returned
+`{"ok":true,"recorded":true}`. Selftest 13/13.
+
+**Deletion handling is anonymisation, not deletion:** the matching `seller_name` becomes
+`[deleted-user]` with `seller_name_redacted_at`, and the commercial fields survive — a closed
+account does not retract the fact that the listing was inspected. **The authority records a request
+but cannot redact it**, because lpt-hub is not checked out there; the handler reports
+`"note": "no ledger directory"` rather than pretending. Run
+`python -m app.services.ebay_account_deletion --redact <username>` on a host that holds the ledger.
 
 **Do not build on the dead surfaces — measured, not assumed:**
 
