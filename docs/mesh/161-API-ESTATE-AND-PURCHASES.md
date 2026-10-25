@@ -348,3 +348,38 @@ record and a single page to read.
 
 Cost at the shop's real volume, at 0.75: 20 phones a month = 15.00; 40 = 30.00. At 0.33:
 6.60 and 13.20. **Either way the recommendation stands, and the ceiling is under 30 a month.**
+
+### 3.1c CORRECTION — the requirement is model identification, not a device-condition check
+
+The owner, 2026-10-25, verbatim: *"the only thing i need checks for are to identify customers phone
+when i have the imei and don't know the exact model"*.
+
+**This supersedes the 0.75 and 0.33 recommendations in 3.1 and 3.1b.** Activation lock, MDM,
+GSMA/blacklist and the Apple full record answer "should I buy this phone". They do not answer
+"which phone is this", and paying for them to identify a model is paying for four facts nobody
+asked for.
+
+What the same price list charges for the actual need, re-read from `imeicheck.com/pricing`:
+
+| need | check | per call |
+|---|---|---|
+| brand + model, any brand | Brand + Model IMEI Check | **0.01** |
+| Apple model with its A-number | Find My iPhone (On/Off) + Model | **0.01** |
+| Samsung, with model name/number and production date | Samsung IMEI Check | **0.05** |
+| deeper Apple record | APPLE FULL INFO (+CARRIER)-NEW | 0.12 |
+
+Their own site (`imeicheck.com/imei-check`, read 2026-10-25) advertises a **free** check that
+"covers the essentials" and names device model, brand and colour among them; premium checks go
+deeper. **The exact free payload is unverified** — it needs one real IMEI pushed through the form,
+which is the first thing to do before spending anything.
+
+**Two engineering facts that make this near-free in practice:**
+1. An IMEI's first 8 digits are the TAC, and every unit of one model shares it. A local
+   TAC -> model cache means the shop pays once per model it has ever seen, and repeat lookups are
+   instant and free. At 0.01 a lookup with a TAC cache, a 5 top-up is not a monthly cost, it is a
+   capital of 500 first-time model lookups.
+2. The output feeds the part path directly: IMEI -> model -> `shop_sourcing.py "screen for <model>"`.
+   That is the loop that turns a customer's broken phone into a quoted part.
+
+**Verdict: no monthly purchase. Test the free check first; if it returns brand+model, spend nothing.
+If it does not, top up 5 and buy the 0.01 brand+model check with a TAC cache in front of it.**
