@@ -34,7 +34,7 @@ fourth one. Check the table first.
 `lpt-hub/scripts/sourcing/ebay_api.py` — stdlib-only Browse API client plus `doctor`, `selftest`,
 `search`, `item`, `conditions`. Deployed to the authority as
 `/opt/company/data/tools/ebay_api.py` (byte-identical, sha256
-`120ce68a1cd37f4683400909ff7ad09193e1efaa835e259d034abea7a7e3691a`) with the dispatcher wrapper
+`1fc783361f5d0062391ff7ebe2d443a790dfe22e5cc6d35f0edada56344b8c17`) with the dispatcher wrapper
 `ebay_browse_search.py`, so company agents can search eBay without a browser.
 
 ```
@@ -56,22 +56,43 @@ safe thing to quote, never the values.
 > is a credential in a public repo. **This line and the module docstring are authoritative**; a
 > future session that finds a mismatch re-deploys from `lpt-hub` and updates this line.
 
-**Measured state of the credential:** OAuth returns `401 invalid_client`. **Cause identified
-2026-10-25 from the owner's own portal screenshot: the application is labelled "Non Compliant".**
-eBay's [marketplace user account deletion guide](https://developer.ebay.com/develop/guides/marketplace-user-account-deletion.md)
-requires every developer to subscribe to **or opt out of** Marketplace Account Deletion *before the
-first production API call*; until then the Production keyset stays disabled, and a disabled keyset
-answers `invalid_client` — indistinguishable from a mistyped secret. The App ID was compared
-byte-for-byte with the value the portal displays: **identical**, 40 characters, no differing
-position. Remediation, in order — **one change at a time, re-running `doctor` after each**:
+**STATE 2026-10-25: WORKING.** The keyset authenticates and Browse answers from both the authority and
+the workstations. The blocker was never the credentials — it was a **disabled keyset**. The portal
+labelled the application "Non Compliant", and eBay disables Production keysets until the application
+subscribes to **or opts out of** Marketplace Account Deletion
+([eBay's guide](https://developer.ebay.com/develop/guides/marketplace-user-account-deletion.md)).
+Once the endpoint below was saved, `doctor` went from `401 invalid_client` to a token in ~200 ms.
+Verified the same day: 13 consecutive token requests, 0 refusals, 0 transport errors.
 
-1. **Subscribe** — developer.ebay.com → your app → **Alerts & Notifications** → leave the exemption
-   toggle OFF, set the endpoint to
-   `https://api.abletelsolutions.com/webhook/ebay-marketplace-account-deletion` and the verification
-   token to the contents of `/root/.secrets/ebay-deletion-token`, then Save. The label beside
-   *Environment* should leave "Non Compliant".
-2. If it still refuses, check the Cert ID belongs to this App ID.
-3. Only then re-copy App ID + Cert ID from Keys.
+| check | result 2026-10-25 |
+|---|---|
+| OAuth application token | issued in 158–324 ms |
+| Browse `item_summary/search` | 4,763 live results for "dell latitude 5420" |
+| `conditionIds:{2010}` filter honoured | 138 matches, every one condition 2010 |
+| workstation and authority | both green |
+
+**The compliance endpoint** (live, challenge-verified): `GET/POST` on
+`https://api.abletelsolutions.com/webhook/ebay-marketplace-account-deletion`, handled by
+`personal-secretary-mvp/app/services/ebay_account_deletion.py`; verification token at
+`/root/.secrets/ebay-deletion-token` (0600) and `~/.secrets/ebay-deletion-token` on the workstations.
+Routes live under `/webhook/` because `_api_access_guard` already leaves that prefix public and every
+handler verifies itself.
+
+**What we do NOT claim:** the "Exempted from Marketplace Account Deletion" opt-out. Its wording is
+*"I do not persist eBay data"*, and the sourcing ledger keeps `seller_ledger.seller_name` — a display
+name tied to an eBay user account. Claiming it would be a false declaration under a page that warns
+of penalties or account disablement. Deletions are answered by anonymisation: the matching
+`seller_name` becomes `[deleted-user]` with `seller_name_redacted_at`, and the commercial record
+survives. Run `python -m app.services.ebay_account_deletion --redact <username>` on a host that holds
+the ledger — **the authority records a request but cannot redact it**, and says so in its own result
+rather than reporting success.
+
+**The filter trap, measured 2026-10-25.** eBay's Browse filter key is **`conditionIds`**;
+`conditions:` is accepted and **silently ignored**, returning 2,671 items across every condition while
+`conditionIds:{2010}` returned the correct 138. A wrong filter key is not an error at eBay — it is an
+unfiltered answer that looks filtered, which is exactly how a sourcing sweep prices the wrong tier and
+never notices (`L2386` is the same failure from the scraping side). `doctor` now runs a live
+filter-honoured check: ask for 2010, assert every returned `conditionId` is 2010.
 
 **Why subscribe and not the exemption** — corrected 2026-10-25 after reading eBay's guide properly.
 The opt-out wording is *"I do not persist eBay data"*, and the sourcing ledger
