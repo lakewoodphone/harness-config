@@ -34,7 +34,7 @@ fourth one. Check the table first.
 `lpt-hub/scripts/sourcing/ebay_api.py` — stdlib-only Browse API client plus `doctor`, `selftest`,
 `search`, `item`, `conditions`. Deployed to the authority as
 `/opt/company/data/tools/ebay_api.py` (byte-identical, sha256
-`741ccce12ad9aca3ad8d4b5531533e89401f4c6e1bcc9cdde289555f1b84bde6`) with the dispatcher wrapper
+`cb2829c455b9dcbc63619b7ed185467c275635e88875cb1afd4cd10064fcf19e`) with the dispatcher wrapper
 `ebay_browse_search.py`, so company agents can search eBay without a browser.
 
 ```
@@ -56,12 +56,21 @@ safe thing to quote, never the values.
 > is a credential in a public repo. **This line and the module docstring are authoritative**; a
 > future session that finds a mismatch re-deploys from `lpt-hub` and updates this line.
 
-**Measured state of the credential:** OAuth returns `401 invalid_client`. A malformed grant would
-answer `invalid_request`/`unsupported_grant_type`, so the request shape is accepted and eBay is
-rejecting the **pair**; eBay does not say which half. Both shapes are correct (App ID 40 chars
-`Name-App-PRD-<9>-<8>`; Cert ID 36 chars `PRD-` + 12-4-4-4-4). Remediation, in order: re-copy both
-values; check the Cert ID belongs to this App ID; accept the API License Agreement on
-developer.ebay.com and retry (activation is not instant).
+**Measured state of the credential:** OAuth returns `401 invalid_client`. **Cause identified
+2026-10-25 from the owner's own portal screenshot: the application is labelled "Non Compliant".**
+eBay's [marketplace user account deletion guide](https://developer.ebay.com/develop/guides/marketplace-user-account-deletion.md)
+requires every developer to subscribe to **or opt out of** Marketplace Account Deletion *before the
+first production API call*; until then the Production keyset stays disabled, and a disabled keyset
+answers `invalid_client` — indistinguishable from a mistyped secret. The App ID was compared
+byte-for-byte with the value the portal displays: **identical**, 40 characters, no differing
+position. Remediation, in order — **one change at a time, re-running `doctor` after each**:
+
+1. developer.ebay.com → your app → **Alerts & Notifications** → turn on **"Exempted from Marketplace
+   Account Deletion"** and Save (correct for us: public item data only, we receive no eBay user
+   data), or enter an HTTPS endpoint + verification token and Save. The label beside *Environment*
+   should leave "Non Compliant".
+2. If it still refuses, check the Cert ID belongs to this App ID.
+3. Only then re-copy App ID + Cert ID from Keys.
 
 **Do not build on the dead surfaces — measured, not assumed:**
 
