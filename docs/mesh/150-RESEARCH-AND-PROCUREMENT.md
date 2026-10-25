@@ -50,7 +50,7 @@ ZABZ-YOGA, ZABZ-TECH, `zabz-tech-linux`, and `secratary-cloud:/root/.secrets/eba
 Pair fingerprint `a47e8d3196e8` (sha256[:12]) is identical on all four — that fingerprint is the
 safe thing to quote, never the values.
 
-> **The sha in decision `D9410` is the pre-fix value `a068cc…1db`.** Ten minutes after that decision
+> **The sha in decision `D10049` is the pre-fix value `a068cc…1db`.** Ten minutes after that decision
 > was written, the module's selftest fixtures were found to contain the real keyset and were replaced
 > with synthetic ones — that is the whole point of `P13b`/`P2938`, since a real credential in a test
 > is a credential in a public repo. **This line and the module docstring are authoritative**; a
