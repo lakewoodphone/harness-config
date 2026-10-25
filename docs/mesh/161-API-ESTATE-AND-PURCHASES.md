@@ -319,3 +319,32 @@ Item by item, so nobody later quotes it as fact:
   **55 entries — 21 modified (` M`), 34 untracked (`??`)**. Before this document was written the count
   was **54 (21 modified, 33 untracked)**. The single entry this workstream added is
   `?? docs/mesh/161-API-ESTATE-AND-PURCHASES.md`; the other 54 pre-date it and were not touched.
+
+### 3.1b Per-check price list, re-read from the vendor 2026-10-25 (owner asked)
+
+Every line below was read on `https://imeicheck.com/pricing` in this session, not taken from a
+worker's summary. Pay-as-you-go, no subscription.
+
+| check | per call |
+|---|---|
+| Blacklist Check (all brands) | 0.01 |
+| Brand + Model IMEI Check | 0.01 |
+| Find My iPhone (On/Off) + Model | 0.01 |
+| Warranty + Activation + Replaced | 0.01 |
+| iCloud Status (Clean/Lost) + Model | 0.02 |
+| Apple SimLock + Model | 0.02 |
+| Apple Carrier + SimLock | 0.04 |
+| Samsung IMEI Check | 0.05 |
+| Blacklist PRO (all brands, with per-record history) | 0.06 |
+| Samsung Info & KNOX GUARD (S1) | 0.10 |
+| APPLE FULL INFO (+CARRIER)-NEW | 0.12 |
+| iPhone / iPad MDM Check | 0.25 |
+| **Apple FULL + MDM + GSMA PRO** | **0.75** |
+
+**The decomposition matters more than the headline.** The 0.75 bundle is one call and one report.
+The same decision can be bought as three cheaper calls: iCloud status 0.02 + MDM 0.25 + Blacklist
+PRO 0.06 = **0.33**, for 2.3x less. What the bundle adds is the Apple warranty/activation/serial
+record and a single page to read.
+
+Cost at the shop's real volume, at 0.75: 20 phones a month = 15.00; 40 = 30.00. At 0.33:
+6.60 and 13.20. **Either way the recommendation stands, and the ceiling is under 30 a month.**
