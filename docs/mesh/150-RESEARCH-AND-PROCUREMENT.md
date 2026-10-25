@@ -146,6 +146,41 @@ in a working tree that no longer exists. **Do not cite them as existing capabili
 
 ---
 
+
+
+## 2.4 Where marketplace data can actually be had — measured 2026-10-25
+
+Sourcing research means asking, programmatically: *what is this part or machine costing across the
+places we buy from?* This is the map of what answers that, as of 2026-10-25. Each verdict is either
+something tested with our own keyset or attributed to the vendor's own documentation.
+
+| marketplace | can we research it programmatically? | how |
+|---|---|---|
+| **eBay — active listings** | **YES, working** | `ebay_api.py search`. Live: 4,763 results for "dell latitude 5420". |
+| **eBay — category vocabulary** | **YES, working** | Taxonomy API, `get_default_category_tree_id` → tree `0` version `134`. Gives category ids and aspect definitions, so a query can be built from eBay's own vocabulary rather than guessed keywords. |
+| **eBay — market characterisation** | **YES, working** | `search --aspects` sends `fieldgroups=ASPECT_REFINEMENTS` and returns aspect groups with match counts. Measured on "latitude 5420 screen": 606 matches, 256 at 14 in, 206 at 1920x1080, 96 LED LCD, 34 CCFL, **156 with no panel technology stated**. A sweep can now describe a market instead of listing rows. |
+| **eBay — bulk item feeds** | **NO with this keyset** | `/buy/feed/v1/item`, `/item_snapshot`, `/item_group` all return **404 "Resource not found"**. Do not promise daily category dumps. |
+| **eBay — sold/completed comps** | **NO API** | The Finding API (`findCompletedItems`) was decommissioned **2025-02-04**; Browse replaced it but does not reproduce sold search; Marketplace Insights is **Limited Release, not open to new applicants**, possibly reachable only through an eBay account manager (third-party source: compsniper.com). Sold comps remain a UI job (Terapeak) or a paid vendor. |
+| **Amazon** | **NOT as documented by most guides** | **PA-API 5.0 is deprecated**; Amazon's own docs say calls now get `403 AccessDeniedException` and point to the **Creators API**, which rides on an Amazon Associates account. Paid alternates: **Keepa** (Amazon-deep: sales rank, seller and long price histories) or a multi-retailer vendor. |
+| **Laptop screens / repair parts** | **NO distributor API** | MobileSentrix and Injured Gadgets integrations exist only *inside* POS products (RepairDesk, RepairQ). Research panels through eBay aspects + the suppliers' own portals. |
+| **Newegg** | **NO official product API found** | Only third-party scrapers. Treat any Newegg data as scraped evidence with a timestamp. |
+| **Back Market** | **Seller-side only** | Its API is a *seller* API — three separate platforms (EU / US / AP), each with its own account, token and sandbox. It is not a research catalogue of other people's prices. |
+| **Best Buy** | **Limited** | A developer API exists but does not expose store-level stock; used/refurb inventory is not researchable that way. |
+| **Walmart** | **Possibly** | Marketplace (seller) and Affiliate/Catalog (consumer) APIs exist, with OAuth and RSA-signature auth. Worth a trial if retail benchmarking matters. |
+| **Electronic components** (board-level repair) | **Priced out** | Nexar/Octopart: evaluation tier is **100 parts lifetime**; the useful tiers run to hundreds or thousands per month. Priced for engineering firms, not a repair shop. |
+
+**The practical research stack, in order:** eBay Browse + Taxonomy + aspects (free, ours, proven) →
+licensed scraping with Firecrawl `proxy: stealth` for the marketplaces with no API (proven on eBay
+pages; sold/completed stays gated) → one paid price-history vendor **if** Amazon or multi-retailer
+history becomes load-bearing. Do not build a scraper where an API exists, and do not buy an API where
+the data is a login-gated UI.
+
+**Two research rules that have already cost money here:** a model number matches its own *parts*
+(the first "latitude 5420" ladder read returned a 122 motherboard as the cheapest "laptop"), and eBay
+silently ignores a filter key it does not recognise (`L13504`), so a sweep must assert what came back.
+
+---
+
 ## 3. The two rules that outrank any of this
 
 1. **Never send a customer a marketplace link, source price, margin, seller name, item number,
