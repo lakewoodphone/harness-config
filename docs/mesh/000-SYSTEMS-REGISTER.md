@@ -121,7 +121,32 @@ the surface agents call is now `esearch`, and it answers over SESSIONS too.**
 
 ---
 
-## 3. Which system is authoritative for what
+### 2.6 Online research and procurement — **ALREADY EXISTS, and half of it is a mirage**
+
+Added 2026-10-23 (owner asked for the inventory after creating an eBay Production keyset). Full
+detail, every measured number and every dead end: **`docs/mesh/150-RESEARCH-AND-PROCUREMENT.md`**.
+The four things a session must know before it builds anything in this area:
+
+| need | use | the trap |
+|---|---|---|
+| eBay listings, prices, conditions | **`lpt-hub/scripts/sourcing/ebay_api.py`** — Browse API client, `doctor` / `selftest` / `search` / `item`. Deployed to the authority as `/opt/company/data/tools/ebay_api.py` (+ `ebay_browse_search.py` for the dispatcher) | credentials are at `~/.secrets/ebay-personal.env`; on 2026-10-23 eBay answered **401 invalid_client**, so the client is proven (17/17 selftest) and the keyset is not yet accepted. `doctor` says which half it can and cannot localise |
+| a web answer / a page | `ps_action("web_search")`, Firecrawl (`proxy: stealth` for eBay search+item), Jina `read_url` | eBay **sold/completed is login-gated**; Firecrawl JSON mode fails on eBay search pages — use markdown (`L2386`) |
+| long multi-source research | `personal-secretary-mvp/app/services/research_dispatcher.py` | **idle since 2026-07-08** — `research_jobs` on the authority: newest `submitted_at` 2026-07-08T05:40:32Z, 70 queued, 3 stuck `running` since 2026-07-03. Check the table before commissioning a fourth pipeline |
+| Alibaba/AliExpress and FB Marketplace | `lpt-hub/scripts/procurement-assistant/`, `.../marketplace-assistant/` | both need a one-time interactive `login` in their own Chrome profile |
+
+**The mirage, measured 2026-10-23** — this is the part worth memorising:
+
+* The sourcing README documented four scraper scripts (`find-flip-deals.py`,
+  `ebay_laptop_search.py`, `laptop_sourcing.py`, `collect_ebay_listing_images.py`). **None exists** —
+  not in `lpt-hub` git history on any ref, not in the estate file index. The README was corrected.
+* `open.api.ebay.com` (legacy Shopping API, still called by
+  `data/tools/laptop_sourcing_order_executor.py`) **does not resolve in DNS**.
+  `api.ebay.com/ws/api.dll` (Trading XML) returns **410 Gone**.
+* `data/tools/electronic_part_scout.py` returns **two hardcoded mock parts**; `source_auth_manager.py`
+  reports `authenticated: True` unconditionally; `scraper_auth_manager.py` has **zero consumers** and
+  its vault file does not exist. None of the three is a capability.
+
+
 
 | the question | the answer |
 |---|---|
