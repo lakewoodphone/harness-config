@@ -41,28 +41,39 @@ echo '<json>' | ssh secratary-ts "lpt-label print -"
 
 ## 2. What you can honestly claim after a print
 
-**Corrected 2026-10-12, measured on this printer. The old claim here — that a print is proven by the
-status page going `READY → PRINTING → READY` — is not usable:**
+**Corrected twice — 2026-10-12 (a poll loop cannot see it) and 2026-10-25 (one read right after the
+send can):**
 
-- The status page's own `Auto Refresh Interval` is **60000 ms**, and the page read `READY`
-  immediately before and after a 33 mm job. A poll loop run concurrently with the job (60 samples,
-  150 ms apart) saw **`READY` in every single sample**. A small label is fed faster than the page can
-  be re-read, so the transition is simply not observable. Do not spend calls on it.
+- **A poll loop is useless.** The status page's own `Auto Refresh Interval` is **60000 ms**; 60
+  samples 150 ms apart run concurrently with a 33 mm job (2026-10-12) read **`READY` in every single
+  sample**.
+- **One read straight after the send catches the transition — measured 2026-10-25, 30.3 mm job,
+  serial `H3G354844`.** `lpt-label find` run *immediately* after `lpt-label print` returned
+  **`state PRINTING`**, and the same command 6 s later returned **`READY`** with `media Not Empty
+  29mm`. So the printer can be caught feeding the tape that was just sent to it. Do this: send, then
+  ONE `lpt-label find` — not a loop, and not a sleep.
+- What each answer means. `PRINTING` = the job was accepted **and the motor is feeding it**, which
+  is stronger evidence than `instructions_sent` and is the best proof obtainable without eyes on the
+  tape. `READY` straight after the send = the job cleared faster than you could read it (normal for
+  a short label), so it proves nothing either way. `READY` still, with a **media error** or the wrong
+  `media` line = the job did not go and the roll or sheet is wrong.
 - The printer's only counter is **`Total Print Length(m)`** on `information.html` — an **integer
-  metre** (`11` at the time of writing). A 33 mm label cannot move it, so it cannot prove one label
-  either. `lpt-label find` therefore reports nothing about tape.
+  metre** (`11` at the time of writing). A 33 mm label cannot move it, so it cannot prove one label.
+  `lpt-label find` therefore reports nothing about tape in that counter.
 
-So the honest report after sending a job is exactly this, and no more: **the printer was identified
-by model and serial, it was `READY` with the 29 mm roll loaded, and the transport accepted the job
-(`instructions_sent: true`)**. Tape is proven by the tape — the roll in the printer, or the person
-standing next to it. Say which of those you have; if you have neither, say the print is unproven.
+So the honest report after sending a job: **the printer was identified by model and serial, it was
+`READY` with the 29 mm roll loaded, the transport accepted the job, and — if you read it in time —
+the printer was seen `PRINTING` and back to `READY` afterwards.** Tape is still proven by the tape —
+the roll in the printer, or the person standing next to it. Say which of those you have; if you have
+neither, say the print is unproven.
 
 **`brother_ql`'s `did_print` is `false` by construction on this model** — it reads a status register
 over 9100 that this printer never answers. It is `false` even when the tape comes out. Do not report
 a print from the tool's word alone, and do not report a failure from `did_print`.
 
-One more, for the record: a print is 33 mm of tape at 25.6 mm of image, and the job is over in about
-a second — so a job cannot be caught mid-flight by a page that refreshes once a minute.
+One more, for the record: a print is ~30–33 mm of tape at 25.6 mm of image. The feed itself takes a
+few seconds — which is exactly why one read taken immediately after the send lands inside it while a
+poll loop started earlier misses it.
 
 ## 3. Before you spend tape
 
