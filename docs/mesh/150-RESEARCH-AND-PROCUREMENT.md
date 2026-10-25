@@ -181,6 +181,59 @@ silently ignores a filter key it does not recognise (`L13504`), so a sweep must 
 
 ---
 
+
+### 2.4b What actually reaches the market, measured 2026-10-25 (after the owner pushed back)
+
+The owner's correction, verbatim: *"Don't you dare limit yourself… anything you can't do via API you
+can do via normal web browsing — set this up in cascading systems."* He was right, and the estate
+already held the keys: `FIRECRAWL_API_KEY` and `SERPAPI_API_KEY` in `/opt/company/.env` were never
+wired into sourcing.
+
+**The stack that now exists** — `lpt-hub/scripts/sourcing/`:
+
+| file | role |
+|---|---|
+| `ebay_api.py` | eBay Browse API: listings, conditionIds, aspect distributions. Free, ours. |
+| `dataforseo.py` | **Google Shopping at 0.001 per query** (measured). The cross-retailer tier. |
+| `fetch_ladder.py` | Per-site escalation: `firecrawl_json → firecrawl_markdown → playwright → browser_service`, with `capabilities.json` remembering which tier won. |
+| `sourcing_fanout.py` | One query, every source at once, classified into whole / part / accessory. |
+
+**Measured costs and coverage (this session, on our own accounts):**
+
+| tier | cost per query | reaches |
+|---|---|---|
+| eBay Browse API | free | eBay only, but with condition tiers and aspects no buyer-facing page exposes |
+| DataForSEO Google Shopping | **0.001–0.002** | eBay, Walmart, Target, Back Market, Newegg, Swappa, Mercari, TikTok Shop, AliExpress, Parts-People, Bliss Computers, LaptopScreen.com, PCLiquidations, Neobids |
+| SerpApi (fallback) | 0.025 (free plan: 250/month) | similar breadth; kept only as a fallback once DataForSEO works |
+| Firecrawl site scrape | ~5 credits (9,926 left) | the specific site, including JS-rendered pages |
+
+**Two live runs, same session:** "latitude 5420 16gb" → 48 offers across 5 sources in 45 s;
+"latitude 5420 lcd screen fhd" → 24 part offers, from 34.99 to 59.00, spanning eBay sellers,
+AliExpress, LaptopScreen.com, Newegg and aqscreenlcd.
+
+**Where it still fails, and what that cost:**
+
+* **Best Buy** — its JSON tier returns titles with no prices, its markdown tier fabricates a product
+  out of a spec bullet, and Playwright renders a page our parser cannot price. Google Shopping
+  surfaces a Best Buy price only sporadically (1 row in 80 for a Latitude). Recorded `partial`, and
+  the ladder reports it as partial rather than filling the table with question marks.
+* **Amazon via DataForSEO** — `/merchant/amazon/products/live/advanced` returns `20000 Ok` with 0
+  items and 0 cost across three payloads, one naming `language_code` as invalid although their docs
+  list it. **Not wired in.** Amazon stays on the Firecrawl tier, which returns prices. A support
+  ticket was considered and deliberately not filed: the working path already exists.
+* **Google's own shopping page cannot be scraped** — Firecrawl fails on
+  `google.com/search?tbm=shop` across every engine it has. That is why a paid SERP tier is needed at
+  all, rather than free scraping.
+* **DataForSEO's Databases product is not the API** — it sells on-premises SERP database dumps
+  (Amazon included) for bulk historical work, purchased per database. It does not answer "what does
+  this cost right now".
+
+**The rule this section exists to enforce:** "no public API" describes one access route, not the
+market's readability. Before saying "I cannot see that", walk the ladder — API, aggregator, stealth
+scrape, browser — and report which tier answered, which failed, and what it cost.
+
+---
+
 ## 3. The two rules that outrank any of this
 
 1. **Never send a customer a marketplace link, source price, margin, seller name, item number,
