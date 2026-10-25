@@ -378,6 +378,26 @@ def open_titles(project: str) -> set:
             for r in rows if r.get("state") in ("todo", "running", "blocked", "dropped")}
 
 
+def done_titles(project: str) -> dict:
+    """Lowercased title -> done item id for a project.
+
+    A DONE TITLE IS AN ADJUDICATION, NOT AN ABSENCE (ledger item 1265, measured 2026-10-25).
+    Item 1267 repeated item 538's exact title four hours after 538 closed done; 538's decision
+    was that the raw rescue ref must never be merged and its curated form already is. Git will
+    call the raw ref unmerged for ever, so the title is the only durable record that the
+    question was answered. Suppress it exactly as an open title is suppressed.
+    """
+    rc, out = work("list", "--project", project, "--json")
+    if rc != 0 or not out:
+        return {}
+    try:
+        rows = json.loads(out)
+    except Exception:
+        return {}
+    return {(r.get("title") or "").strip().lower(): r.get("id")
+            for r in rows if r.get("state") == "done" and r.get("title")}
+
+
 def candidate_refs(repo: Path) -> list:
     rc, out, _ = git(repo, "for-each-ref", "--format=%(refname:short)\t%(symref)",
                      "refs/remotes/origin")
@@ -655,6 +675,7 @@ def main() -> int:
             recent = [(r, a) for (r, a) in recent if r not in superseded]
         filed = []
         have = open_titles(pid)
+        adjudicated = done_titles(pid)
         for ref, age in sorted(recent):
             if filed_run >= a.limit:
                 filed.append({"branch": ref, "age_days": age, "item": "deferred (per-run limit)"})
@@ -684,6 +705,16 @@ def main() -> int:
             title = "Integrate %s into %s" % (ref, base)
             if title.strip().lower() in have:
                 filed.append({"branch": ref, "age_days": age, "item": "already tracked"})
+                continue
+            # A DONE TITLE IS AN ADJUDICATION, NOT AN ABSENCE (ledger item 1265, 2026-10-25).
+            # Measured: item 1267 re-filed item 538's exact title four hours after 538 closed
+            # done, and 538's decision was that this raw ref is never merged; its curation is
+            # already on base. Suppress before filing, not at claim time, so a scanner pass
+            # creates no row at all and claim-next cannot answer nothing-todo over a live one.
+            if title.strip().lower() in adjudicated:
+                filed.append({"branch": ref, "age_days": age,
+                              "item": "already adjudicated: exact title is done (item %s); "
+                                      "not re-filed" % adjudicated[title.strip().lower()]})
                 continue
             dod = ("%s contains %s and the project's own tests pass afterwards with their result "
                    "lines quoted; `git diff --diff-filter=D --name-only %s HEAD` is empty EXCEPT "
