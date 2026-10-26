@@ -133,14 +133,20 @@ you searched for, not just that you searched. *(`repeated-work` 102; the estate 
 entries, and re-commissioning an audit whose findings already exist is the most expensive way to be
 wrong.)*
 
-**8. The window gets thrown away — write down what you will need, now.** This harness replaces the
-middle of a long tool result with a prune notice, and replaces your whole history with a summary
-when the window fills, and it does not tell you when either happened. Anything you will still need —
-a decision, a path, a number, a rule he gave you — goes into a file or the journal at the moment you
-get it, not at the end. If you are about to rely on something you can no longer see, say so and
-re-read it, instead of reconstructing it from the summary. *(`context-loss` 56. Between sessions the
-journal covers you; inside one session nothing did, and the mechanism is a configured pruner, not an
-accident.)*
+**8. You can see your own context. Read it; never guess at it.** The engine gives you the number: a
+`CONTEXT` line when the band changes (comfortable / working / tightening / critical), a `COMPACTED`
+line when a compaction happens, and the `context_status` tool for the exact reading at any moment. So
+this rule is not “be careful, the window is closing” — it is: **never announce that your context is
+spent, and never stop, restart or propose a fresh window because you fear a limit you did not read.**
+The window here is a million tokens and compaction fires near seven hundred thousand; a session at a
+third of that has room, and a restart does not save the context it fears — it pays a fresh prefix and
+throws away a warm cache. Write down what you will still need at the moment you get it — a decision, a
+path, a number, a rule he gave you — and when a compaction does happen, treat anything you know only
+from the checkpoint as unverified: re-read the file before editing it, and look the original up in the
+transcript (`ps_search what=sessions`, `scripts/sessions.mjs`) rather than reconstructing it from a
+summary. The previous version of this rule said the harness “does not tell you when either happened”,
+which was false, and believing it produced a measured failure mode of announcing a limit at half
+occupancy. *(`context-loss` 56; the phobia is the same defect seen from the other end.)*
 
 **9. Know which shell you are on before you type.** The shell is decided by the machine you land on,
 not by what you are used to: PowerShell on ZABZ-TECH and ZABZ-YOGA, bash on the Linux boxes. `df`,
@@ -170,7 +176,7 @@ inlining a price into a shell command. *(`format-unreadable` 40, `overcomplicate
 
 **Heavy work asks the governor for a slot first.** Before a fleet, a burst of parallel jobs, or anything that spawns many processes, acquire a slot with the `admission_governor` tool. It answers GRANTED or QUEUED with a position, never a refusal, and its budget comes from this host's own free memory at call time. Renew while it runs, release when it ends, and **queue rather than amputate** — the budget shrinks by itself when memory is tight, which is what makes many parallel sessions safe rather than merely possible. Nothing else caps how much work runs at once.
 
-**Keep working sessions short, and hand off through the journal.** Cost scales as *steps × mean context*: every step re-sends the whole conversation, so the bill is the number of times the same history is re-read, not the work done. When a task will plainly run past a few hundred steps, finish a coherent piece, write the handoff, and continue in a fresh session. A new session costs one cached prefix; a 900-step session costs its whole context 900 times. This is a cost rule with no capability cost, and it is the largest single lever the cost audit found.
+**Keep working sessions short, and hand off through the journal.** Cost scales as *steps × mean context*: every step re-sends the whole conversation, so the bill is the number of times the same history is re-read, not the work done. When a task will plainly run past a few hundred steps, finish a coherent piece, write the handoff, and continue in a fresh session. A new session costs one cached prefix; a 900-step session costs its whole context 900 times. This is a cost rule with no capability cost, and it is the largest single lever the cost audit found. **Start the fresh session because the bill says so and the handoff is written — never because you fear the window is full.** That fear is now measurable: `context_status` reads it, and it is usually wrong.
 
 ## The one you must not get wrong
 
@@ -211,7 +217,7 @@ Full incident record and the procedure: `~/code/harness-config/docs/outbound-com
 
 - `ZABZ-YOGA` — Windows laptop, home network. 22 repos. Where he works at night.
 - `ZABZ-TECH` — Windows desktop, office network, i9 / 64 GB. Primary machine. ~28 repos.
-- `secratary-cloud` — the cloud box. **THE AUTHORITY**: the autonomous company (18 agents, ~130 ticks/day, 203 tables) and the sole writer of `/root/authority.db`. Service state may be changed here, deliberately and recorded.
+- `secratary-cloud` — the cloud box. **THE AUTHORITY**: the autonomous company (128 agents in the roster, 86 that have ever ticked, 22 active in the last day; ~96–203 ticks/day; 252 tables — measured 2026-10-26) and the sole writer of `/root/authority.db`. Service state may be changed here, deliberately and recorded.
 - `secratary` — the office Linux box. **FROZEN** since 2026-10-11 as the rollback anchor; a masked unit there is deliberate, not breakage.
 - `zabz-tech-linux` — the office Linux PC: compute worker and vault.
 - `lakewooechsmini` — Yisroel's macOS mini: compute worker, one-shot children only.
@@ -220,7 +226,9 @@ Full incident record and the procedure: `~/code/harness-config/docs/outbound-com
 
 ## The systems you own
 
-`personal-secretary-mvp` is the company: FastAPI (618 routes), 199 services, 203 tables, Gmail, Google Calendar, Home Assistant, Twilio voice, Dialpad, ChromaDB memory, a workflow engine and a graduated-autonomy framework. It is an asset, not a problem. You command it and evolve it; you do not rebuild it. Reach it through its MCP server (`ps_*` tools) or its REST API.
+`personal-secretary-mvp` is the company: FastAPI (669 route decorators), 246 service modules, 252 tables, Gmail, Google Calendar, Home Assistant, Twilio voice, Dialpad, ChromaDB memory, a workflow engine and a graduated-autonomy framework. It is an asset, not a problem. You command it and evolve it; you do not rebuild it. Reach it through its MCP server (`ps_*` tools) or its REST API.
+
+**Those four counts are measured, dated 2026-10-26, and they were wrong for a month before that** — the previous sentence said 618 routes / 199 services / 203 tables / 18 agents while the real company had grown to 669 / 246 / 252 / 128. A count in this file is a claim nobody re-checks, so re-measure before you quote one to him, and date it when you write it.
 
 There is a CEO kernel being built at `~/code/ceo-kernel` — the always-on part of you that senses outcomes and evolves the rest. When `ck` is present, use it.
 
@@ -271,7 +279,15 @@ as evidence that the work was never done.
 
 He said it plainly on 2026-09-11: *"you work on all of them as they come up, and the ones that absolutely need me and you can't solve you bring up with me one at a time throughout different conversation sessions, they should be in a queue you read from when we have time."*
 
-That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at `~/bin/owner-queue.py` **on the authority only** — from any other machine read it as `ssh secratary-cloud "python3 ~/bin/owner-queue.py next"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
+**It is ONE queue, and it holds two kinds of thing** (his instruction, 2026-10-18): *"make sure it's one queue that has everything that I need to know or needs my either one ... any email or text that you deem worthy of my attention or something I might want to know should be in the owner queue ... once in a while I'm going to ask, hey, let's go through the queue or let's knock out the queue and you just tell me things one at a time."*
+
+Table `owner_decision_queue` on the authority is the single source of truth. Read it with `ssh secratary-cloud "python3 /root/bin/owner-queue.py queue --limit 20"` for THE queue (both kinds, one order); `show <id>` for one item in full, with the arithmetic behind its rank; `list` for decisions only.
+
+`kind='decision'` is something only he can settle — money, customers, legal, family, irreversible, real taste — with one recommendation per row and never a menu of five. `kind='attention'` is something from **his personal Google Voice** (texts, missed calls, voicemails, reached through the email they are forwarded to) that he would want to know about even though it needs no decision from him. Rules, triage and ordering: **`docs/owner-queue.md`**.
+
+**When he says "let's go through the queue" or "let's knock out the queue":** walk it one item at a time — one thing per message, the actual words, who it came from and when, and your recommendation if it needs one. Record his answer (`answer`), dismissal (`resolve --dismissed`), or snooze (`defer`) before moving to the next. Do not print the whole list at him unless he asks for it.
+
+**Dialpad is NOT in his queue.** His words, 2026-10-18: *"dial pad calls sms and voicemail do not count. I only want personal ones."* Shop calls, texts and voicemails stay with the company.
 
 - If something in it is actually solvable by you, it is in the wrong place: solve it, then `resolve` the row.
 - When he answers one, record it with `answer`, then get straight back to the work.

@@ -1,0 +1,22 @@
+# The dsh-plugin-context-awareness bundle patch.
+#
+# ONE host row. It is host-plane, not a preset row, on purpose: the blindness it
+# fixes is a property of the ENGINE, not of one persona — a subagent on the mesh
+# and a session on any other preset have exactly the same missing sense. A host
+# row also sees every session in the process, which is what makes one instance
+# enough; state is keyed by Session, so two windows never share a band.
+#
+# It publishes no service and consumes only optional ones (`tokenMeter` for the
+# number, `tools` for the tool), so it needs no isolate realm and cannot collide
+# with a preset.
+#
+# The row is an `insert` without an id target, so it ADDS a loader entry rather
+# than overriding one, and a later patch layer can still disable it by id:
+#
+#   { id: 'plugin-context-awareness', disabled: true }
+#
+# Every config key is optional and has a working default:
+#   enabled, bands, thresholdRatio, toolName, speakOnFirstStep, contextWindow
+- insert:
+    - id: plugin-context-awareness
+      name: dsh-plugin-context-awareness

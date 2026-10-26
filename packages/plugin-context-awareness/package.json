@@ -1,0 +1,19 @@
+{
+  "name": "dsh-plugin-context-awareness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tells the agent its own context usage and tells it, plainly, when a compaction happened — so it checks instead of panicking. Registers a context_status tool and injects a CONTEXT / COMPACTED notice at band crossings and after a compaction.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "scripts": {
+    "verify": "node --check lib/index.js && node --test test/logic.test.mjs test/wiring.test.mjs",
+    "test": "node --test test/logic.test.mjs test/wiring.test.mjs"
+  }
+}

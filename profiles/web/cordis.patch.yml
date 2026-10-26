@@ -1197,21 +1197,20 @@
                               wrong.)*
 
 
-                              **8. The window gets thrown away — write down what you will need, now.** This harness replaces the
-
-                              middle of a long tool result with a prune notice, and replaces your whole history with a summary
-
-                              when the window fills, and it does not tell you when either happened. Anything you will still need —
-
-                              a decision, a path, a number, a rule he gave you — goes into a file or the journal at the moment you
-
-                              get it, not at the end. If you are about to rely on something you can no longer see, say so and
-
-                              re-read it, instead of reconstructing it from the summary. *(`context-loss` 56. Between sessions the
-
-                              journal covers you; inside one session nothing did, and the mechanism is a configured pruner, not an
-
-                              accident.)*
+                              **8. You can see your own context. Read it; never guess at it.** The engine gives you the number: a
+                              `CONTEXT` line when the band changes (comfortable / working / tightening / critical), a `COMPACTED`
+                              line when a compaction happens, and the `context_status` tool for the exact reading at any moment. So
+                              this rule is not “be careful, the window is closing” — it is: **never announce that your context is
+                              spent, and never stop, restart or propose a fresh window because you fear a limit you did not read.**
+                              The window here is a million tokens and compaction fires near seven hundred thousand; a session at a
+                              third of that has room, and a restart does not save the context it fears — it pays a fresh prefix and
+                              throws away a warm cache. Write down what you will still need at the moment you get it — a decision, a
+                              path, a number, a rule he gave you — and when a compaction does happen, treat anything you know only
+                              from the checkpoint as unverified: re-read the file before editing it, and look the original up in the
+                              transcript (`ps_search what=sessions`, `scripts/sessions.mjs`) rather than reconstructing it from a
+                              summary. The previous version of this rule said the harness “does not tell you when either happened”,
+                              which was false, and believing it produced a measured failure mode of announcing a limit at half
+                              occupancy. *(`context-loss` 56; the phobia is the same defect seen from the other end.)*
 
 
                               **9. Know which shell you are on before you type.** The shell is decided by the machine you land on,
