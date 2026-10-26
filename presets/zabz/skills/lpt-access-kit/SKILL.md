@@ -1,17 +1,48 @@
 ---
 name: lpt-access-kit
-description: Use whenever the owner wants to get INTO a machine rather than read about it — "tunnel you in", "full access", "remote in", "open access", a customer PC that has to be diagnosed at the bench, the LPT USB stick, 3-OPEN-ACCESS / 4-CLOSE-ACCESS, installing OpenSSH on a target, or any question about why an access window did not open. Covers the two actions the operator performs, key custody, how to prove the kit works without asking anyone to walk to a machine, and the eleven ways this path has already failed.
+description: Use whenever the owner wants to get INTO a machine rather than read about it — "tunnel you in", "full access", "remote in", "open access", a customer PC that has to be diagnosed at the bench, Enable-PSRemoting / Enter-PSSession, the LPT USB stick, 3-OPEN-ACCESS / 4-CLOSE-ACCESS, installing OpenSSH on a target, or any question about why an access window did not open. Covers the one-command default (PSRemoting), the six conditions that force the USB fallback, the two actions the operator performs, key custody, how to prove the kit works without asking anyone to walk to a machine, and the eleven ways the kit has already failed.
 ---
 
-# Getting into a machine with the LPT access kit
+# Getting into a machine
 
-**The full record is `personal-secretary-mvp/tools/lpt-access-kit/T1-WINDOW-LIFECYCLE.md`, and it also
-travels on the stick.** Read it before opening a window on anyone's machine. This skill is the working
-summary and the parts that are not in that file.
+## 0. THE DEFAULT: one command on the target. The USB kit is the FALLBACK.
+
+On the target, in an **elevated** PowerShell:
+
+```powershell
+Enable-PSRemoting -Force
+```
+
+On the operator machine, in an **elevated** PowerShell:
+
+```powershell
+Set-Item WSMan:\localhost\Client\TrustedHosts -Value '<target-ip>' -Concatenate -Force
+Enter-PSSession -ComputerName <target-ip> -Credential (Get-Credential '<TARGETHOST>\lptremote')
+```
+
+Seconds. No USB stick, no download, no reboot, no Windows feature, no key material. `Enable-PSRemoting`
+is documented to start WinRM, set it Automatic, create a listener on any IP and enable the WSMan
+firewall exception — the four things that are missing on a fresh machine.
+
+**Use the USB kit only when one of these is true**, because the direct path cannot work:
+
+1. no inbound route from the operator (CGNAT, blocked inbound, no tailnet, filtered);
+2. nobody can run one elevated command at the machine;
+3. WinRM is disabled by policy/security software, or 5985 is blocked by something you cannot change;
+4. the NIC is on the Public profile and the operator is off-subnet (`-SkipNetworkProfileCheck` only
+   opens the local subnet);
+5. no account with a password can exist (blank-password accounts; WinRM refuses them);
+6. the customer will not accept a password-bearing local admin, where T1's key-only account is smaller.
+
+**Both paths need an inbound route and elevation.** "PSRemoting is easier" does not cross a NAT.
+
+**The full record, with the decision table, exact teardown, failure signatures and the 2026-10-26
+measurements, is `personal-secretary-mvp/tools/lpt-access-kit/REMOTE-ACCESS.md`.** Read it before you
+get into anyone's machine. Everything below §1 is about the fallback.
 
 ---
 
-## 1. The rule that governs everything here
+## 1. The rule that governs the kit
 
 **Prove it on a machine you can drive before you ask anyone to walk to one.** On 2026-10-15 this kit failed
 six times in a row, and each time the owner was sent back to a bench with a stick. His words, twice:
@@ -42,12 +73,18 @@ Port and account are in the run folder's `handoff.txt`. The account is derivable
 
 ## 3. Where the kit is, and how to put it on a stick
 
-- Source: `C:\Users\ezabz\Code\personal-secretary-mvp\tools\lpt-access-kit` (on ZABZ-TECH the working copy
-  is the linked worktree `C:\Users\ezabz\Code\_worktrees\usb-access-kit`).
-- **It is on branch `zabz/lpt-access-kit-open-fix-20261015`, NOT on `origin/master`** (journal **L5345**).
-  A deploy from a `master` checkout ships an older kit and its own gate still says `A1 PASS`. Check with
-  `git merge-base --is-ancestor <sha> origin/master` — and note that here commit identity is not a reliable
-  test either, because the same change has reached `master` by a different route. **Compare file content.**
+- **In the repo:** `tools/lpt-access-kit/` in `personal-secretary-mvp`. **On origin/master, with the
+  same content as the branch** — measured 2026-10-26: all 34 kit files at HEAD were byte-identical to
+  `origin/master`. The old "master ships an older kit" warning (L5345) is stale.
+- **On ZABZ-TECH the only materialised copy today** is the worktree
+  `C:\Users\ezabz\Code\_worktrees\usb-access-kit\tools\lpt-access-kit` (branch
+  `zabz/lpt-access-kit-open-fix-20261015`, HEAD `f520f68d`). The path
+  `C:\Users\ezabz\Code\personal-secretary-mvp\tools\lpt-access-kit` **does not exist**, because that
+  main checkout is parked on `hk/item85-ssh-large-capture-20261013`, which predates the kit landing.
+  **The kit is in the repo; that one checkout is on another branch.**
+- To verify master carries what you think it does, compare **blobs**, not commits: `git rev-parse
+  HEAD:<path>` against `git rev-parse origin/master:<path>`. HEAD is not an ancestor of `origin/master`
+  and yet its content is identical.
 - Deploy: `Deploy-LptAccessKit.ps1 -Drive D` → must end `DEPLOY OK` (that is acceptance test A1; it
   hash-compares every deployed file). It never deletes, so `vendor\` and `LPT-Runs\` survive.
 - Gates before deploying: `tests\Test-KitIntegrity.ps1` (12), `tests\Test-AccessKitLib.ps1` (57),
@@ -55,8 +92,10 @@ Port and account are in the run folder's `handoff.txt`. The account is derivable
 
 ## 4. How to TEST it yourself — the part that took a whole evening to work out
 
-- **ZABZ-TECH cannot run the open path: it is not elevated, and the open path creates a local account,
-  rewrites `sshd_config` and adds a firewall rule.**
+- **ZABZ-TECH IS elevated.** Measured 2026-10-26:
+  `IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)` returns `True`. The old line
+  saying it cannot run the open path was wrong. It is still not the machine to test *sshd changes* on,
+  because it is the operator machine; use ZABZ-YOGA.
 - **ZABZ-YOGA gives an ELEVATED shell over SSH** (`ssh laptop-ts` → `IsInRole(Administrator)` = True) and is
   a real Windows laptop. Use it.
 - **`scp` does NOT work to it** (`Connection closed`, both clients). Get the kit there with git:
@@ -124,3 +163,7 @@ that cost the most, because they are invisible:
   wrong-tier state, and full state recovery *are* proven.
 - **T2 and T3 still build their own key comment** rather than taking it from the window state, and T3
   reported READY without creating a tunnel. The launcher now masks the second; the source is not fixed.
+- **The direct WinRM path has not been proven end to end on this estate either.** The commands are
+  Microsoft's; the estate's measurements (2026-10-26) cover the target side, the listener, the firewall
+  drop on the LAN, and the two failure signatures — but no authenticated cross-machine session was made.
+  Do not report it as "tested" until one is.
