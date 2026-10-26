@@ -159,4 +159,38 @@ destructive stays a queue row with the exact path and the evidence it is unrefer
 
 ---
 
+## Q9 — There are now two security owners, and one of them is a duplicate
+
+**What I read.** `tasks` 30549–30552 (created 2026-10-25 15:54) assign a `security_owner` agent
+under `dept_systems_custody` a weekly hardening pass. That happened *before* `dept_security` was
+scaffolded. So the company currently has a `dept_security` department **and** a `security_owner`
+agent, with overlapping mandates, and `dept_systems_custody` already owns the "monthly posture
+review + gap register" work order (`fbd122f4f369`, completed 2026-10-25 18:59).
+
+**Why it is yours.** Only if you disagree with the direction — see my recommendation.
+
+**My recommendation (and what I will do unless you stop me).** Consolidate: `dept_security` owns
+security, `security_owner` is retired into it, and `dept_systems_custody` keeps custody
+(inventory/backups/filesystem) but hands the security mandate over. One source of truth per thing
+is already this estate's rule. I am treating this as an engineering decision, not a question —
+recording it here so you can overrule it.
+
+**Decision needed:** only if you want it the other way round.
+
+---
+
+## Where the work stands at the end of 2026-10-26
+
+Fixed and verified in production: the Security department now exists in the agent tree and has
+ticked for the first time (`tick_telemetry` `ab0b7dbfb5dd47c9`, 02:16:56Z, outcome `complete`,
+quality `productive`); the weekly scorecard now reports real finding counts (19 of 32 departments
+non-zero, was 0 of 88).
+
+Still open and **not** yours: the two seeded security work orders must be re-fired (they are
+terminal `failed` from 2026-10-25), `evolution_verification` has no writer, and no stagnation
+detector exists. Those are mine to finish. Full detail:
+`00-FINDINGS-2026-10-26.md`.
+
+---
+
 *New questions are appended as they arise, and each is closed here with your answer and the date.*
