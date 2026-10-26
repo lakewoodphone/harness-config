@@ -67,7 +67,16 @@ function loadYaml() {
   for (const base of candidates) {
     if (!base || seen.has(base)) continue;
     seen.add(base);
-    if (!existsSync(join(base, 'yaml', 'package.json'))) continue;
+    // TWO LAYOUTS. A candidate may BE a node_modules directory (`<repo>/node_modules`), or a
+    // package root that owns one (`<DSH_HOME>/profiles/web`). The original check only probed
+    // `base/yaml/package.json`, so the `profiles/web` candidate could never match — and on
+    // 2026-10-26 that silently aborted `harness-sync` on secratary-cloud and zabz-tech-linux
+    // BEFORE every later step (presets, bundle links, bundle names), which is why those hosts
+    // had never received a preset update. Measured: cloud HAS
+    // `~/.dsh/profiles/web/node_modules/yaml`, and the resolver still reported it as "tried".
+    const direct = join(base, 'yaml', 'package.json');
+    const nested = join(base, 'node_modules', 'yaml', 'package.json');
+    if (!existsSync(direct) && !existsSync(nested)) continue;
     try {
       const req = createRequire(join(base, 'noop.js'));
       const mod = req('yaml');
