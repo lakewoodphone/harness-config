@@ -5,26 +5,34 @@ description: Use whenever the owner wants to get INTO a machine rather than read
 
 # Getting into a machine
 
-## 0. THE DEFAULT: one command on the target. The USB kit is the FALLBACK.
+## 0. THE DEFAULT: two double-clicks, nothing typed. `REMOTE-ACCESS.md` is the source of truth.
 
-On the target, in an **elevated** PowerShell:
+The owner, 2026-10-26: *"any command run i shouldn't have to type in by hand, i should be able to plug in
+a usb usually and run a program that does this for me"*. So the typed command below is **what the program
+runs**, not what anyone types.
 
-```powershell
-Enable-PSRemoting -Force
-```
+1. **On the target:** plug the stick in, double-click **`0-FAST-ACCESS`**, click **Yes** once. It enables
+   native WinRM, adds one TCP 5985 rule scoped to the local subnet, creates a temporary administrator whose
+   generated password goes **only** to the stick (`<run folder>\fast-access.txt`), writes the handoff for
+   the operator machine, and **arms the kit's destructor before the window exists**.
+2. **On ZABZ-TECH:** with the stick still in, double-click **`Connect-FastAccess.cmd`**. It finds the newest
+   `fast-access.txt`, probes every address the handoff recorded, `Test-WSMan` **with** the credential, adds
+   `TrustedHosts` for that one address **only if the handshake refuses** (and removes it after), prints
+   `Host`/`Who`/`Admin`, then `Enter-PSSession`.
+3. **When done:** double-click **`0-FAST-CLOSE`** on the target. It deletes the account, removes the rule,
+   puts WinRM's own service and firewall rules back to the state it found, restores
+   `LocalAccountTokenFilterPolicy`, scrubs the password out of the handoff, and **proves each one**.
 
-On the operator machine, in an **elevated** PowerShell:
+Measured end to end on ZABZ-YOGA 2026-10-26 (including `Admin = True`, an invented command, a second launch
+that adopted instead of duplicating, and a close that restored the machine in both directions):
+**`REMOTE-ACCESS.md` section 9**. The state tier is **W1**; its state file names no sshd service, so the
+destructor cannot touch sshd.
 
-```powershell
-Set-Item WSMan:\localhost\Client\TrustedHosts -Value '<target-ip>' -Concatenate -Force
-Enter-PSSession -ComputerName <target-ip> -Credential (Get-Credential '<TARGETHOST>\lptremote')
-```
+**The password is on the stick and that is a custody rule:** while a window is open the stick IS a
+credential - keep it with you, never leave it at customer premises with a live window, and let
+`0-FAST-CLOSE` scrub it.
 
-Seconds. No USB stick, no download, no reboot, no Windows feature, no key material. `Enable-PSRemoting`
-is documented to start WinRM, set it Automatic, create a listener on any IP and enable the WSMan
-firewall exception — the four things that are missing on a fresh machine.
-
-**Use the USB kit only when one of these is true**, because the direct path cannot work:
+**Use the USB/SSH kit only when one of these is true**, because the fast path cannot work:
 
 1. no inbound route from the operator (CGNAT, blocked inbound, no tailnet, filtered);
 2. nobody can run one elevated command at the machine;
@@ -48,8 +56,10 @@ get into anyone's machine. Everything below §1 is about the fallback.
 six times in a row, and each time the owner was sent back to a bench with a stick. His words, twice:
 *"can you test it yourself fully before telling me to try again"* and *"i don't have time to do your work"*.
 
-**The operator's part is exactly two actions:** plug the stick in, double-click **`3-OPEN-ACCESS`**, click
-Yes; and later **`4-CLOSE-ACCESS`**, reboot, run **`4`** again. Nothing is typed, nothing is read off a
+**The operator's part is exactly two actions, and they are the FAST ones:** plug the stick in,
+double-click **`0-FAST-ACCESS`**, click Yes; then on ZABZ-TECH double-click **`Connect-FastAccess.cmd`**,
+and later **`0-FAST-CLOSE`** on the target. The SSH fallback is the same two actions with `3-OPEN-ACCESS`
+and `4-CLOSE-ACCESS` (reboot, then `4` again for the proof). Nothing is typed, nothing is read off a
 screen. If a procedure you write needs him to read a value and report it, that is a missing read on your
 side — the stick logs everything and he brings it back.
 
