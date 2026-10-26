@@ -1,0 +1,427 @@
+### app/chat_action_runtime.py
+--- a/app/chat_action_runtime.py
++++ b/app/chat_action_runtime.py
+@@ -13,6 +13,8 @@
+ 
+ from __future__ import annotations
+ 
++import hashlib
++import json
+ import logging
+ import re as _re
+ import time
+@@ -322,6 +324,55 @@
+     return None
+ 
+ 
++def _is_policy_refusal(result: Any) -> bool:
++    """True when this result is a POLICY REFUSAL: the action never ran.
++
++    One predicate, read by every consumer that must not punish an agent for
++    obeying the rules -- the retry loop, the circuit breaker, and
++    `agent_worker._execute_tool_dispatch`'s tool-strike counter. It is set by the
++    two places that can refuse deliberately: the autonomy gate in
++    `_dispatch_action` and the deterministic policy gate in
++    `app/chat_action_policy._enforce_action_policy`.
++
++    "No answer" and "an answer that never closed" are different sentences: a
++    refusal is a *decision*, and a decision made on purpose is not evidence that
++    the action is unsafe or broken. Before 2026-10-26 the refusal was returned as
++    a plain `success=False`, so every consumer read it as a failure: it was
++    retried 3x, it counted a tool strike, `TOOL_LOOP_DEADLOCK` fired, and the step
++    ended having done nothing.
++    """
++    data = getattr(result, "data", None)
++    return bool(isinstance(data, dict) and data.get("policy_refused"))
++
++
++def _policy_refusal_key(
++    action_name: str,
++    agent_id: str,
++    action_params: dict[str, str] | None,
++    *,
++    kind: str = "autonomy",
++) -> str:
++    """Exact dedupe key for ONE (action, agent, resource) refusal.
++
++    `database.create_task` already dedupes -- by fuzzy title at 80% similarity,
++    agent-agnostic, and by `dedupe_key` when given one (exact, via
++    `idx_task_dedupe_key`). Fuzzy title is the wrong key here: it ignores the
++    resource, so `repo_read_file` on two different paths collapses onto one
++    approval task, and it re-matches an unrelated title that happens to read the
++    same. The resource is the parameters, hashed so the key stays short and does
++    not carry a path into a task row.
++    """
++    resource = {
++        str(k): str(v)
++        for k, v in (action_params or {}).items()
++        if str(k) != "_action"
++    }
++    digest = hashlib.sha256(
++        json.dumps(resource, sort_keys=True, default=str).encode("utf-8")
++    ).hexdigest()[:12]
++    return f"policy-refusal:{kind}:{action_name}:{agent_id or '-'}:{digest}"
++
++
+ def _dispatch_action(
+     action_name: str,
+     action_params: dict[str, str],
+@@ -394,6 +445,15 @@
+     # should_execute() returns execute=False for L0/L1/L2. Until this, the verdict was
+     # stored in _autonomy_action and the action dispatched regardless.
+     if not _autonomy_execute:
++        # ── POLICY REFUSAL, NOT A FAILURE (2026-10-26) ──
++        # The gate decided this on purpose: the action never ran, so it cannot have
++        # failed, and attempting it again cannot change the answer. Everything
++        # downstream must read that the same way, or the refusal punishes the agent
++        # for obeying policy. `data["policy_refused"]` is the marker they read:
++        # `execute_actions()` (no retry, no breaker) and
++        # `agent_worker._execute_tool_with_autonomy` (no tool strike, and the step
++        # suspends as waiting-on-owner instead of dying as a deadlock).
++        _refusal_key = _policy_refusal_key(action_name, agent_id, action_params)
+         _approval_task_id = None
+         try:
+             _approval_task_id = _create_approval_task(
+@@ -402,24 +462,47 @@
+                 description=(
+                     f"The autonomy gate resolved '{action_name}' to "
+                     f"{_autonomy_level_name} - {_autonomy_reason}. Nothing was "
+-                    f"executed. Proposed parameters: {str(action_params)[:400]}"
++                    f"executed and nothing is broken: this is a policy refusal, "
++                    f"waiting on owner. Proposed parameters: "
++                    f"{str(action_params)[:400]}"
+                 ),
+                 tags=["approval", "autonomy", action_name],
++                dedupe_key=_refusal_key,
+             )
+         except Exception:
+             _approval_task_id = None
++        _refusal_detail = (
++            f"NOT EXECUTED - '{action_name}' requires owner approval "
++            f"({_autonomy_level_name}: {_autonomy_reason}). This is a policy "
++            f"refusal, not a failure: the action did not run, so it cannot have "
++            f"failed, and repeating it cannot change the answer. "
++            + (
++                f"Waiting on owner - approval task {_approval_task_id}."
++                if _approval_task_id
++                else "An approval task could not be queued; nothing ran."
++            )
++        )
++        log.info(
++            "POLICY_REFUSED action=%s agent=%s level=%s reason=%s task=%s key=%s",
++            action_name,
++            agent_id or "-",
++            _autonomy_level_name,
++            _autonomy_reason,
++            _approval_task_id if _approval_task_id is not None else "-",
++            _refusal_key,
++        )
+         return ActionResult(
+             action=action_name,
+             success=False,
+-            detail=(
+-                f"NOT EXECUTED - '{action_name}' requires owner approval "
+-                f"({_autonomy_level_name}: {_autonomy_reason}). "
+-                + (
+-                    f"Queued for approval as task {_approval_task_id}."
+-                    if _approval_task_id
+-                    else "An approval task could not be queued; nothing ran."
+-                )
+-            ),
++            detail=_refusal_detail,
++            data={
++                "policy_refused": True,
++                "policy_refusal_kind": "autonomy_gate",
++                "approval_task_id": _approval_task_id,
++                "autonomy_level": _autonomy_level_name,
++                "autonomy_reason": _autonomy_reason,
++                "dedupe_key": _refusal_key,
++            },
+         )
+ 
+     # Execute the action
+@@ -453,8 +536,19 @@
+             except Exception:
+                 pass
+         else:
++            # Name the cause at the moment the counter moves. On 2026-10-26 a
++            # session read "Autonomy DEMOTED: repo_read_file L4 → L3" and
++            # attributed it to policy refusals; it could not check, because the
++            # reason was never logged -- and a refusal logs nothing here at all
++            # (the refusal branch returns above this line). An unattributable
++            # demotion is an invitation to invent one.
+             try:
+                 _auto_fail(action_name, settings)
++                log.info(
++                    "Autonomy: recorded a real execution failure for %s: %s",
++                    action_name,
++                    str(result.detail)[:200],
++                )
+             except Exception:
+                 pass
+ 
+@@ -1640,6 +1734,12 @@
+                     break
+                 # Action returned failure (not exception)
+                 last_error = result.detail
++                if _is_policy_refusal(result):
++                    # A refusal is deterministic -- the same gate answers the same
++                    # way on attempt 2 and 3. Retrying it multiplies the log, the
++                    # refusal count and the wall clock, and on this estate it also
++                    # re-queued the approval task on every attempt.
++                    break
+                 if attempt < retries and _should_retry_action_failure(
+                     action_name,
+                     last_error,
+@@ -1673,7 +1773,14 @@
+ 
+         # If all attempts failed, record in circuit breaker
+         if result and not result.success:
+-            if _should_record_circuit_breaker_failure(action_name, last_error):
++            # A policy refusal never ran, so it is not evidence the action is
++            # broken. Counting it here would open the breaker at 10 consecutive
++            # refusals and disable the action for the whole process -- after which
++            # the agent is told the action is "temporarily disabled due to repeated
++            # failures", which is the same falsehood in a different costume.
++            if not _is_policy_refusal(
++                result
++            ) and _should_record_circuit_breaker_failure(action_name, last_error):
+                 _cb_record_failure(action_name)
+             # Enrich error detail for agent diagnosis
+             if retries > 0 and attempt > 0:  # noqa: F821
+### app/chat_action_notifications.py
+--- a/app/chat_action_notifications.py
++++ b/app/chat_action_notifications.py
+@@ -61,8 +61,25 @@
+     title: str,
+     description: str,
+     tags: list[str] | None = None,
++    dedupe_key: str | None = None,
+ ) -> int | None:
+-    """Create an approval task for the owner/CEO."""
++    """Create an approval task for the owner/CEO.
++
++    `dedupe_key` is passed straight to `database.create_task`, whose exact-key
++    dedupe is stronger than its default fuzzy title match: one open approval task
++    per (action, agent, resource) instead of one per action, and no new row on
++    every retry or every tick.
++
++    When a key IS supplied the fuzzy title match is switched off
++    (`dedup_threshold=0`), because otherwise it silently wins: measured
++    2026-10-26, three refusals of `repo_map` against two different repo paths all
++    returned task #30267 — a title-only approval created three days earlier with
++    no dedupe key — and the resource-specific key was never written at all. The
++    owner would then approve one path believing he had approved the other.
++    `dedup_threshold=0` is the estate's existing pattern for exact dedupe
++    (`app/services/drn_reliability_api.py`, same comment). Callers that pass no
++    key keep the old behaviour.
++    """
+     try:
+         from app import database
+ 
+@@ -70,7 +87,7 @@
+         if not db_url:
+             return None
+ 
+-        return database.create_task(
++        task_id = database.create_task(
+             db_url,
+             title=title,
+             description=description,
+@@ -82,7 +99,20 @@
+                 "primary_agent_id",
+                 "orchestrator",
+             ),
++            dedup_threshold=0 if dedupe_key else 80,
++            dedupe_key=dedupe_key,
+         )
++        # `create_task` returns -1 (not an id) when the active-task ceiling blocks
++        # it, and 0 when the insert produced no row. Neither is a task: passing -1
++        # on printed "approval task -1" into the agent's tool result and the log,
++        # which reads as a queued approval when nothing was recorded anywhere.
++        # Measured 2026-10-26: 300 active tasks against a ceiling of 300, so this
++        # branch was live.
++        try:
++            task_id = int(task_id)
++        except (TypeError, ValueError):
++            return None
++        return task_id if task_id > 0 else None
+     except Exception:
+         return None
+ 
+### app/chat_action_policy.py
+--- a/app/chat_action_policy.py
++++ b/app/chat_action_policy.py
+@@ -2,6 +2,7 @@
+ 
+ from __future__ import annotations
+ 
++import hashlib
+ import json
+ from typing import Any, Callable
+ 
+@@ -513,6 +514,12 @@
+ 
+     data: dict[str, Any] = {
+         "policy_denied": True,
++        # The same marker the autonomy gate sets: this action never ran, so it did
++        # not fail. `chat_action_runtime._is_policy_refusal` is the one reader, and
++        # it is what keeps a deliberate denial out of the retry loop, the action
++        # circuit breaker and the tool-loop strike counter.
++        "policy_refused": True,
++        "policy_refusal_kind": "deterministic_policy",
+         "policy_reason": decision.reason,
+     }
+     if decision.tier is not None:
+@@ -521,21 +528,42 @@
+     detail = f"Policy denied: {decision.reason}"
+     if decision.requires_approval:
+         params_preview = _policy_params_preview(action_params)
++        # Exact dedupe key per (action, agent, resource): `create_task`'s default
++        # fuzzy title match ignores the parameters, so two different requests would
++        # share one approval task and the owner would approve something he was never
++        # shown. `dedupe_key` is indexed on `tasks` and checked before the fuzzy path.
++        resource_digest = hashlib.sha256(
++            json.dumps(
++                {
++                    str(k): str(v)
++                    for k, v in (action_params or {}).items()
++                    if str(k) != "_action"
++                },
++                sort_keys=True,
++                default=str,
++            ).encode("utf-8")
++        ).hexdigest()[:12]
+         task_id = create_approval_task(
+             settings=settings,
+             title=f"APPROVAL: {action_name}",
+             description=(
+-                "Requested action was blocked by deterministic policy.\n\n"
++                "Requested action was blocked by deterministic policy. Nothing ran; "
++                "this is a policy refusal, not a failure.\n\n"
+                 f"Action: {action_name}\n"
+                 f"Reason: {decision.reason}\n\n"
+                 f"Parameters:\n{json.dumps(params_preview, indent=2)}"
+             ),
+             tags=["approval", "policy", action_name],
++            dedupe_key=(
++                f"policy-refusal:policy:{action_name}:"
++                f"{agent_id or '-'}:{resource_digest}"
++            ),
+         )
+         data["approval_task_id"] = task_id
+         detail = "Policy denied: requires owner approval"
+         if task_id:
+             detail += f" — task #{task_id}"
++        detail += " (a policy refusal, not a failure: nothing ran and repeating it cannot change the answer)"
+ 
+     return ActionResult(
+         action=action_name,
+### app/services/agent_worker.py
+--- a/app/services/agent_worker.py
++++ b/app/services/agent_worker.py
+@@ -2349,14 +2349,34 @@
+         return {"execute": True, "level": 4, "action": "execute"}
+ 
+ 
++def _policy_refusal_task_id(action_result: Any) -> str | None:
++    """The approval task id carried by a POLICY_REFUSED ActionResult, if any.
++
++    A refusal that could not queue a task returns "" -- still a refusal, but there
++    is nothing for the owner to approve, so the caller must not suspend the step
++    waiting on a row that does not exist.
++    """
++    data = getattr(action_result, "data", None)
++    if not isinstance(data, dict) or not data.get("policy_refused"):
++        return None
++    task_id = data.get("approval_task_id")
++    return str(task_id) if task_id not in (None, "") else ""
++
++
+ def _execute_tool_dispatch(
+     tool_name: str,
+     tool_args: dict[str, Any],
+     agent_id: str,
+     *,
+     goal_id: str | None = None,
+-) -> tuple[str, bool]:
+-    """Execute a tool after scope/autonomy checks have already passed."""
++) -> tuple[str, bool, str | None]:
++    """Execute a tool after scope/autonomy checks have already passed.
++
++    Returns ``(result_text, executed, policy_refusal_task_id)``. The third element
++    is None for an ordinary success or an ordinary failure, and the approval task
++    id (or "") when the action was refused by policy and never ran -- the caller
++    uses it to tell "the tool failed" from "the gate said no".
++    """
+ 
+     try:
+         from app.chat_actions import _dispatch_action
+@@ -2384,10 +2404,13 @@
+             result_text = result_text[:TOOL_RESULT_TRUNCATE] + "\n...[truncated]"
+ 
+         if not action_succeeded:
+-            # NOTE: autonomy record_failure is already called inside
+-            # _dispatch_action (chat_action_runtime.py).  Do NOT double-count
+-            # here — that caused premature L2 demotions (audit 2026-03-29).
+-            return result_text, False
++            # NOTE: autonomy record_failure is called inside _dispatch_action
++            # (chat_action_runtime.py) for a real execution failure only.  Do NOT
++            # double-count here — that caused premature L2 demotions (audit
++            # 2026-03-29).  A POLICY REFUSAL returns before that call on purpose:
++            # the action never ran, so it is not a failure, and this function's
++            # third element carries that fact to the strike counter.
++            return result_text, False, _policy_refusal_task_id(action_result)
+ 
+         # Track real-world output actions for value metrics
+         _track_real_output(tool_name, agent_id, settings)
+@@ -2395,7 +2418,7 @@
+         # NOTE: autonomy record_success is already called inside
+         # _dispatch_action (chat_action_runtime.py).  Do NOT double-count.
+ 
+-        return result_text, True
++        return result_text, True, None
+ 
+     except Exception as exc:
+         # NOTE: autonomy record_failure for exceptions is already handled
+@@ -2408,7 +2431,7 @@
+             tool_name,
+             exc,
+         )
+-        return error_msg, False
++        return error_msg, False, None
+ 
+ 
+ def _normalize_tool_args_for_context(
+@@ -2505,7 +2528,7 @@
+             )
+             return msg, False, approval_id
+ 
+-    result_text, executed = _execute_tool_dispatch(
++    result_text, executed, refusal_task_id = _execute_tool_dispatch(
+         tool_name,
+         tool_args,
+         agent_id,
+@@ -2518,6 +2541,22 @@
+     # exit condition.
+     if executed:
+         _clear_tool_failures_for(agent_id, tool_name)
++    elif refusal_task_id is not None:
++        # ── POLICY REFUSAL (2026-10-26) ──
++        # The gate refused this deliberately: the action never ran, so this is not a
++        # failure of the tool and must not count a strike. Three identical refusals
++        # used to fire TOOL_LOOP_DEADLOCK and end the step having done nothing (the
++        # security department's whole mission), and the step was reported as broken
++        # when it was only waiting. Returning the approval task id takes the
++        # caller's existing "approval needed" path, so the step suspends as
++        # waiting-on-owner and the refusal is visible as a decision.
++        #
++        # `is not None` rather than truthiness on purpose: "" means "refused, and no
++        # approval task could be written" (measured 2026-10-26: the company sat at
++        # its 300-task ceiling, so this branch is live). That is still a refusal and
++        # must not count a strike; it returns None as the approval id because there
++        # is no row for the step to suspend on.
++        return result_text, False, (refusal_task_id or None)
+     else:
+         _note_tool_failure(agent_id, tool_name, result_text)
+     return result_text, executed, None

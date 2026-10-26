@@ -7,6 +7,37 @@
 
 ---
 
+## UPDATE — 2026-10-26 03:15Z (read this before §6)
+
+§6.1 is **done and verified live** on `secratary-cloud`. Four files changed, backups kept, all
+deployed by atomic rename; the evidence is in `00-FINDINGS-2026-10-26.md` §10, journal **H13362**
+and **L13515**.
+
+**Three claims in the text below are false, and I measured them before changing anything:**
+
+1. **A policy refusal never called `autonomy.record_failure`** — not before the fix either. At L4 and
+   L3 `should_execute` returns `execute=True`, so no refusal exists at the levels where
+   `repo_read_file` was demoted. It was demoted by **ten genuine execution failures**; the refusal is
+   the *symptom* of that erosion, not the cause. §6.1 and `OWNER-QUESTIONS` Q8b say otherwise — that
+   is wrong and is corrected there.
+2. **Approval tasks were already deduplicated** by fuzzy title, and one task (30090, created
+   2026-10-23) served three days of refusals. The defect was the reverse: the fuzzy match silently won
+   over an exact per-resource key, so two different resources shared one approval.
+3. The refusals *were* real and *were* being booked as failures. That half of §6.1 was right, and it
+   is what got fixed: no retry, no circuit-breaker count, no tool strike, no deadlock, deduped per
+   (action, agent, resource), and the step suspends as waiting-on-owner.
+
+**Two new blockers, measured, neither fixed — both are now ahead of §6.3–§6.6:**
+
+- **The task ceiling is full (300/300).** `create_task` returns `-1` for every new task, so the
+  company cannot file a work order, a finding or an approval. 106 approval tasks are open.
+- **24 of 75 autonomy rows are permanently gated** (`ask_owner` is L0_SHADOW, `get_current_datetime`
+  L2) because `_cleanup_stale_overrides()` only walks `CURATED_MATRIX` and `get_level()`'s DB branch
+  has no recovery, so a refused action can never succeed and never be re-promoted. Restoring
+  authority is a grant, so it is an owner question (Q10), not an engineering edit.
+
+---
+
 ## 1. Who I am, and why this document exists
 
 I am Zabz, the owner's chief executive and chief of staff for this estate — I run the systems,
@@ -268,7 +299,10 @@ Commits: `713a75d74`, `7df500fc2`, `6227115ae`, `03ac98108`, `cb9e9d09c`, `72fc5
 
 ## 6. WHAT STILL NEEDS DOING — in priority order
 
-### 6.1 THE KEYSTONE — a policy refusal must not be booked as a tool failure
+### 6.1 ~~THE KEYSTONE~~ DONE 2026-10-26 03:15Z — but the diagnosis below was wrong; read the UPDATE first
+
+**Status: shipped and verified live.** Keep reading only for the history of the defect and the
+verification contract, which was followed exactly (and for the trap — do not grant the permission).
 
 **This is the single most important thing. Do it first.** It blocks the security department's actual
 mission and it blocks every department from acting on a finding.

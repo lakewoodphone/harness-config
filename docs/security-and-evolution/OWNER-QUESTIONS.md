@@ -216,6 +216,30 @@ I will come back with a clean access question once the agent stops punishing its
 
 **Decision needed:** none from you yet. This entry exists so the earlier ask is not acted on.
 
+### Q8b CORRECTION — 2026-10-26 03:15Z: the demotion story above was wrong, and it is now fixed
+
+I wrote above that "each refusal counts toward the autonomy demotion counter, so the agent's
+permission for that action ERODES from L4 to L2 for obeying policy". **That is false, and I had not
+measured it.** Corrected by measurement:
+
+- A refusal calls `autonomy.record_failure` **zero** times. Proved by running the deployed
+  `_dispatch_action` with the gate forced to refuse and counting the calls: 0.
+- It is impossible even in principle: at **L4 and L3** the gate returns `execute=True`, so there is no
+  refusal at the levels where `repo_read_file` was demoted (`L4→L3` 02:20:38, `L3→L2` 02:20:45).
+- `repo_read_file` was demoted by **ten genuine execution failures**. The refusal is what happens
+  *after* the erosion, not what caused it.
+
+What was true and is now fixed: a refusal was **retried three times, counted by the action circuit
+breaker, and counted as a tool-loop failure**, which fired `TOOL_LOOP_DEADLOCK` and ended the step
+having done nothing. It now returns as a distinct class (`policy_refused`), is not retried, counts
+nothing, and suspends the step as waiting-on-owner. Also corrected: approval tasks were *not*
+duplicating — one task from 2026-10-23 was being reused; the defect was that the key ignored the
+resource.
+
+So the answer I gave you — "a refusal the policy made deliberately must never count against an
+agent's autonomy or as a tool failure" — stands as the engineering decision, and it is now the code.
+The *reason* I gave for it was wrong.
+
 ---
 
 ## Q9 — There are now two security owners, and one of them is a duplicate
@@ -245,10 +269,67 @@ ticked for the first time (`tick_telemetry` `ab0b7dbfb5dd47c9`, 02:16:56Z, outco
 quality `productive`); the weekly scorecard now reports real finding counts (19 of 32 departments
 non-zero, was 0 of 88).
 
-Still open and **not** yours: the two seeded security work orders must be re-fired (they are
-terminal `failed` from 2026-10-25), `evolution_verification` has no writer, and no stagnation
-detector exists. Those are mine to finish. Full detail:
-`00-FINDINGS-2026-10-26.md`.
+**Status corrected 2026-10-26 03:15Z.** The paragraph that stood here said
+`evolution_verification` had no writer and no stagnation detector existed. That was true when it was
+written and false by the end of the same night: the verification loop was built, run and scheduled
+(103 changes backfilled and measured), and the stagnation detector was built and run. What is
+genuinely still open is in `HANDOFF-TO-NEXT-AGENT.md` §6 — and its §6.1 keystone is now done. Full
+detail: `00-FINDINGS-2026-10-26.md` §10.
+
+---
+
+## Q10 — The company's own channel to you is in shadow mode, and 22 more actions are locked
+
+**What I read.** In `autonomy_levels` on the authority, **24 of 75 rows sit below L3** and every one
+of them is outside `CURATED_MATRIX`. Live values: `ask_owner` **L0_SHADOW**, `repo_map` L0,
+`get_current_datetime` **L2**, `gmail_accounts` L2, `dialpad_pull_sms` L2, `dialpad_pull_calls` L2,
+`ledger_status` L2, `task_hygiene` L2, `lpt_hub_sync_cases` L2, `website_work_order_digest` L2,
+`assign_task` L2, `contact_search` L2 — 22 of them are below their own matrix default. Six of the 24
+carry `last_demoted_at = NULL`, so something other than a demotion wrote them and there is no evidence
+of when or why.
+
+**Why the lock is total.** A gated action is refused, so it never runs; an action that never runs
+never succeeds; and promotion requires consecutive successes. `get_level()` recovers a demoted action
+only from the *in-memory* cooldown, which is empty after every restart, and the DB branch has no
+recovery at all. So after one restart the gate is permanent. `ask_owner` at L0 means the company
+cannot ask you anything — its questions are shadow-logged and dropped.
+
+**Why it is yours.** Restoring them is a **grant of authority**, not a repair: it makes the company do
+more without you, and one of the actions being restored is the one it uses to reach you. That is your
+risk appetite, not my preference.
+
+**My recommendation.** Adopt evidence-gated recovery, and nothing wider: in `get_level()`'s DB branch,
+restore an action to its matrix default only when its stored level is *below* that default **and** its
+`last_demoted_at` is older than the existing `COOLDOWN_RESTORE_SECONDS`. That is the rule the code
+already applies in memory — this only finishes it. The six rows with no timestamp stay exactly as they
+are and get reported to you rather than silently raised. Expected effect: `get_current_datetime`,
+`gmail_accounts`, `contact_search`, `task_hygiene`, `ledger_status` and ~12 more start working;
+`ask_owner` and `repo_map` stay gated until we decide about them by name, because a missing timestamp
+is not evidence of a safe demotion.
+
+**Decision needed:** adopt evidence-gated recovery as described / keep everything gated for now.
+
+---
+
+## Q11 — 106 approval requests are filling the task ceiling, and the company can file nothing
+
+**What I read.** `active_task_ceiling() = 300` and `count_active_tasks_for_capacity() = 300`, measured
+on the authority at 03:0xZ. `create_task` returns **-1** for every new task while that is true, so the
+company currently cannot file a work order, a security finding or an approval at all. **106 approval
+tasks are open**, the oldest from 2026-10-23; most are single actions waiting for a yes.
+
+**Why it is yours.** Clearing them means disposing of decisions that were queued for you. I am not
+going to silently cancel 106 things you were asked to approve.
+
+**My recommendation.** Let me close everything older than 48 hours with a note saying it expired
+unanswered, **without** granting the action it was asking about — and exempt approval tasks from the
+ceiling afterwards so a new request can always be filed. The existing `lifecycle_sweep` already
+expires stale approvals, but it **auto-promotes the action to L4 when it does** — i.e. "the owner did
+not answer" currently resolves to "then run it anyway". That is the part I would turn off, and it is
+the reason clearing these is not cosmetic.
+
+**Decision needed:** yes to expiring the stale ones without granting them / leave them and raise the
+ceiling instead.
 
 ---
 
