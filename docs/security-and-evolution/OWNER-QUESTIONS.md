@@ -68,6 +68,33 @@ anything. The tailnet ACL I would do second, with you awake, because the failure
 **Decision needed:** authorise me to close the open-cookie issue (no ACL change), and tell me
 whether the tailnet ACL is in scope at all.
 
+### Q3a — UPDATE 2026-10-26: the cookie is issued by a vendored package, not by our code
+
+I finally read the source instead of leaving this UNKNOWN for fifteen rounds. `Set-Cookie` is
+constructed at `node_modules/@deepseek-ai/dsh-client-connection/lib/index.js:347-348` and set at
+`:466-477` and `:524-536`, inside `sessionCookie()` / `BrowserAuth`. `sessionCookie()` emits
+`HttpOnly; SameSite=Strict` and takes a `secure` flag as a parameter — matching the audit's
+"missing `Secure`" observation exactly.
+
+**Why this changes my recommendation.** That path is a **vendored dependency inside `node_modules`**,
+so patching the file is the anti-pattern this estate has already paid for: it is overwritten on the
+next engine upgrade, and the evolution writer explicitly refuses that class
+(`evolution_log`, `status='dismissed'`: *"target is vendored/generated; the writer refuses this class
+now"*). The one part of that path we DO own is `scripts/phone-gate.py`, which sits in front of the
+engine and decides what reaches it.
+
+**So the fix has two legitimate homes, neither of them `node_modules`:**
+1. `scripts/phone-gate.py` — refuse to forward an unauthenticated session, so an anonymous GET never
+   reaches the code that mints the cookie. This is ours and is reversible.
+2. An engine upgrade that requires authentication before issuing the cookie — not ours to patch.
+
+I still have **not re-measured the live behaviour**; that needs an anonymous GET against a running
+gate, which I will not do without your say and without first writing down exactly what "closed" will
+look like. What I have done is remove the guess about *where* the fix belongs.
+
+**Decision needed:** (a) authorise me to add the phone-gate refusal, or (b) leave it and take it to
+an engine upgrade only.
+
 ---
 
 ## Q4 — What may the Security department do without asking you, ever?
