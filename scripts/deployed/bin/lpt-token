@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+r"""lpt-token - the ONLY thing allowed to spend the LPT API refresh token.
+
+WHY THIS EXISTS (2026-10-26). LPT_API_REFRESH_TOKEN is a ROTATING one-shot secret:
+auth.refresh revokes the token you present and issues a new one. A caller that keeps
+the access token and throws the new refresh token away has destroyed its own
+credential, and its next attempt is read as REUSE, which revokes the whole family for
+that seat. That is exactly what happened on 2026-10-26: a successful refresh at
+15:59:46Z was not persisted, the stale value was presented again at ~16:12Z, and
+refresh_tokens rows 3533-3538 (seat agent-verification@, users.id 300) all went
+isRevoked=t.
+
+THE INVARIANT. One lock, one rotation, one atomic write. The stored token is replaced
+before anything else uses the access token, so the env file is never left holding a
+spent secret.
+
+MODES
+    lpt-token                 refresh, persist the rotation, print the access token
+    lpt-token --check         READ-ONLY: is the stored token present, unexpired, unrevoked?
+    lpt-token --mint          sign a fresh refresh token from the backend's own
+                              JWT_REFRESH_SECRET, insert its row, install it
+"""
+import base64, fcntl, hashlib, hmac, json, os, subprocess, sys, tempfile, time, uuid
+
+ENV = "/root/personal-secretary-mvp/.env"
+LOCK = "/var/lock/lpt-token.lock"
+BASE = "https://api.lakewoodphoneandtech.com"
+SEAT = {"userId": 300, "customerId": None, "phone": None,
+        "email": "agent-verification@lakewoodphoneandtech.com",
+        "role": "MANAGER"}
+ISS, AUD = "phone-and-tech", "phone-and-tech-refresh"
+
+
+def read_env():
+    out = {}
+    with open(ENV) as fh:
+        for line in fh:
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.rstrip("\n").split("=", 1)
+                out[k] = v
+    return out
+
+
+def write_token(new):
+    """Replace ONE line atomically. Every other byte is preserved."""
+    with open(ENV) as fh:
+        lines = fh.readlines()
+    hit = False
+    for i, line in enumerate(lines):
+        if line.startswith("LPT_API_REFRESH_TOKEN="):
+            lines[i] = "LPT_API_REFRESH_TOKEN=" + new + "\n"
+            hit = True
+    if not hit:
+        lines.append("LPT_API_REFRESH_TOKEN=" + new + "\n")
+    d = os.path.dirname(ENV)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".env.lpt-token.")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.writelines(lines)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, ENV)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def psql(sql):
+    dsn = read_env().get("PHONE_TECH_FULL_DATABASE_URL")
+    if not dsn:
+        sys.exit("lpt-token: PHONE_TECH_FULL_DATABASE_URL absent from " + ENV)
+    r = subprocess.run(["psql", dsn, "-Atc", sql], capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("lpt-token: psql failed: " + r.stderr.strip()[:400])
+    return r.stdout.strip()
+
+
+def b64(b):
+    return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+
+
+def sign(secret, claims):
+    head = b64(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
+    body = b64(json.dumps(claims, separators=(",", ":")).encode())
+    msg = (head + "." + body).encode()
+    sig = b64(hmac.new(secret.encode(), msg, hashlib.sha256).digest())
+    return head + "." + body + "." + sig
+
+
+def container_env(name):
+    r = subprocess.run(["ssh", "lpt-apps", "docker exec lpt-backend printenv " + name],
+                       capture_output=True, text=True)
+    v = r.stdout.strip()
+    if r.returncode != 0 or not v:
+        sys.exit("lpt-token: cannot read " + name + " from the backend: " + r.stderr.strip()[:200])
+    return v
+
+
+def mint():
+    secret = container_env("JWT_REFRESH_SECRET")
+    exp_in = container_env("JWT_REFRESH_EXPIRES_IN")
+    days = 90
+    try:
+        if exp_in.endswith("d"):
+            days = int(exp_in[:-1])
+        elif exp_in.endswith("h"):
+            days = int(exp_in[:-1]) / 24
+    except ValueError:
+        pass
+    now = int(time.time())
+    claims = dict(SEAT)
+    claims.update({"jti": str(uuid.uuid4()), "iat": now,
+                   "exp": now + int(days * 86400), "iss": ISS, "aud": AUD})
+    tok = sign(secret, claims)
+    psql("insert into refresh_tokens (token,\"userId\",\"expiresAt\",\"isRevoked\",\"createdAt\",\"updatedAt\") "
+         "values ('" + tok + "', 300, to_timestamp(" + str(claims["exp"]) + "), false, now(), now())")
+    write_token(tok)
+    print("minted and installed a fresh refresh token for users.id 300, exp " +
+          time.strftime("%Y-%m-%d", time.gmtime(claims["exp"])))
+
+
+def refresh():
+    tok = read_env().get("LPT_API_REFRESH_TOKEN")
+    if not tok:
+        sys.exit("lpt-token: no stored token; run --mint")
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+        json.dump({"refreshToken": tok}, fh)
+        body = fh.name
+    try:
+        r = subprocess.run(["curl", "-s", "-o", "/tmp/lpt-token.out", "-w", "%{http_code}",
+                            "-X", "POST", BASE + "/api/trpc/auth.refresh",
+                            "-H", "Content-Type: application/json",
+                            "--data-binary", "@" + body], capture_output=True, text=True)
+    finally:
+        os.unlink(body)
+    data = json.load(open("/tmp/lpt-token.out"))
+    payload = (data.get("result", {}) or {}).get("data", {}) or {}
+    tokens = payload.get("tokens") or payload
+    access, fresh = tokens.get("accessToken"), tokens.get("refreshToken")
+    if r.stdout != "200" or not access:
+        sys.exit("lpt-token: refresh refused (http " + r.stdout + "): " +
+                 str(data.get("error", {}).get("message"))[:200] +
+                 " -- the stored token is spent or revoked; run --mint")
+    if fresh and fresh != tok:
+        write_token(fresh)
+    return access
+
+
+def check():
+    tok = read_env().get("LPT_API_REFRESH_TOKEN")
+    if not tok:
+        print("ABSENT from " + ENV)
+        return 1
+    row = psql("select (case when \"isRevoked\" then 'REVOKED' else 'OK' end)||'|'||extract(epoch from \"expiresAt\")::bigint from refresh_tokens where token='" + tok + "'")
+    if not row:
+        print("NOT-IN-TABLE: the stored token has no refresh_tokens row")
+        return 1
+    revoked, exp = row.split("|")
+    left = int(exp) - int(time.time())
+    if revoked != "OK":
+        print("REVOKED (expired in " + str(left // 86400) + "d at best) -- run --mint")
+        return 1
+    if left <= 0:
+        print("EXPIRED")
+        return 1
+    print("ok days=" + str(left // 86400))
+    return 0
+
+
+def main():
+    mode = sys.argv[1] if len(sys.argv) > 1 else "--refresh"
+    if mode not in ("--refresh", "--check", "--mint"):
+        sys.exit("usage: lpt-token [--refresh|--check|--mint]")
+    if mode == "--check":
+        sys.exit(check())
+    os.makedirs(os.path.dirname(LOCK), exist_ok=True)
+    with open(LOCK, "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            sys.exit("lpt-token: another refresh is in flight; refusing to rotate twice")
+        if mode == "--mint":
+            mint()
+        else:
+            print(refresh())
+
+
+if __name__ == "__main__":
+    main()
