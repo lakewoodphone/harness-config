@@ -1,0 +1,273 @@
+### app/services/customer_stall_watch.py
+--- a/app/services/customer_stall_watch.py
++++ b/app/services/customer_stall_watch.py
+@@ -234,6 +234,26 @@
+         lowered = {str(tag).strip().lower() for tag in tags}
+     if STALL_FLAG_TAG in lowered:
+         return []
++    # An APPROVAL REQUEST is never a customer's job (2026-10-26).
++    #
++    # Measured on the authority: of the 164 tasks past the 7-day stale-task
++    # window, 160 fired `customer_word` *only* -- and they were internal approval
++    # requests ("Approve action: github_list_issues") and engineering chores whose
++    # descriptions merely mention a customer. `customer_word` is a substring test
++    # over the whole description, so it cannot tell "a customer's repair" from "a
++    # task about something a customer touched". The consequence was that the
++    # stale-task reaper exempted 160 of 164 and closed nothing, while the
++    # active-task ceiling sat full at 300/300 and the company could not file a
++    # work order, a finding or an approval at all.
++    #
++    # This is deliberately the narrowest exemption that unjams it: the `approval`
++    # tag is written only by `_create_approval_task` and `_enforce_action_policy`,
++    # never by customer intake, so no real customer job can carry it. Every other
++    # marker -- lpt_tag, repair_title, customer_word on non-approval rows,
++    # hub_case_path -- protects exactly what it protected before, including the
++    # D2907 owner/money cases.
++    if "approval" in lowered:
++        return []
+     if LPT_TAG in lowered:
+         markers.append("lpt_tag")
+ 
+### app/services/lifecycle_sweep.py
+--- a/app/services/lifecycle_sweep.py
++++ b/app/services/lifecycle_sweep.py
+@@ -99,6 +99,11 @@
+ BACKOFF_JITTER = 0.25
+ MAX_RETRIES = 5
+ STALE_APPROVAL_HOURS = 2
++# How long an owner-facing approval TASK stays open before the sweep closes it
++# unanswered (it grants nothing when it does). Long enough to be seen in a working
++# day, short enough that the queue cannot become a dumping ground: measured
++# 2026-10-26, 108 open approval tasks were holding a 300-task ceiling shut.
++STALE_APPROVAL_TASK_HOURS = 48
+ TASK_GOAL_COVERAGE_LIMIT = 10
+ TASK_GOAL_COVERAGE_QUERY_MULTIPLIER = 8
+ TASK_GOAL_COVERAGE_AGENT_ACTIVE_LIMIT = 3
+@@ -1575,17 +1580,32 @@
+         (age,),
+     ).fetchall()
+ 
+-    # Also close approval-tagged tasks older than 4h. Their underlying
+-    # approval queue entry expires after 2h (STALE_APPROVAL_HOURS), so
+-    # the task itself becomes orphaned and just consumes ceiling slots.
+-    # Include pending/blocked legacy approval artifacts: these are internal
+-    # workflow residue, not owner decisions that should be bounced back.
+-    approval_rows = conn.execute("""SELECT t.*
++    # Also close approval-tagged tasks older than STALE_APPROVAL_TASK_HOURS.
++    # Their underlying approval queue entry expires after 2h
++    # (STALE_APPROVAL_HOURS), so the task itself becomes orphaned and just
++    # consumes ceiling slots.
++    #
++    # 2026-10-26, two defects measured on the authority and fixed here:
++    #   1. `status IN ('in_progress','pending','blocked')` matched **zero** rows
++    #      -- every approval task this company creates is status 'open' -- so this
++    #      branch had never closed a single one, and 108 were sitting against a
++    #      300-task ceiling.
++    #   2. The 4h window was chosen when the only approvals were the 2h queue's
++    #      orphans. Too short to be answerable in a working day; 48h is long
++    #      enough to be seen and short enough that the queue cannot become a
++    #      dumping ground. Dedupe means at most one open approval per (action,
++    #      agent, resource), so nothing repopulates it.
++    approval_rows = conn.execute(
++        f"""SELECT t.*
+            FROM tasks t
+-                     WHERE t.status IN ('in_progress', 'pending', 'blocked')
+-                         AND (t.tags_json LIKE '%"approval"%' OR t.title LIKE 'APPROVAL:%')
++                     WHERE t.status IN ('open', 'in_progress', 'pending', 'blocked')
++                         AND (t.tags_json LIKE '%"approval"%'
++                              OR t.title LIKE 'APPROVAL:%'
++                              OR t.title LIKE 'Approve action:%')
+              AND t.created_at < strftime(
+-                 '%Y-%m-%dT%H:%M:%S', 'now', '-4 hours')""").fetchall()
++                 '%Y-%m-%dT%H:%M:%S', 'now', ?)""",
++        (f"-{STALE_APPROVAL_TASK_HOURS} hours",),
++    ).fetchall()
+ 
+     all_rows = list(rows) + [
+         r for r in approval_rows if r["id"] not in {x["id"] for x in rows}
+@@ -2230,32 +2250,27 @@
+             expired += 1
+         conn.commit()
+ 
+-    # Auto-promote expired approval actions so they don't loop
+-    if promoted_actions:
+-        try:
+-            from app.services.autonomy import (
+-                _level_overrides,
+-                _last_demoted_at,
+-                DEFAULT_MATRIX,
+-            )
+-
+-            for action_name in promoted_actions:
+-                entry = DEFAULT_MATRIX.get(action_name, {})
+-                default = entry.get("default", 4)
+-                _level_overrides[action_name] = max(default, 4)
+-                _last_demoted_at.pop(action_name, None)
+-                log.info(
+-                    "Auto-promoted %s to L4 after approval " "expiry",
+-                    action_name,
+-                )
+-        except Exception:
+-            pass
+-
++    # An expiry GRANTS NOTHING (2026-10-26).
++    #
++    # This block used to promote every action whose approval expired to L4 --
++    # `_level_overrides[action_name] = max(default, 4)` -- so "the owner did not
++    # answer in two hours" resolved to "then run it anyway". Measured on the
++    # authority: 1288 queue entries had been expired, i.e. 1288 silent grants,
++    # and it is why an action kept reappearing at L4 after being demoted. A
++    # timeout is not consent, and an autonomy gate that grants on timeout cannot
++    # be trusted to say no.
++    #
++    # The trade: an expired request can be re-asked, so a gated step may return
++    # here every two hours. That treadmill is bounded (one row per (agent, tool,
++    # step) per cycle), visible in this queue, and vastly preferable to granting
++    # execution because nobody was watching. If it proves noisy, the next
++    # refinement is a repeat-expiry counter that parks the step as blocked.
+     if expired:
+         log.info(
+-            "Expired %d stale pending approvals (>%dh old), " "auto-promoted: %s",
++            "Expired %d stale pending approvals (>%dh old), granted nothing",
+             expired,
+             STALE_APPROVAL_HOURS,
+-            ", ".join(promoted_actions) or "none",
+         )
++        return expired
++
+     return expired
+### app/database.py
+--- a/app/database.py
++++ b/app/database.py
+@@ -5839,6 +5839,7 @@
+     metadata: dict[str, Any] | None = None,
+     dedup_threshold: int = 80,
+     dedupe_key: str | None = None,
++    bypass_ceiling: bool = False,
+ ) -> int:
+     # ── D012: dedup — skip duplicate open tasks ──
+     assigned_to = canonicalize_assignment_agent(assigned_to)
+@@ -5903,7 +5904,14 @@
+ 
+         _ceiling = active_task_ceiling()
+         _active = count_active_tasks_for_capacity(db_url)
+-        if _active >= _ceiling:
++        # `bypass_ceiling` is for the one class that MUST always be recordable:
++        # an approval request. Measured 2026-10-26 -- the company sat at 300/300
++        # and a refusal that tried to queue its approval got -1, so the request
++        # vanished and the work could never be authorised. A gate that silently
++        # drops the request to open a gate is a dead end with no trace. The flood
++        # risk is bounded by the exact `dedupe_key` (one open row per action,
++        # agent and resource) plus the 48h approval expiry.
++        if _active >= _ceiling and not bypass_ceiling:
+             _log.warning(
+                 "Task creation blocked: %d active tasks (ceiling %d). "
+                 "Caller=%s title=%s",
+### app/services/autonomy.py
+--- a/app/services/autonomy.py
++++ b/app/services/autonomy.py
+@@ -475,6 +475,31 @@
+     return AutonomyLevel(bounded)
+ 
+ 
++def _level_age_seconds(value: Any) -> float | None:
++    """Seconds since the autonomy row last moved, or None if unparseable.
++
++    Two stored formats exist in `autonomy_levels`: the `_persist_level` writer
++    stores `datetime.now(timezone.utc).isoformat()` (with a `+00:00` offset and
++    microseconds) while older / imported rows carry SQLite's `datetime('now')`
++    (`2026-06-04 18:11:29`, a space separator and no zone). Both are real; both
++    must parse, or the cooldown silently never fires for half the table.
++    """
++    if not value:
++        return None
++    text = str(value).strip().replace("Z", "+00:00")
++    try:
++        from datetime import datetime, timezone
++
++        parsed = datetime.fromisoformat(text)
++    except (TypeError, ValueError):
++        return None
++    if parsed.tzinfo is None:
++        from datetime import timezone
++
++        parsed = parsed.replace(tzinfo=timezone.utc)
++    return max(0.0, time.time() - parsed.timestamp())
++
++
+ def get_level(action_name: str, settings: Any = None) -> AutonomyLevel:
+     """Get the current autonomy level for an action type."""
+     # One-time cleanup of stale demotions from before matrix additions
+@@ -527,11 +552,59 @@
+                 conn = _get_autonomy_conn(db_url)
+                 _ensure_table(conn)
+                 row = conn.execute(
+-                    "SELECT current_level FROM autonomy_levels WHERE action_name=?",
++                    "SELECT current_level, last_demoted_at, updated_at"
++                    " FROM autonomy_levels WHERE action_name=?",
+                     (action_name,),
+                 ).fetchone()
+                 if row:
+-                    return _clamp_to_ceiling(action_name, row[0])
++                    stored = int(row[0])
++                    default_lvl = int(entry.get("default", stored))
++                    if stored < default_lvl:
++                        # ── COOLDOWN RECOVERY, enforced on the DB row (2026-10-26) ──
++                        # The same rule already exists for in-memory overrides 40
++                        # lines above; it was never applied here, so a restart made
++                        # every demotion permanent. Measured on the authority: 24 of
++                        # 75 rows were stuck below their matrix default, months old,
++                        # including `ask_owner` at L0_SHADOW -- a refused action can
++                        # never succeed, and an action that never succeeds can never
++                        # be re-promoted, so the lock was total (`get_current_datetime`
++                        # L2, `gmail_accounts` L2, `contact_search` L2...).
++                        #
++                        # A demotion is a brake, not a sentence: after
++                        # COOLDOWN_RESTORE_SECONDS without moving, the matrix default
++                        # is the policy again. The anchor is the row's own last write
++                        # (`last_demoted_at`, else `updated_at`), so a row with no
++                        # demotion timestamp is judged by when it was last written
++                        # rather than exempted forever. Nothing is raised above the
++                        # matrix default and nothing above its ceiling.
++                        age = _level_age_seconds(row[1] or row[2])
++                        if age is not None and age >= COOLDOWN_RESTORE_SECONDS:
++                            log.info(
++                                "Autonomy COOLDOWN-RESTORE (db): %s L%d → L%d"
++                                " (level last moved %.1fh ago, threshold %ds)",
++                                action_name,
++                                stored,
++                                default_lvl,
++                                age / 3600.0,
++                                COOLDOWN_RESTORE_SECONDS,
++                            )
++                            try:
++                                conn.execute(
++                                    "UPDATE autonomy_levels SET current_level=?,"
++                                    " max_level=?, last_demoted_at=NULL,"
++                                    " updated_at=strftime('%Y-%m-%dT%H:%M:%S','now')"
++                                    " WHERE action_name=?",
++                                    (
++                                        default_lvl,
++                                        ceiling_for(action_name),
++                                        action_name,
++                                    ),
++                                )
++                                conn.commit()
++                            except Exception:
++                                pass
++                            return _clamp_to_ceiling(action_name, default_lvl)
++                    return _clamp_to_ceiling(action_name, stored)
+             except Exception:
+                 pass
+ 
+### app/chat_action_notifications.py
+--- a/app/chat_action_notifications.py
++++ b/app/chat_action_notifications.py
+@@ -101,6 +101,7 @@
+             ),
+             dedup_threshold=0 if dedupe_key else 80,
+             dedupe_key=dedupe_key,
++            bypass_ceiling=True,
+         )
+         # `create_task` returns -1 (not an id) when the active-task ceiling blocks
+         # it, and 0 when the insert produced no row. Neither is a task: passing -1

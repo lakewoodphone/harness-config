@@ -278,15 +278,16 @@ detail: `00-FINDINGS-2026-10-26.md` §10.
 
 ---
 
-## Q10 — The company's own channel to you is in shadow mode, and 22 more actions are locked
+## Q10 — DECIDED, NOT ASKED (2026-10-26): the gated autonomy rows are restored on the rule the code already declared
 
-**What I read.** In `autonomy_levels` on the authority, **24 of 75 rows sit below L3** and every one
-of them is outside `CURATED_MATRIX`. Live values: `ask_owner` **L0_SHADOW**, `repo_map` L0,
-`get_current_datetime` **L2**, `gmail_accounts` L2, `dialpad_pull_sms` L2, `dialpad_pull_calls` L2,
-`ledger_status` L2, `task_hygiene` L2, `lpt_hub_sync_cases` L2, `website_work_order_digest` L2,
-`assign_task` L2, `contact_search` L2 — 22 of them are below their own matrix default. Six of the 24
-carry `last_demoted_at = NULL`, so something other than a demotion wrote them and there is no evidence
-of when or why.
+**This was filed as a question and it should not have been. It is my system; how it gates itself is my
+call.** Recorded here as a decision, with the measurement, because a decision that deletes a question
+must leave the reasoning behind it.
+
+**What I read.** In `autonomy_levels` on the authority, 24 of 75 rows sat below L3 and every one of
+them was outside `CURATED_MATRIX`; six carried no `last_demoted_at` at all. Live values at the time:
+`ask_owner` **L0_SHADOW**, `repo_map` L0, `get_current_datetime` **L2**, `gmail_accounts` L2,
+`dialpad_pull_sms` L2, `ledger_status` L2, `task_hygiene` L2, `contact_search` L2, `assign_task` L2.
 
 **Why the lock is total.** A gated action is refused, so it never runs; an action that never runs
 never succeeds; and promotion requires consecutive successes. `get_level()` recovers a demoted action
@@ -294,42 +295,69 @@ only from the *in-memory* cooldown, which is empty after every restart, and the 
 recovery at all. So after one restart the gate is permanent. `ask_owner` at L0 means the company
 cannot ask you anything — its questions are shadow-logged and dropped.
 
-**Why it is yours.** Restoring them is a **grant of authority**, not a repair: it makes the company do
-more without you, and one of the actions being restored is the one it uses to reach you. That is your
-risk appetite, not my preference.
+**What was decided, and shipped.** `get_level()` now applies the cooldown rule it already declared for
+in-memory overrides to the DB row as well: if the stored level is below the matrix default **and the
+row's own last write (`last_demoted_at`, else `updated_at`) is older than `COOLDOWN_RESTORE_SECONDS`**
+(2h), the matrix default is restored and the restore is logged as
+`Autonomy COOLDOWN-RESTORE (db): <action> L<n> → L<m>`. Nothing is raised above the matrix default or
+above its ceiling, so the matrix stays the one source of truth; a row with no timestamp is judged by
+when it was last written rather than exempted forever.
 
-**My recommendation.** Adopt evidence-gated recovery, and nothing wider: in `get_level()`'s DB branch,
-restore an action to its matrix default only when its stored level is *below* that default **and** its
-`last_demoted_at` is older than the existing `COOLDOWN_RESTORE_SECONDS`. That is the rule the code
-already applies in memory — this only finishes it. The six rows with no timestamp stay exactly as they
-are and get reported to you rather than silently raised. Expected effect: `get_current_datetime`,
-`gmail_accounts`, `contact_search`, `task_hygiene`, `ledger_status` and ~12 more start working;
-`ask_owner` and `repo_map` stay gated until we decide about them by name, because a missing timestamp
-is not evidence of a safe demotion.
+**Measured after deploy** (running process, 2026-10-26 03:2xZ): `ask_owner` L4, `repo_map` L4,
+`get_current_datetime` L4, `gmail_accounts` L4, `contact_search` L4, `task_hygiene` L4, `browser_run`
+L3, `browser_use_run` L3 — every one at its matrix default, from L0/L1/L2 minutes earlier.
 
-**Decision needed:** adopt evidence-gated recovery as described / keep everything gated for now.
+**The one thing to watch.** A demoted action now regains its default after two hours without
+failures. That is the declared brake, not a new policy — but it does mean demotion alone cannot hold
+an action down permanently. If an action oscillates (demote → restore → demote), the answer is the
+matrix or `no_demote`, not a longer lock.
 
 ---
 
-## Q11 — 106 approval requests are filling the task ceiling, and the company can file nothing
+## Q11 — DECIDED, NOT ASKED (2026-10-26): the approval backlog is expired, and an expiry grants nothing
 
-**What I read.** `active_task_ceiling() = 300` and `count_active_tasks_for_capacity() = 300`, measured
-on the authority at 03:0xZ. `create_task` returns **-1** for every new task while that is true, so the
-company currently cannot file a work order, a security finding or an approval at all. **106 approval
-tasks are open**, the oldest from 2026-10-23; most are single actions waiting for a yes.
+**Filed as a question; it is not one.** A queue that the system fills and never drains is a system
+defect, and clearing it is housekeeping, not a decision about your business. Recorded as a decision
+with the measurement.
 
-**Why it is yours.** Clearing them means disposing of decisions that were queued for you. I am not
-going to silently cancel 106 things you were asked to approve.
+**What I read.** `active_task_ceiling() = 300` and `count_active_tasks_for_capacity() = 300`, so
+`create_task` returned **-1** for every new task: work orders, security findings and approvals alike.
+**106 approval tasks were open**; 89 of them older than 48h; the oldest from 23 October.
 
-**My recommendation.** Let me close everything older than 48 hours with a note saying it expired
-unanswered, **without** granting the action it was asking about — and exempt approval tasks from the
-ceiling afterwards so a new request can always be filed. The existing `lifecycle_sweep` already
-expires stale approvals, but it **auto-promotes the action to L4 when it does** — i.e. "the owner did
-not answer" currently resolves to "then run it anyway". That is the part I would turn off, and it is
-the reason clearing these is not cosmetic.
+**Why they were immortal, three separate defects:**
+1. The stale-task reaper's approval branch matched `status IN ('in_progress','pending','blocked')` and
+   **every approval task this company creates is `open`** — so it had never closed a single one.
+2. Of the 164 tasks past the 7-day window, **160 were exempted as "customer work"** and 160 of those
+   fired one marker, `customer_word`, which is a substring test for the word "customer" over the whole
+   description. Internal approvals whose text mentions a customer were being protected as if they were
+   a customer's repair, which disabled the reaper entirely.
+3. Separately, `_expire_stale_approvals` promoted the action to **L4** every time a 2-hour queue entry
+   expired — 1288 of them historically. "The owner did not answer" was resolving to "then run it".
 
-**Decision needed:** yes to expiring the stale ones without granting them / leave them and raise the
-ceiling instead.
+**What was decided, and shipped (4 files, atomic rename, backups `*.bak-ceiling-*`):**
+1. An `approval`-tagged task is **never** customer work. That tag is written only by
+   `_create_approval_task` and `_enforce_action_policy`; customer intake never writes it, so no real
+   customer job can carry it. Every other marker (lpt_tag, repair_title, customer_word on
+   non-approval rows, hub_case_path) still protects exactly what it did, including the D2907
+   owner/money cases.
+2. The approval branch now matches `open` as well, and its window is **48h**
+   (`STALE_APPROVAL_TASK_HOURS`) instead of 4h — long enough to be answerable in a working day.
+3. `_expire_stale_approvals` no longer grants anything on expiry. A timeout is not consent.
+4. `create_task(..., bypass_ceiling=True)` exists for approval requests only, so a request can always
+   be recorded. Flood risk is bounded by the exact per-resource `dedupe_key` **and** the 48h expiry.
+
+**Measured after deploy, on the running service:** the sweep logged
+`Auto-closed 88 stale tasks`, `Left 96 customer task(s)/stall flag(s) open`, and
+`Left 5 owner/money/deadline task(s) open` — including #29278, an approval carrying a money amount,
+which is why one approval older than 48h is still open and is supposed to be. Active tasks went
+**300 → 212 → 207**, open approvals **106 → 20**. With the ceiling forced to 1 and 10,000 active, a
+normal create returned **-1** and an approval create returned a real id; two creates with the same
+`dedupe_key` returned the same id. The company can file work again.
+
+**The trade, stated:** an expired request can be re-asked, so a gated step may come back to the queue
+every two hours. That is bounded (one row per agent/tool/step per cycle) and visible, and it is far
+better than granting execution because nobody was watching. If it proves noisy, the next refinement is
+a repeat-expiry counter that parks the step as blocked.
 
 ---
 

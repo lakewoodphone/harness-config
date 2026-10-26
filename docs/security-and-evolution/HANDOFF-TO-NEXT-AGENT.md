@@ -27,14 +27,23 @@ and **L13515**.
    is what got fixed: no retry, no circuit-breaker count, no tool strike, no deadlock, deduped per
    (action, agent, resource), and the step suspends as waiting-on-owner.
 
-**Two new blockers, measured, neither fixed — both are now ahead of §6.3–§6.6:**
+**Two new blockers were found in the same pass — and both are now FIXED (03:2xZ).** They were
+recorded here as "measured, not fixed" for about twenty minutes; this is the correction:
 
-- **The task ceiling is full (300/300).** `create_task` returns `-1` for every new task, so the
-  company cannot file a work order, a finding or an approval. 106 approval tasks are open.
-- **24 of 75 autonomy rows are permanently gated** (`ask_owner` is L0_SHADOW, `get_current_datetime`
-  L2) because `_cleanup_stale_overrides()` only walks `CURATED_MATRIX` and `get_level()`'s DB branch
-  has no recovery, so a refused action can never succeed and never be re-promoted. Restoring
-  authority is a grant, so it is an owner question (Q10), not an engineering edit.
+- **The task ceiling was full (300/300).** `create_task` returned `-1` for every new task. Root cause
+  was three defects: the reaper's approval branch matched only `in_progress/pending/blocked` while every
+  approval task is `open`; 160 of 164 stale candidates were exempted as "customer work" by one marker
+  (`customer_word`) that fires on any description mentioning a customer; and `_expire_stale_approvals`
+  granted L4 on every expiry. All three fixed. Measured after: active 300 → 207, open approvals
+  106 → 20, and `Auto-closed 88 stale tasks` while 96 customer tasks and 5 money/deadline tasks were
+  left open deliberately.
+- **24 of 75 autonomy rows were permanently gated** (`ask_owner` L0_SHADOW, `get_current_datetime` L2)
+  because the declared 2h cooldown rule existed only in memory. `get_level()` now applies it to the DB
+  row, anchored on the row's own last write. Measured after: every restored row sits at its matrix
+  default. `ask_owner` is L4 — the company can ask the owner again.
+
+Both are owner-question **Q10/Q11 in `OWNER-QUESTIONS.md`, and both were withdrawn as questions** —
+they are operational decisions and they were mine to make. Do not re-file them.
 
 ---
 
