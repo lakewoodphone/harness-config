@@ -308,3 +308,69 @@ it currently holds. That plus the camera count gives bytes per hour per camera, 
 The password that was supplied is now in a session transcript that this estate archives permanently
 (`AGENTS.md` §1), so the `zabz` account should be deleted once the clock is fixed, and the shop's admin password
 rotated.
+
+---
+
+## 10. Measured again after the owner opened the recorder's UI — **this supersedes the clock numbers in §7 and §8**
+
+The owner sent screenshots of `Setup → System → Date & Time`, `Storage → Basic / Disk Manager / Disk Quota / FTP`, and
+I re-fetched two stills at **16:07:40 EDT** and read their burned-in times. The earlier diagnosis was wrong in a
+useful way, so it is recorded here rather than quietly edited.
+
+### 10.1 NTP was already on. The clock was not the setting — the timezone is.
+
+The Date & Time page shows **NTP enabled**, `pool.ntp.org`, port 123, interval 60 minutes — so "turn NTP on" was
+advice for a fault that did not exist. What the page also shows is the actual defect:
+
+| field | value | why it matters |
+|---|---|---|
+| Time Zone | `(UTC-05:00) Eastern Time (US & Canada)` | in October, Eastern is **EDT = UTC−04:00** |
+| DST | checked, but **Start Jan 1 00:00 → End Jan 2 00:00** | a one-day window in January, so DST is never applied in summer |
+
+Measured, twice, on the same camera:
+
+| when | camera OSD | host clock | offset |
+|---|---|---|---|
+| 12:21:25 EDT (this morning) | 11:30:01 | 12:21:25 | 51 m 24 s |
+| 16:07:40 EDT (after the UI visit) | **15:07:41** | 16:07:40 | **59 m 59 s** |
+
+The 8 m 35 s of drift that was in the first reading is **gone**, and what is left is **exactly one hour** — the
+signature of a timezone being one offset out, not of a slow clock. Reading: NTP succeeded at some point between the
+two measurements (or the owner pressed *Manual Update*), which corrected the base time to the right UTC second; the
+display is still one hour wrong because the device believes it is on standard time in October.
+
+**Fix, four fields, no NTP involved:** set `DST → Type = Week`, `Start = Mar, 2nd week, Sunday, 02:00`,
+`End = Nov, 1st week, Sunday, 02:00`. That is the US rule, so the display is right now *and* after the November
+change — which a manual "set the clock forward an hour" would not be.
+
+### 10.2 The doorbell is a different fault and is still wrong
+
+Same moment, 16:07:43 EDT: the Reolink burned **27/10/2026 15:00:06**, i.e. **1 h 07 m 37 s behind** — unchanged
+from this morning's 67 m 26–34 s. So the doorbell is not a timezone; it is its own unsynced clock, and nothing done
+to the NVR touches it. It needs NTP (or "sync with phone") in the Reolink app.
+
+### 10.3 The disk answers the retention question — and says video *is* being recorded
+
+From `Storage`:
+
+| read | value |
+|---|---|
+| Disk Manager | `sda`, Cabinet_1, Read/Write, **Health Normal**, **Free 0 GB / Total 1.80 TB** |
+| Basic | Disk Full = **Overwrite**, Create Video Files = Time Length **60 min**, Delete Expired Files = **Never** |
+| Disk Quota | **quota off**; Remaining Quota 1846.39 GB, Used Capacity of Record 0; red banner "channels with no allocated quotas" |
+
+Three readings of that, in order of what is *known*:
+
+1. **A 1.8 TB disk reporting zero free is a disk full of recordings.** That is the good news: video exists, the
+   recorder writes, and the ring buffer is in `Overwrite` mode. It also means the red quota banner is cosmetic —
+   quota is simply switched off, and with it off all channels share the whole disk. `Used Capacity of Record 0` is a
+   field that only fills when quota is enabled, **not** evidence of an empty disk, and reading it as such would have
+   been exactly the kind of number-that-looks-calm defect this folder exists to catch.
+2. **There is no day-based retention at all.** "Delete Expired Files: Never" plus "Disk Full: Overwrite" means
+   retention is whatever 1.8 TB holds at the current bitrates — a ring buffer, not a policy. So `D19`'s "thirty
+   days" is not something this box can be asked for; it is something that would have to be *bought* (disk) or
+   *configured* (bitrate, frame rate, or recording only on motion).
+3. **The days-held figure still needs one glance**: `Playback` → the calendar, the earliest date that has footage.
+   With 1.80 TB and the recorder's own reference bitrate of 4096 Kb/s (≈ 1.84 GB per camera-hour), five channels
+   would fill it in roughly eight days — but that is arithmetic on a *reference* field, not a measurement, and it is
+   labelled as such until the calendar says otherwise.
