@@ -146,26 +146,38 @@ reading the frame and the burned-in OSD label.
 
 | entity | OSD label | what the frame shows | the door it can answer for |
 |---|---|---|---|
-| `camera.cam_front_hallway_main` | "Main Entrance" | a hallway with three white doors, wide angle from high above | the internal hall doors, side-on |
-| `camera.cam_larry_s_exit_main_2` | "Deserted House Exit" | the control room from one corner: dark double door, desk, bins | the control-room exterior door |
+| `camera.cam_front_hallway_main` | "Main Entrance" | **the entrance door itself**, from inside and above: a closed six-panel door dead ahead, the keypad on the left wall, an open leaf blocking the right third | the shop door — **the best face view in the building** (3–4 m, frontal) |
+| `camera.cam_larry_s_exit_main_2` | "Deserted House Exit" | the same control room as `cam_deserted_exit_main` — two angles or one duplicated stream, unresolved | **no exit in frame**; the name refers to nothing visible |
 | `camera.cam_deserted_exit_main` | "Deserted House Exit" | **the same room** from the opposite corner, including a white door | same room, complementary angle |
 | `camera.cam_deserted_interior_main` | "Deserted House inwards" | the repair bench with two staff, the back-room doorway, white double doors | the work area — no exterior door |
 | `camera.cam_waiting_room_main` | "IPC" | the public **drop-off / pick-up** door with the LPT sign, from inside and very close | the door every customer uses |
 | `camera.reolink_video_doorbell_poe_snapshots_clear` | "Reolink Video Doorbell PoE" | the exterior stairwell, railing and street — the camera faces **away** from the building | the approach, **not** the doorway |
 | `camera.cam_larry_s_interior_main` | — | **no still at all: HTTP 500** while the entity reports `idle` | unknown |
 
-### The three gaps this exposes
+### The four gaps this exposes
 
-1. **The doorway itself is the blind spot, and it is the door that matters.** The doorbell looks outward down the
-   stairwell; the drop-off door is seen from inside at close range. Between a person arriving at the top of the
-   stairs and the door opening, **no camera shows that person's face**. Under O1 and O2 this is the single most
-   important missing view in the building, because it is the door every customer walks through — and it is a
-   camera-aiming problem, not a new system.
-2. **The maglock door has a view and no contact** (`D17`). The record could see a person and still be unable to say
-   a door opened for them. A contact is the cheap half and the camera is already there.
-3. **`cam_larry_s_interior_main` fails silently** — `idle` in the state machine, HTTP 500 on the still. So
-   liveness must be established by *the bytes arriving*, never by an entity's state. This is the same shape as
-   the estate's most expensive recurring defect: a failure that reports success.
+> **CORRECTED within the hour of first writing this.** The first version of this section said "the doorway itself is
+> the blind spot, and it is the door that matters". That was wrong, and it was wrong because I read
+> `cam_front_hallway_main` as a hallway when the frame is the **shop door itself, dead ahead from inside, 3–4 m,
+> with the keypad on the wall beside it**. The shop entrance has a camera on its threshold and it is the best face
+> view in the building. The gaps are elsewhere, and they are four.
+
+1. **The apartment door has no camera on it.** The only remotely-unlockable door in the building — smart lock
+   `lock.0x002446fffd0a4705`, contact `external_control_room_door_sensor`, and `script.buzz_in_apartment_door` —
+   and **none of the seven stills shows a deadbolt door at all**. Under scope A the apartment interior is out of
+   scope but **its door is explicitly in scope**, and today it is unwatched. *Inferred from six frames, not from a
+   config file: confirm against the physical layout before buying anything.*
+2. **"Larry's exit" is a name with no exit.** `camera.cam_larry_s_exit_main_2` burns `Deserted House Exit` into
+   every frame and shows the same control room as `cam_deserted_exit_main`. Whether that is two angles of one room
+   or one stream duplicated is unresolved — either way **no exit is in either frame**, so whatever door the name
+   refers to is unwatched.
+3. **The doorbell sees the approach, not the door.** It looks up the exterior stairwell; its own door is out of
+   frame (a white sliver at the extreme left edge). A person coming down the steps is captured; a person standing
+   flat at the door is not. It and `cam_front_hallway_main` are complementary rather than redundant — the doorbell
+   for who is coming, the hallway camera for the face at the door.
+4. **`cam_larry_s_interior_main` is dead and reports healthy** — HTTP 500 on `_main`, `_sub_4` and `_sub_2_2`,
+   while the state machine says `idle`. Liveness must be established by *the bytes arriving*, never by an entity's
+   state. This is the same shape as the estate's most expensive recurring defect: a failure that reports success.
 
 ### The entity trap that decides whether a picture is evidence
 
@@ -195,6 +207,11 @@ gap scope A exists to close, in one row.
 - **Reolink doorbell**: **67 m 26–34 s behind**, stable across 33 minutes → **one** correction.
 - Home Assistant's own edge timestamps are right to the second, so today the record's times and its pictures
   disagree by up to an hour.
+
+**Independently reproduced** the same afternoon from a second machine (ZABZ-YOGA, over the tailnet at
+`100.85.153.96:8123`, read-only): Dahua **−51 m 27 s**, doorbell **−67 m 37 s**, and the frames shown live by
+re-fetching — the OSD advanced **82 s in 82 s** of wall time. Two machines, two paths, the same two offsets to
+within seconds, so this is a property of the devices and not of the reader.
 
 Both corrections live in the devices' own web interfaces, and this box has no shell on the Home Assistant host
 (port 22 and port 445 both closed from ZABZ-TECH; only 8123 answers), and no camera credential exists in any
