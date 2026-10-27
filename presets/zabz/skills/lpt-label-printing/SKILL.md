@@ -145,3 +145,27 @@ tape), and nothing written outside `/tmp`.
 device, so the office box is the only print host there is — which is why printing there is accepted
 despite the freeze. Moving the labeler off the anchor is a decision about the anchor: bring it, do
 not improvise it.
+
+**CORRECTED 2026-10-27 — "the only print host there is" was wrong, and here is the measurement.**
+`zabz-tech-linux` is *also* an office box. Cloned `lpt-ops` (`de45f34`) there, ran
+`install-label.sh` (private venv at `~/.local/lib/lpt-label/venv`, launcher at
+`~/.local/bin/lpt-label`, symlinked to `/usr/local/bin/lpt-label` — additive, touches no system
+Python), and its own proof step answered:
+
+```
+tried: mDNS BRW4CD5775ED835.local -> 192.168.50.60
+Brother QL-820NWB at 192.168.50.60
+  state READY · media Not Empty 29mm · serial H3G354844 · firmware 1.25
+  print target tcp://192.168.50.60:9100
+install-label: printer found - PROVEN.
+```
+
+**So a frozen box is not required to print.** The rule this replaces was built on the assumption
+that the anchor was the only LAN-reachable always-on host; it is the only *always-on* one, not the
+only reachable one.
+
+**What is still the owner's decision, unchanged:** which host is the shop's print host. Two now exist
+and only one should. **Nothing was printed from `zabz-tech-linux`** — a print is 33 mm of tape and
+the honest proof is that tape, so the first one should be sent with a person standing there. Until he
+says which host wins, **print from `secratary-ts` exactly as above**; the second install is dormant
+and harmless.
