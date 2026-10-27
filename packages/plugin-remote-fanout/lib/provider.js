@@ -322,7 +322,28 @@ export function renderReport({ provider, transport, parsed, outcome, remote, mes
   const threadWarnings = mailbox !== undefined && mailbox.warnings?.length > 0
     ? `\n--- mailbox warnings ---\n${mailbox.warnings.join('\n')}\n--- end mailbox warnings ---`
     : '';
-  return `${head.join('\n')}\n--- child final message ---\n${body}${threadSection}${threadWarnings}${harvestSection}`;
+  // ── A FILE THE CHILD WROTE IS ON THE CHILD'S MACHINE ──────────────────────
+  // Measured 2026-10-26: five children were asked for a report at an absolute
+  // path. Each wrote it, exited 0, and truthfully said so. The path exists on
+  // both machines, so nothing errored -- but on the child it resolved into a
+  // DIFFERENT clone on a DIFFERENT branch (fleet/search-api-20261019 at 77f75fd0
+  // on one box, hk/1255-journal-converge-redact at ea5428e4 on the other). The
+  // dispatcher's tree was untouched and no line said so.
+  //
+  // This transport never copies files back: `harvest` above only rescues output
+  // from a FAILED attempt. So when a child says it wrote something, say where it
+  // actually is. The deliverable is this message; a path is a claim about another
+  // filesystem.
+  const wroteFile = /\b(?:wrote|written|saved|created|output)\b[^\n]{0,80}?(?:[A-Za-z]:\\|\/(?:Users|home|root|tmp|var|opt)\/)[^\s'"`)]+/i
+    .exec(body ?? '');
+  const fileWarning = wroteFile === null
+    ? ''
+    : `\n--- ⚠ file claim ---\nthe child says it wrote a file: ${wroteFile[0].slice(0, 160)}\n`
+      + `THIS TRANSPORT DOES NOT COPY FILES BACK. That path is on "${parsed.host ?? 'the child'}"; `
+      + `it is not in your working tree, and the same path on your machine is a DIFFERENT clone. `
+      + `The child's final message above is the deliverable. If the file mattered, ask the child to quote it.\n`
+      + '--- end file claim ---';
+  return `${head.join('\n')}\n--- child final message ---\n${body}${fileWarning}${threadSection}${threadWarnings}${harvestSection}`;
 }
 
 /** The seam's rule for a provider diagnostic, reused for the release note. */
