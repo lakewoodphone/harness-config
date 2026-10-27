@@ -1,0 +1,314 @@
+# ==============================================================================
+# PHOENIX PRESENCE ARCHITECTURE (ZONE FUSION)
+# ==============================================================================
+# This package creates reliable "Zone" sensors by fusing multiple inputs.
+# These sensors update instantaneously and serve as the Truth for automations.
+
+template:
+  - binary_sensor:
+      # ------------------------------------------------------------------------
+      # ZONE 1: OUTSIDE (Perimeter)
+      # ------------------------------------------------------------------------
+      - name: "Zone Outside Active"
+        unique_id: zone_outside_active
+        device_class: motion
+        state: >
+          {{ is_state('binary_sensor.video_doorbell_person', 'on') or
+             is_state('binary_sensor.video_doorbell_visitor', 'on') or
+             is_state('binary_sensor.video_doorbell_motion', 'on') }}
+
+      # ------------------------------------------------------------------------
+      # ZONE 2: FRONT HALLWAY (Transitional)
+      # ------------------------------------------------------------------------
+      # DEFECT FIXED 2026-09-16: every `is_state('camera.*', 'on')` test below was DEAD CODE.
+      # Measured from the live state machine: the only states a camera entity ever takes here are
+      # `idle` and `unavailable` - a camera is never `on`. So the "camera" half of this zone fusion
+      # contributed nothing, and `binary_sensor.zone_hallway_active` in fact tracked the outside
+      # door contact alone (its history transitions at 23:35:02Z, 00:20:00Z and 00:43:35Z match the
+      # door contact exactly), while `binary_sensor.zone_control_room_active` never turned on once.
+      # Replaced with the camera integrations' actual motion/person sensors, verified live:
+      #   binary_sensor.cam_*_smart_motion_human_2 (Dahua on-camera human detection)
+      #   binary_sensor.video_doorbell_person / _visitor / _motion (Reolink)
+      # Note the `_2` suffix is required and is NOT cosmetic: the working entities live on the
+      # NVR-serial device set while the bare names sit on an abandoned duplicate device that
+      # answers `unavailable` forever. See docs/CAMERA-TRUTH-2026-09-16.md.
+      - name: "Zone Hallway Active"
+        unique_id: zone_hallway_active
+        device_class: motion
+        state: >
+          {{ 
+            is_state('binary_sensor.cam_front_hallway_smart_motion_human_2', 'on') or
+            is_state('binary_sensor.cam_waiting_room_smart_motion_human_2', 'on') or
+            is_state('binary_sensor.video_doorbell_person', 'on') or
+            is_state('binary_sensor.phoenix_outside_door_contact', 'on') or
+            is_state('binary_sensor.phoenix_control_room_exterior_door_contact', 'on')
+          }}
+        attributes:
+            source_cameras: "{{ 'Front Hallway, Waiting Room, Doorbell' if is_state('this', 'on') else 'None' }}"
+            source_doors: "{{ 'Outside, Control Room Exterior' if is_state('this', 'on') else 'None' }}"
+
+      # ------------------------------------------------------------------------
+      # ZONE 3: CONTROL ROOM (Secure Workspace)
+      # ------------------------------------------------------------------------
+      
+      # Level 1: "Activity" (Motion & Doors)
+      # Instant detection of movement, but not reliable for "sitting still".
+      - name: "Zone Control Room Active"
+        unique_id: zone_control_room_active
+        device_class: motion
+        state: >
+          {{ 
+            is_state('binary_sensor.cam_deserted_exit_smart_motion_human_2', 'on') or 
+            is_state('binary_sensor.cam_deserted_interior_smart_motion_human_2', 'on') or
+            is_state('binary_sensor.phoenix_control_room_exterior_door_contact', 'on') or
+            is_state('binary_sensor.phoenix_control_room_interior_door_contact', 'on')
+          }}
+
+      # Level 2: "Occupancy" (High-Confidence Presence)
+      # Detects a human actually inhabiting the space (Breathing or Listening).
+      - name: "Zone Control Room Occupied"
+        unique_id: zone_control_room_occupied
+        device_class: occupancy
+        state: >
+          {{ 
+            is_state('binary_sensor.control_room_hub_control_room_presence', 'on') or
+            is_state('input_boolean.phoenix_boss_in_control_room_ble', 'on') or
+            is_state('media_player.control_room', 'playing')
+          }}
+        attributes:
+            source: >
+                {% if is_state('binary_sensor.control_room_hub_control_room_presence', 'on') %}mmWave
+                {% elif is_state('input_boolean.phoenix_boss_in_control_room_ble', 'on') %}BLE Beacon
+                {% elif is_state('media_player.control_room', 'playing') %}Echo
+                {% else %}None
+                {% endif %}
+
+automation:
+  # ==========================================================================
+  # AUTO-DEPARTURE: Turn OFF Presence Booleans When Room is Empty
+  # ==========================================================================
+  - id: phoenix_auto_departure_smart_timer
+    alias: "Phoenix V2: Auto-Departure"
+    description: "Turns off presence after 5 minutes (unanimous) or 10 minutes (safety)."
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        to: 'off'
+        for:
+          minutes: 5
+        id: unanimous_empty
+      - platform: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        to: 'off'
+        for:
+          minutes: 10
+        id: safety_empty
+    condition:
+      # Double-check: Room must STILL be empty when timer finishes
+      - condition: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.zone_control_room_active
+        state: 'off'
+    action:
+      - choose:
+          # Fast departure: All sensors agree (mmWave + Cams)
+          - conditions:
+              - condition: trigger
+                id: unanimous_empty
+              - condition: state
+                entity_id: binary_sensor.zone_control_room_active
+                state: 'off'
+            sequence:
+              - service: input_boolean.turn_off
+                target:
+                  entity_id:
+                    - input_boolean.phoenix_user_is_here
+                    - input_boolean.phoenix_worker_is_here
+              - service: logbook.log
+                data:
+                  name: Presence
+                  message: "Auto-departure (unanimous): Control room empty for 5 minutes."
+                  entity_id: input_text.phoenix_access_control_log
+        # Default: Safety timer expired (10 min)
+        default:
+          - service: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.phoenix_user_is_here
+                - input_boolean.phoenix_worker_is_here
+          - service: logbook.log
+            data:
+              name: Presence
+              message: "Auto-departure (safety): Control room empty for 10 minutes."
+              entity_id: input_text.phoenix_access_control_log
+
+  # ==========================================================================
+  # ACTIVE ARRIVAL: PIN Context (Short-Term Memory) + Room Activity
+  # ==========================================================================
+  
+  # 1. SET CONTEXT: When Eliyahu Enters Valid PIN
+  - id: phoenix_context_eliyahu_pin_entry
+    alias: "Phoenix: Set Context (Eliyahu PIN)"
+    trigger:
+      - platform: event
+        event_type: phoenix.valid_pin
+        event_data:
+          name: "Eliyahu"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.phoenix_presence_context_eliyahu
+      # Keep context alive for 2 minutes
+      - delay: "00:02:00"
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.phoenix_presence_context_eliyahu
+    mode: restart
+
+  # 2. CONFIRM ARRIVAL: Context Active + Room Becomes Occupied
+  - id: phoenix_active_arrival_eliyahu_pin
+    alias: "Phoenix: Active Arrival (Eliyahu PIN + Occupancy)"
+    description: "Immediately marks Eliyahu present if room becomes occupied shortly after his PIN is used."
+    trigger:
+      # Primary trigger: Room becomes occupied
+      - platform: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        to: 'on'
+      # Backup trigger: Context turns on (if room was ALREADY occupied)
+      - platform: state
+        entity_id: input_boolean.phoenix_presence_context_eliyahu
+        to: 'on'
+    condition:
+      - condition: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.phoenix_presence_context_eliyahu
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.phoenix_user_is_here
+        state: 'off'
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.phoenix_user_is_here
+      - service: logbook.log
+        data:
+          name: Presence
+          message: "Active arrival: Eliyahu PIN used + Room Occupied."
+          entity_id: input_text.phoenix_access_control_log
+
+  # 3. SET CONTEXT: When Worker Enters Valid PIN
+  - id: phoenix_context_worker_pin_entry
+    alias: "Phoenix: Set Context (Worker PIN)"
+    trigger:
+      - platform: event
+        event_type: phoenix.valid_pin
+    condition:
+      # Match any known worker name (adjust names as they appear in Access Manager)
+      # 'Weinberg'/'Worker Weinberg' removed 2026-10-18: Yisroel Weinberg left 2026-09-11
+      # and his PIN and RFID credential were revoked (weinberg-access-revocation-20261018.md).
+      - condition: template
+        value_template: >
+          {{ trigger.event.data.name in ['Klein', 'Montrose', 'Bachrach', 'Worker', 'Generic Worker'] }}
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.phoenix_presence_context_worker
+      # Keep context alive for 2 minutes
+      - delay: "00:02:00"
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.phoenix_presence_context_worker
+    mode: restart
+
+  # 4. CONFIRM ARRIVAL: Worker Context Active + Room Becomes Occupied
+  - id: phoenix_active_arrival_worker_pin
+    alias: "Phoenix: Active Arrival (Worker PIN + Occupancy)"
+    description: "Immediately marks Workers present if room becomes occupied shortly after a worker PIN is used."
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        to: 'on'
+      - platform: state
+        entity_id: input_boolean.phoenix_presence_context_worker
+        to: 'on'
+    condition:
+      - condition: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.phoenix_presence_context_worker
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.phoenix_worker_is_here
+        state: 'off'
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.phoenix_worker_is_here
+      - service: logbook.log
+        data:
+          name: Presence
+          message: "Active arrival: Worker PIN used + Room Occupied."
+          entity_id: input_text.phoenix_access_control_log
+
+  # ==========================================================================
+  # PASSIVE ARRIVAL: Bluetooth Tracker + Control Room Occupancy
+  # ==========================================================================
+  - id: phoenix_passive_arrival_bluetooth_owner
+    alias: "Phoenix: Passive Arrival (Bluetooth + Room Occupied)"
+    description: "Turns on User presence when Bluetooth is home AND Control Room becomes occupied."
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        to: 'on'
+    condition:
+      - condition: state
+        entity_id: device_tracker.zabz_ble_tracker
+        state: 'home'
+      - condition: state
+        entity_id: input_boolean.phoenix_user_is_here
+        state: 'off'
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.phoenix_user_is_here
+      - service: logbook.log
+        data:
+          name: Presence
+          message: "Passive arrival: User Bluetooth detected + Control room occupied."
+          entity_id: input_text.phoenix_access_control_log
+
+  - id: phoenix_passive_arrival_bluetooth_worker
+    alias: "Phoenix: Passive Arrival (Montrose Phone + Room Occupied)"
+    description: "Turns on Worker presence when Montrose phone is home AND Control Room becomes occupied."
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.zone_control_room_occupied
+        to: 'on'
+    condition:
+      - condition: state
+        entity_id: device_tracker.monty
+        state: 'home'
+      - condition: state
+        entity_id: input_boolean.phoenix_worker_is_here
+        state: 'off'
+      - condition: state
+        entity_id: input_boolean.phoenix_user_is_here
+        state: 'off'
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.phoenix_worker_is_here
+      - service: logbook.log
+        data:
+          name: Presence
+          message: "Passive arrival: Worker (Montrose) phone detected + Control room occupied."
+          entity_id: input_text.phoenix_access_control_log
+

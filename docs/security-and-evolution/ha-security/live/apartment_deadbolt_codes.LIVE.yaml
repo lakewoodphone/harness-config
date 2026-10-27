@@ -1,0 +1,299 @@
+# Apartment deadbolt PIN management - ONE lock only.
+#
+# Lock: Kwikset 99140-031 SmartCode deadbolt, Zigbee2MQTT friendly name
+#       Apartment_Door_Smart_Lock (IEEE 0x002446fffd0a4705, endpoint 2).
+# Integration: Zigbee2MQTT 2.6.2 via MQTT. NOT ZHA, NOT keymaster.
+#
+# SLOT OWNERSHIP - ONE WRITER PER SLOT (owner decision, 2026-10-25).
+# A slot is written by exactly one system. This file writes slot 11 ONLY:
+#
+#   slot  1  Eliyahu (admin)       -> phoenix-pin-rotation (14-day family rotation)
+#   slot  4  parents (ONE shared)  -> phoenix-pin-rotation (14-day family rotation)
+#   slot  5  Yocheved              -> phoenix-pin-rotation (14-day family rotation)
+#   slot  6  master temp           -> HA automation house_access_pin_control_timer
+#   slot 11  Tenant                -> THIS FILE ONLY - on demand, never rotated
+#
+# Mother and Father SHARE slot 4 by the owner's explicit instruction (2026-10-25).
+# They are not separate slots and must not be given separate slots.
+#
+# Slots 1/4/5/6 are PROTECTED here: both scripts refuse them by name and by
+# number, before any MQTT publish, and write the refusal to the logbook. Every
+# slot except 11 is refused, including unknown people. The readback sensors below
+# still report all five people - knowing whether a slot is enabled is not a write.
+#
+# The tenant code is NOT on the family rotation schedule and is NOT texted to
+# anyone automatically. It is set on demand and stays until cleared.
+#
+# ISOLATION: every publish below is hard-coded to
+#   zigbee2mqtt/Apartment_Door_Smart_Lock/set   (and .../get for readback)
+# No caller supplies a lock name or a topic, and no caller supplies a slot number
+# for anything but the refusal check. The tenant slot exists only in this file's
+# map. Nothing here reads or writes another lock, and the rotation script does not
+# know slot 11 exists.
+#
+# PIN handling: the PIN is typed into a password-mode input_text, copied into a
+# script variable, and the helper is cleared before the MQTT publish. Locks never
+# return an existing PIN; we only read the slot's enabled/available status.
+
+input_select:
+  apartment_deadbolt_person:
+    name: Apartment Deadbolt person (Tenant only)
+    options:
+      - Tenant
+    icon: mdi:account-key
+
+input_text:
+  apartment_deadbolt_new_pin:
+    name: Apartment Deadbolt new PIN
+    min: 0
+    max: 8
+    mode: password
+    icon: mdi:lock
+
+mqtt:
+  sensor:
+    - name: "Apartment Deadbolt User Slots"
+      unique_id: apartment_deadbolt_user_slots
+      state_topic: "zigbee2mqtt/Apartment_Door_Smart_Lock"
+      value_template: "{{ value_json.users | default({}) | length }}"
+      json_attributes_topic: "zigbee2mqtt/Apartment_Door_Smart_Lock"
+      json_attributes_template: >-
+        {{ {'users': value_json.users | default({})} | tojson }}
+      icon: mdi:account-key
+
+template:
+  - sensor:
+      - name: "Apartment Deadbolt Eliyahu Code"
+        unique_id: apartment_deadbolt_eliyahu_code
+        state: >-
+          {{ (state_attr('sensor.apartment_deadbolt_user_slots', 'users') or {}).get('1', {}).get('status', 'unknown') }}
+        icon: mdi:account-key
+      - name: "Apartment Deadbolt Mother Code"
+        unique_id: apartment_deadbolt_mother_code
+        state: >-
+          {{ (state_attr('sensor.apartment_deadbolt_user_slots', 'users') or {}).get('4', {}).get('status', 'unknown') }}
+        icon: mdi:account-key
+      - name: "Apartment Deadbolt Father Code"
+        unique_id: apartment_deadbolt_father_code
+        state: >-
+          {{ (state_attr('sensor.apartment_deadbolt_user_slots', 'users') or {}).get('4', {}).get('status', 'unknown') }}
+        icon: mdi:account-key
+      - name: "Apartment Deadbolt Yocheved Code"
+        unique_id: apartment_deadbolt_yocheved_code
+        state: >-
+          {{ (state_attr('sensor.apartment_deadbolt_user_slots', 'users') or {}).get('5', {}).get('status', 'unknown') }}
+        icon: mdi:account-key
+      - name: "Apartment Deadbolt Tenant Code"
+        unique_id: apartment_deadbolt_tenant_code
+        state: >-
+          {{ (state_attr('sensor.apartment_deadbolt_user_slots', 'users') or {}).get('11', {}).get('status', 'unknown') }}
+        icon: mdi:account-key
+
+script:
+  apartment_deadbolt_set:
+    # The alias is kept VERBATIM from the 2026-10-24 version on purpose: YAML
+    # scripts derive their entity_id from the alias, so renaming it would orphan
+    # script.apartment_deadbolt_set_or_replace_a_person_s_code and break every
+    # dashboard/automation reference. The tenant-only rule is in the description.
+    alias: "Apartment Deadbolt: Set or replace a person's code"
+    description: >-
+      TENANT ONLY. Sets a 4-8 digit PIN on apartment deadbolt slot 11 (Tenant).
+      Slots 1/4/5/6 are owned by the 14-day rotation and the master-temp
+      automation and are REFUSED here, by name and by number, before anything is
+      published. The tenant code is never rotated on the family schedule and is
+      never texted automatically. Reads the slot back; never unlocks the door.
+    mode: single
+    fields:
+      person_input:
+        name: Person
+        description: Only Tenant is writable. Any other name is refused.
+        selector:
+          select:
+            options:
+              - Tenant
+      pin_input:
+        name: PIN code
+        description: 4-8 digits. Leave blank to use the dashboard helper.
+        selector:
+          text:
+            type: password
+    variables:
+      person: >-
+        {% set p = person_input | default('', true) %}
+        {% set h = states('input_select.apartment_deadbolt_person') %}
+        {{ p if p else (h if h not in ['unknown', 'unavailable', 'none', ''] else 'Tenant') }}
+      slot: >-
+        {% set m = {'Eliyahu': 1, 'Mother': 4, 'Father': 4, 'Yocheved': 5, 'Master temp': 6, 'Tenant': 11} %}
+        {{ m.get(person, 0) }}
+      slot_owner: >-
+        {% set o = {1: 'phoenix-pin-rotation (14-day family rotation)', 4: 'phoenix-pin-rotation (14-day family rotation)', 5: 'phoenix-pin-rotation (14-day family rotation)', 6: 'the house_access_pin_control_timer master-temp automation'} %}
+        {{ o.get(slot | int, 'another system') }}
+      pin: "{{ pin_input | default(states('input_text.apartment_deadbolt_new_pin'), true) }}"
+    sequence:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.apartment_deadbolt_new_pin
+        data:
+          value: ""
+      - choose:
+          - conditions: "{{ (slot | int) == 0 }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "REFUSED set: unknown person '{{ person }}' - no slot mapped. Nothing was written."
+              - stop: "REFUSED: unknown person '{{ person }}'"
+          - conditions: "{{ (slot | int) in [1, 4, 5, 6] }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "REFUSED set: {{ person }} is slot {{ slot }}, which is OWNED by {{ slot_owner }}. This script will not write or clear a protected slot. Nothing was written."
+              - stop: "REFUSED: slot {{ slot }} is protected - owned by {{ slot_owner }}"
+          - conditions: "{{ (slot | int) != 11 }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "REFUSED set: slot {{ slot }} is not on this package's writable allowlist (only 11/Tenant). Nothing was written."
+              - stop: "REFUSED: slot {{ slot }} is not writable by this package"
+          - conditions: "{{ not (pin | regex_match('^[0-9]{4,8}$')) }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "REFUSED set for {{ person }}: PIN must be 4-8 digits. Nothing was written."
+              - stop: "REFUSED: PIN must be 4-8 digits"
+      - service: mqtt.publish
+        data:
+          topic: "zigbee2mqtt/Apartment_Door_Smart_Lock/set"
+          qos: 0
+          retain: false
+          payload: >-
+            {"pin_code":{"user":{{ slot }},"user_type":"unrestricted","user_enabled":true,"pin_code":"{{ pin }}"}}
+      - delay: "00:00:03"
+      - service: mqtt.publish
+        data:
+          topic: "zigbee2mqtt/Apartment_Door_Smart_Lock/get"
+          qos: 0
+          retain: false
+          payload: '{"pin_code": ""}'
+      - wait_template: >-
+          {{ (state_attr('sensor.apartment_deadbolt_user_slots', 'users') or {}).get(slot | string, {}).get('status') == 'enabled' }}
+        timeout: "00:00:40"
+      - choose:
+          - conditions: "{{ wait.completed }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "{{ person }}: slot {{ slot }} read back enabled."
+        default:
+          - service: logbook.log
+            data:
+              name: Apartment Deadbolt
+              message: "{{ person }}: slot {{ slot }} did NOT read back enabled within 40 s. Do not assume the code works; check the lock log/status."
+
+  apartment_deadbolt_clear:
+    alias: "Apartment Deadbolt: Clear a person's code"
+    description: >-
+      TENANT ONLY. Clears and disables apartment deadbolt slot 11 (Tenant).
+      Slots 1/4/5/6 are owned by the 14-day rotation and the master-temp
+      automation and are REFUSED here, by name and by number, before anything is
+      published. Reads the slot back; never unlocks the door.
+    mode: single
+    fields:
+      person_input:
+        name: Person
+        description: Only Tenant is writable. Any other name is refused.
+        selector:
+          select:
+            options:
+              - Tenant
+    variables:
+      person: >-
+        {% set p = person_input | default('', true) %}
+        {% set h = states('input_select.apartment_deadbolt_person') %}
+        {{ p if p else (h if h not in ['unknown', 'unavailable', 'none', ''] else 'Tenant') }}
+      slot: >-
+        {% set m = {'Eliyahu': 1, 'Mother': 4, 'Father': 4, 'Yocheved': 5, 'Master temp': 6, 'Tenant': 11} %}
+        {{ m.get(person, 0) }}
+      slot_owner: >-
+        {% set o = {1: 'phoenix-pin-rotation (14-day family rotation)', 4: 'phoenix-pin-rotation (14-day family rotation)', 5: 'phoenix-pin-rotation (14-day family rotation)', 6: 'the house_access_pin_control_timer master-temp automation'} %}
+        {{ o.get(slot | int, 'another system') }}
+    sequence:
+      - choose:
+          - conditions: "{{ (slot | int) == 0 }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "REFUSED clear: unknown person '{{ person }}' - no slot mapped. Nothing was written."
+              - stop: "REFUSED: unknown person '{{ person }}'"
+          - conditions: "{{ (slot | int) in [1, 4, 5, 6] }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "REFUSED clear: {{ person }} is slot {{ slot }}, which is OWNED by {{ slot_owner }}. This script will not write or clear a protected slot. Nothing was written."
+              - stop: "REFUSED: slot {{ slot }} is protected - owned by {{ slot_owner }}"
+          - conditions: "{{ (slot | int) != 11 }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "REFUSED clear: slot {{ slot }} is not on this package's writable allowlist (only 11/Tenant). Nothing was written."
+              - stop: "REFUSED: slot {{ slot }} is not writable by this package"
+      - service: mqtt.publish
+        data:
+          topic: "zigbee2mqtt/Apartment_Door_Smart_Lock/set"
+          qos: 0
+          retain: false
+          payload: >-
+            {"pin_code":{"user":{{ slot }},"user_type":"unrestricted","user_enabled":false,"pin_code":null}}
+      - delay: "00:00:03"
+      - service: mqtt.publish
+        data:
+          topic: "zigbee2mqtt/Apartment_Door_Smart_Lock/get"
+          qos: 0
+          retain: false
+          payload: '{"pin_code": ""}'
+      - wait_template: >-
+          {{ (state_attr('sensor.apartment_deadbolt_user_slots', 'users') or {}).get(slot | string, {}).get('status') == 'available' }}
+        timeout: "00:00:40"
+      - choose:
+          - conditions: "{{ wait.completed }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Apartment Deadbolt
+                  message: "{{ person }}: slot {{ slot }} read back available (cleared)."
+        default:
+          - service: logbook.log
+            data:
+              name: Apartment Deadbolt
+              message: "{{ person }}: slot {{ slot }} did NOT read back available within 40 s."
+
+  apartment_deadbolt_check:
+    alias: "Apartment Deadbolt: Read back all mapped slots"
+    description: >-
+      Asks the lock for its user table and updates the status sensors. This is
+      read-only: it never unlocks the door and never changes a code.
+    mode: single
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "zigbee2mqtt/Apartment_Door_Smart_Lock/get"
+          qos: 0
+          retain: false
+          payload: '{"pin_code": ""}'
+      - delay: "00:00:12"
+      - service: logbook.log
+        data:
+          name: Apartment Deadbolt
+          message: >-
+            Readback requested. Eliyahu={{ states('sensor.apartment_deadbolt_eliyahu_code') }},
+            Mother={{ states('sensor.apartment_deadbolt_mother_code') }},
+            Father={{ states('sensor.apartment_deadbolt_father_code') }},
+            Yocheved={{ states('sensor.apartment_deadbolt_yocheved_code') }},
+            Tenant={{ states('sensor.apartment_deadbolt_tenant_code') }}.

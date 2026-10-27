@@ -1,0 +1,31 @@
+{
+  "corpus_version": "2026-10-26.a",
+  "source": "from-zabz-tech/reports/R4-ground-truth.md §2 and §6 (false-alarm ledger), read 2026-10-26",
+  "notes": [
+    "Every offset is seconds AFTER the intrusion trigger, as recorded in the HA logbook by the prior session.",
+    "presence_credit_offset_s is what ACTUALLY ended each alarm: the 'everyone_away -> off' presence credit.",
+    "It is NOT a credential. That distinction is the whole point of this corpus: in the real record the",
+    "building had no credential signal at all (keypad handler off since 2025-12-16, lock reporting nothing),",
+    "so any rule that keys on a credential must be evaluated twice - once as history actually was, and once",
+    "under the assumption that an entitled entrant would have used a credential at about the time they were",
+    "credited. The second is an ASSUMPTION and the harness labels it as such.",
+    "door_offset_s null means no door contact opened during the episode."
+  ],
+  "episodes": [
+    {"id": "A",   "trigger_at": "2026-10-21T17:51:40Z", "door_offset_s": 301,   "presence_credit_offset_s": 301,   "label": "worker",                  "expected": "benign"},
+    {"id": "B",   "trigger_at": "2026-10-21T19:46:42Z", "door_offset_s": null,  "presence_credit_offset_s": 300,   "label": "worker",                  "expected": "benign"},
+    {"id": "E1",  "trigger_at": "2026-10-22T08:43:53Z", "door_offset_s": 957,   "presence_credit_offset_s": 960,   "label": "passer_by",               "expected": "benign"},
+    {"id": "E2",  "trigger_at": "2026-10-22T23:19:14Z", "door_offset_s": 6394,  "presence_credit_offset_s": 6395,  "label": "passer_by",               "expected": "benign"},
+    {"id": "E3",  "trigger_at": "2026-10-23T11:28:32Z", "door_offset_s": 0,     "presence_credit_offset_s": 1,     "label": "worker",                  "expected": "benign"},
+    {"id": "E4",  "trigger_at": "2026-10-23T12:27:47Z", "door_offset_s": 9,     "presence_credit_offset_s": 10,    "label": "worker",                  "expected": "benign"},
+    {"id": "E5",  "trigger_at": "2026-10-24T22:21:25Z", "door_offset_s": null,  "presence_credit_offset_s": 223,   "label": "infrastructure_false",    "expected": "benign"},
+    {"id": "E6",  "trigger_at": "2026-10-25T16:59:09Z", "door_offset_s": 3,     "presence_credit_offset_s": 6,     "label": "worker",                  "expected": "benign"},
+    {"id": "E7",  "trigger_at": "2026-10-25T19:57:39Z", "door_offset_s": 3781,  "presence_credit_offset_s": 3783,  "label": "passer_by",               "expected": "benign"},
+    {"id": "E8",  "trigger_at": "2026-10-25T21:38:18Z", "door_offset_s": 27,    "presence_credit_offset_s": 29,    "label": "worker",                  "expected": "benign"},
+    {"id": "E9",  "trigger_at": "2026-10-25T23:23:15Z", "door_offset_s": 43323, "presence_credit_offset_s": 43324, "label": "unknown",                 "expected": "benign"},
+    {"id": "E10", "trigger_at": "2026-10-26T14:03:15Z", "door_offset_s": 5,     "presence_credit_offset_s": 8,     "label": "worker",                  "expected": "benign"},
+    {"id": "E11", "trigger_at": "2026-10-26T14:16:10Z", "door_offset_s": 15,    "presence_credit_offset_s": null,  "label": "drill",                   "expected": "drill"},
+    {"id": "SYN1","trigger_at": "2026-10-26T03:00:00Z", "door_offset_s": 0,     "presence_credit_offset_s": null,  "label": "unknown",                 "expected": "alarm",
+     "synthetic": true, "note": "the case the system exists for: a perimeter door opens at 03:00 with no credential and nobody expected inside"}
+  ]
+}

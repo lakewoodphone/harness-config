@@ -1,0 +1,2396 @@
+# ==============================================================================
+# PHOENIX V2: MASTER AUTOMATIONS (FINAL OPTION A)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. ACCESS CONTROL (MASTER)
+# Handles PIN codes, Unlocks Doors, Logs Entry, and Sets Presence.
+# ------------------------------------------------------------------------------
+- id: phoenix_access_control_master_unified
+  alias: Phoenix Access Control - Master & Presence
+  description: Handles all PIN entries, unlocks doors, and sets Owner/Worker presence automatically.
+  initial_state: true
+  mode: parallel
+  max: 20
+  trigger:
+  - platform: event
+    event_type: esphome.access_control_keypad_entry
+  - platform: event
+    event_type: esphome.access_control_rfid_entry
+  action:
+  - variables:
+      event_type: '{{ trigger.event.event_type }}'
+      credential_method: >-
+        {% if trigger.event.event_type == 'esphome.access_control_rfid_entry' %}RFID{% else %}PIN{% endif %}
+      entered_code: "{{ (trigger.event.data.code | default('')) | string | trim }}"
+      door_name: >-
+        {{ (trigger.event.data.door_name | default(trigger.event.data.door | default('unknown'))) | string | trim | lower }}
+      rfid_tag_uid: "{{ (trigger.event.data.tag_uid | default(trigger.event.data.uid | default(''))) | string | trim }}"
+      rfid_tag_uid_norm: >-
+        {% set u = (rfid_tag_uid | string | trim | lower) %}
+        {% if u[0:2] == '0x' %}{{ u[2:] }}{% else %}{{ u }}{% endif %}
+      rfid_owner_tag: "{{ states('input_text.phoenix_rfid_owner_tag') | string | trim }}"
+      rfid_owner_tag_norm: >-
+        {% set u = (rfid_owner_tag | default('') | string | trim | lower) %}
+        {% if u[0:2] == '0x' %}{{ u[2:] }}{% else %}{{ u }}{% endif %}
+      rfid_worker_klein_tag: "{{ states('input_text.phoenix_rfid_worker_klein_tag') | string | trim }}"
+      rfid_worker_klein_tag_norm: >-
+        {% set u = (rfid_worker_klein_tag | default('') | string | trim | lower) %}
+        {% if u[0:2] == '0x' %}{{ u[2:] }}{% else %}{{ u }}{% endif %}
+      rfid_worker_montrose_tag: "{{ states('input_text.phoenix_rfid_worker_montrose_tag') | string | trim }}"
+      rfid_worker_montrose_tag_norm: >-
+        {% set u = (rfid_worker_montrose_tag | default('') | string | trim | lower) %}
+        {% if u[0:2] == '0x' %}{{ u[2:] }}{% else %}{{ u }}{% endif %}
+      rfid_worker_bachrach_tag: "{{ states('input_text.phoenix_rfid_worker_bachrach_tag') | string | trim }}"
+      rfid_worker_bachrach_tag_norm: >-
+        {% set u = (rfid_worker_bachrach_tag | default('') | string | trim | lower) %}
+        {% if u[0:2] == '0x' %}{{ u[2:] }}{% else %}{{ u }}{% endif %}
+      rfid_wife_tag: "{{ states('input_text.phoenix_rfid_wife_tag') | string | trim }}"
+      rfid_wife_tag_norm: >-
+        {% set u = (rfid_wife_tag | default('') | string | trim | lower) %}
+        {% if u[0:2] == '0x' %}{{ u[2:] }}{% else %}{{ u }}{% endif %}
+      rfid_role: >-
+        {% set t = (rfid_tag_uid_norm | string | trim) %}
+        {% set o = (rfid_owner_tag_norm | string | trim) %}
+        {% set b = (rfid_worker_bachrach_tag_norm | string | trim) %}
+        {% set f = (rfid_wife_tag_norm | string | trim) %}
+        {% set t = (t | regex_replace('^0+', '') if t != '0' else '0') %}
+        {% set o = (o | regex_replace('^0+', '') if o != '0' else '0') %}
+        {% set b = (b | regex_replace('^0+', '') if b != '0' else '0') %}
+        {% set f = (f | regex_replace('^0+', '') if f != '0' else '0') %}
+        {% if trigger.event.event_type != 'esphome.access_control_rfid_entry' %}
+        {% elif t != '' and t == o %}owner
+        {% elif t != '' and t == b %}worker_bachrach
+        {% elif t != '' and t == f %}wife
+        {% else %}unknown
+        {% endif %}
+      admin_pin: "{{ states('input_text.phoenix_admin_pin') | string | trim }}"
+      parent_pin: "{{ states('input_text.phoenix_parent_pin') | string | trim }}"
+      worker_pin: "{{ states('input_text.phoenix_worker_pin') | string | trim }}"
+      worker_klein_pin: "{{ states('input_text.phoenix_worker_klein_pin') | string | trim }}"
+      worker_montrose_pin: "{{ states('input_text.phoenix_worker_montrose_pin') | string | trim }}"
+      worker_bachrach_pin: "{{ states('input_text.phoenix_worker_bachrach_pin') | string | trim }}"
+      yitz_pin: "{{ states('input_text.phoenix_yitz_pin') | string | trim }}"
+      yocheved_pin: "{{ states('input_text.phoenix_yocheved_pin') | string | trim }}"
+      worker_identity: >-
+        {% if (worker_klein_pin != '' and entered_code == worker_klein_pin) or rfid_role == 'worker_klein' %}Worker Klein
+        {% elif (worker_montrose_pin != '' and entered_code == worker_montrose_pin) or rfid_role == 'worker_montrose' %}Worker Montrose
+        {% elif (worker_bachrach_pin != '' and entered_code == worker_bachrach_pin) or rfid_role == 'worker_bachrach' %}Worker Bachrach
+        {% else %}Worker
+        {% endif %}
+      house_access_pin: "{{ states('input_text.phoenix_house_access_pin') | string | trim }}"
+      customer_pin: "{{ states('input_text.phoenix_customer_pin') | string | trim }}"
+      drop_off_pin: "{{ states('input_text.phoenix_drop_off_pin') | string | trim }}"
+      customer_pin_enabled: '{{ is_state(''input_boolean.phoenix_customer_pin_enabled'', ''on'') }}'
+      house_access_pin_enabled: '{{ is_state(''input_boolean.phoenix_house_access_pin_enabled'', ''on'') }}'
+      drop_off_pin_enabled: '{{ is_state(''input_boolean.phoenix_drop_off_pin_enabled'', ''on'') }}'
+      entered_code_masked: >-
+        {% set c = (trigger.event.data.code | default('') | string) %}
+        {% if c == '' %}n/a
+        {% elif c | length <= 2 %}**
+        {% else %}{{ ('*' * (c | length - 2)) ~ c[-2:] }}
+        {% endif %}
+      rfid_tag_uid_masked: >-
+        {% set u = (rfid_tag_uid_norm | default('') | string) %}
+        {% if u == '' %}n/a
+        {% elif u | length <= 4 %}****
+        {% else %}{{ '****' ~ u[-4:] }}
+        {% endif %}
+
+  - choose:
+      - conditions: "{{ is_state('input_boolean.phoenix_access_control_enabled', 'off') }}"
+        sequence:
+          - service: system_log.write
+            data:
+              level: warning
+              message: "Access control event ignored (disabled): door={{ door_name }}, method={{ credential_method }}"
+          - choose:
+              - conditions: "{{ is_state('input_boolean.phoenix_access_control_debug', 'on') }}"
+                sequence:
+                  - service: logbook.log
+                    data:
+                      name: Access Control DEBUG
+                      message: >-
+                        Ignored (disabled): type={{ event_type }}, door={{ door_name }}, method={{ credential_method }}, code={{ entered_code_masked }}, tag={{ rfid_tag_uid_masked }}
+          - stop: "Access control disabled"
+
+  - choose:
+      - conditions: "{{ is_state('input_boolean.phoenix_access_control_debug', 'on') }}"
+        sequence:
+          - service: system_log.write
+            data:
+              level: debug
+              message: >-
+                Access control event (masked): type={{ event_type }}, door={{ door_name }}, method={{ credential_method }}, role={{ rfid_role }}, code={{ entered_code_masked }}, tag={{ rfid_tag_uid_masked }}
+          - service: logbook.log
+            data:
+              name: Access Control DEBUG
+              message: >-
+                Event (masked): type={{ event_type }}, door={{ door_name }}, method={{ credential_method }}, role={{ rfid_role }}, code={{ entered_code_masked }}, tag={{ rfid_tag_uid_masked }}
+
+  - choose:
+      - conditions: >-
+          {{
+            event_type == 'esphome.access_control_rfid_entry'
+            and is_state('input_boolean.phoenix_rfid_capture_next_tag', 'on')
+          }}
+        sequence:
+          - service: system_log.write
+            data:
+              level: info
+              message: >-
+                RFID capture mode active; skipping access evaluation: door={{ door_name }}, tag={{ rfid_tag_uid_masked }}
+          - stop: "RFID capture mode active"
+
+
+  - choose:
+    # --- SCENARIO 1: OWNER (ALL DOORS) ---
+    - conditions: >-
+        {{
+          (
+            event_type == 'esphome.access_control_keypad_entry' and entered_code != '' and
+            entered_code == admin_pin
+          ) or
+          (
+            event_type == 'esphome.access_control_rfid_entry' and
+            rfid_role in ['owner', 'wife']
+          )
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - Owner Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Owner access at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      # Set Presence: OWNER IS HERE
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.phoenix_user_is_here }
+      # Unlock Logic (All Doors Allowed)
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay: { seconds: 1.5 }
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''interior'' }}'
+        then:
+          - service: script.buzz_in_interior_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''apartment'' }}'
+        then:
+          - service: lock.unlock
+            target: { entity_id: lock.0x002446fffd0a4705 }
+      # Audio
+    # --- SCENARIO 1C: YOCHEVED (OWNER-GRANTED FULL ACCESS) ---
+    # Added 2026-10-19. Owner decision: "yocheved gets her own full access code".
+    # This is a DISTINCT role, not the parent or Yitz role: it opens every door the
+    # owner's admin code opens (strike, maglock, interior, apartment) and logs her
+    # name, so her entries are distinguishable from the owner's and her parents'.
+    # She has no mobile on file; the rotation service delivers her code to the
+    # owner only. She sets guest mode rather than the owner-presence boolean so she
+    # is not mislabelled as the owner; the empty-shop watchdog clears it when she
+    # leaves.
+    - conditions: >-
+        {{
+          event_type == 'esphome.access_control_keypad_entry'
+          and entered_code != ''
+          and yocheved_pin != ''
+          and entered_code == yocheved_pin
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - Yocheved Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Yocheved access at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.phoenix_house_guest_mode_active }
+      # Unlock Logic (All Doors Allowed, exactly the admin set)
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay: { seconds: 1.5 }
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''interior'' }}'
+        then:
+          - service: script.buzz_in_interior_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''apartment'' }}'
+        then:
+          - service: lock.unlock
+            target: { entity_id: lock.0x002446fffd0a4705 }
+
+    # --- LOCKDOWN CHECK (blocks all non-Owner scenarios) ---
+    - conditions: "{{ is_state('input_boolean.phoenix_access_control_lockdown', 'on') or not is_state('timer.phoenix_access_control_lockout', 'idle') }}"
+      sequence:
+        - service: system_log.write
+          data:
+            level: warning
+            message: "Access control event ignored (lockdown/lockout): door={{ door_name }}, method={{ credential_method }}"
+        - choose:
+            - conditions: "{{ is_state('input_boolean.phoenix_access_control_lockdown', 'on') and is_state('timer.phoenix_access_control_lockout', 'idle') }}"
+              sequence:
+                - service: timer.start
+                  target:
+                    entity_id: timer.phoenix_access_control_lockout
+                  data:
+                    duration: "{{ (states('input_number.phoenix_access_control_lockout_minutes') | int(2)) * 60 }}"
+        - choose:
+            - conditions: "{{ is_state('input_boolean.phoenix_access_control_debug', 'on') }}"
+              sequence:
+                - service: logbook.log
+                  data:
+                    name: Access Control DEBUG
+                    message: >-
+                      Ignored (lockdown/lockout): type={{ event_type }}, door={{ door_name }}, method={{ credential_method }}, code={{ entered_code_masked }}, tag={{ rfid_tag_uid_masked }}
+        - stop: "Access control locked down"
+
+    # --- SCENARIO 1B: PARENTS (PIN, ALL DOORS EXCEPT APARTMENT) ---
+    - conditions: >-
+        {{
+          event_type == 'esphome.access_control_keypad_entry'
+          and entered_code != ''
+          and parent_pin != ''
+          and entered_code == parent_pin
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - Parent Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Parent access at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.phoenix_house_guest_mode_active }
+      # Unlock Logic
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay:
+                      seconds: "{{ states('input_number.phoenix_strike_to_maglock_delay_seconds') | float(1.5) }}"
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''interior'' }}'
+        then:
+          - service: script.buzz_in_interior_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''apartment'' }}'
+        then:
+          - service: lock.unlock
+            target: { entity_id: lock.0x002446fffd0a4705 }
+    - conditions: >-
+        {{
+          (
+            (
+              event_type == 'esphome.access_control_keypad_entry' and
+              worker_klein_pin != '' and entered_code == worker_klein_pin
+            ) or
+            (
+              event_type == 'esphome.access_control_rfid_entry' and
+              rfid_role == 'worker_klein'
+            )
+          ) and is_state('input_boolean.phoenix_user_is_here', 'on')
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - Worker Klein Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Worker Klein access at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.phoenix_worker_is_here }
+      # Unlock Logic
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay: { seconds: 1.5 }
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''apartment'' }}'
+        then:
+          - service: lock.unlock
+            target: { entity_id: lock.0x002446fffd0a4705 }
+      - if: '{{ door_name == ''interior'' }}'
+        then:
+          - service: system_log.write
+            data: { level: warning, message: "Worker Klein denied at restricted door: {{ door_name }}" }
+          - service: logbook.log
+            data:
+              name: Access Control
+              message: "Worker Klein denied at restricted door: {{ door_name | title }}"
+              entity_id: input_text.phoenix_access_control_log
+      - variables:
+          worker_door_allowed: "{{ door_name in ['strike', 'maglock', 'apartment'] }}"
+      # Audio
+    # --- SCENARIO 3b: WORKER KLEIN ΓÇö OWNER NOT PRESENT (deny + alert) ---
+    - conditions: >-
+        {{
+          (
+            event_type == 'esphome.access_control_keypad_entry' and
+            worker_klein_pin != '' and entered_code == worker_klein_pin
+          ) or
+          (
+            event_type == 'esphome.access_control_rfid_entry' and
+            rfid_role == 'worker_klein'
+          )
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - DENIED: Worker Klein (owner not present) at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'DENIED: Worker Klein attempted entry at {{ door_name | title }} ΓÇö owner not present'
+          entity_id: input_text.phoenix_access_control_log
+      - service: system_log.write
+        data:
+          level: warning
+          message: "ACCESS DENIED: Worker Klein at {{ door_name }} ΓÇö owner not present"
+      - service: notify.mobile_app_zabz_waze
+        data:
+          title: "Access Denied ΓÇö Klein"
+          message: "Klein tried to enter ({{ door_name | title }}) but you're not home. {{ now().strftime('%I:%M %p') }}"
+    # --- SCENARIO 3c: OTHER WORKERS (MONTROSE + BACHRACH + GENERIC) ---
+    - conditions: >-
+        {{
+          (
+            event_type == 'esphome.access_control_keypad_entry' and entered_code != '' and
+            (
+              (worker_pin != '' and entered_code == worker_pin) or
+              (worker_montrose_pin != '' and entered_code == worker_montrose_pin) or
+              (worker_bachrach_pin != '' and entered_code == worker_bachrach_pin)
+            )
+          ) or
+          (
+            event_type == 'esphome.access_control_rfid_entry' and
+            rfid_role in ['worker_montrose', 'worker_bachrach']
+          )
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - ' ~ worker_identity ~ ' Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: '{{ worker_identity }} access at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.phoenix_worker_is_here }
+      # Unlock Logic
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay: { seconds: 1.5 }
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''apartment'' }}'
+        then:
+          - service: lock.unlock
+            target: { entity_id: lock.0x002446fffd0a4705 }
+      - if: '{{ door_name == ''interior'' }}'
+        then:
+          - service: system_log.write
+            data: { level: warning, message: "Worker denied at restricted door: {{ door_name }}" }
+          - service: logbook.log
+            data:
+              name: Access Control
+              message: "Worker denied at restricted door: {{ door_name | title }}"
+              entity_id: input_text.phoenix_access_control_log
+      - variables:
+          worker_door_allowed: "{{ door_name in ['strike', 'maglock', 'apartment'] }}"
+      # Audio
+    - conditions: >-
+        {{
+          event_type == 'esphome.access_control_keypad_entry'
+          and house_access_pin_enabled
+          and entered_code != ''
+          and entered_code == house_access_pin
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - HOUSE ACCESS (TEMP/ALL DOORS) at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'ΓÜá∩╕Å HOUSE ACCESS (temp/all doors) at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.phoenix_house_guest_mode_active }
+      # Unlock Logic (All 4 doors)
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay: { seconds: 1.5 }
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''interior'' }}'
+        then:
+          - service: script.buzz_in_interior_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''apartment'' }}'
+        then:
+          - service: lock.unlock
+            target: { entity_id: lock.0x002446fffd0a4705 }
+    # --- SCENARIO 5: YITZ (BROTHER) - ALL DOORS (APARTMENT + OFFICE/SHOP) ---
+    - conditions: >-
+        {{
+        event_type == 'esphome.access_control_keypad_entry'
+        and entered_code != ''
+        and yitz_pin != ''
+        and entered_code == yitz_pin
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - Yitz Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Yitz access at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.phoenix_house_guest_mode_active }
+      # Unlock Logic (All Doors Allowed)
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay: { seconds: 1.5 }
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''interior'' }}'
+        then:
+          - service: script.buzz_in_interior_maglock
+            data: { log_event: false }
+      - if: '{{ door_name == ''apartment'' }}'
+        then:
+          - service: lock.unlock
+            target: { entity_id: lock.0x002446fffd0a4705 }
+
+    # --- SCENARIO 6: DROPOFF (EXTERNAL ONLY) ---
+    # GUARDED 2026-10-18. This matched the code ALONE. input_boolean.phoenix_drop_off_pin_enabled
+    # existed and was OFF, and this file never read it. The scenario also sets no presence
+    # boolean, so a valid drop-off code opened the strike and then the intrusion sequence ran
+    # because nobody had been credited as present: a valid code paged the owner, his wife and
+    # his mother. The owner confirmed 2026-10-18 that the drop-off code is not in use.
+    - conditions: >-
+        {{
+          event_type == 'esphome.access_control_keypad_entry' and entered_code != '' and
+          entered_code == drop_off_pin and drop_off_pin_enabled
+        }}
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - Drop-off Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Drop-off access at {{ door_name | title }}'
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+           - service: script.buzz_in_strike_safe
+             data: { log_event: false, door_name: strike }
+
+    # --- SCENARIO 7: BUSINESS ACCESS (PIN DISABLED WARNING) ---
+    - conditions: '{{ event_type == ''esphome.access_control_keypad_entry'' and door_name in [''strike'', ''maglock''] and entered_code != '''' and entered_code == customer_pin and not customer_pin_enabled }}'
+      sequence:
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Business Access PIN used while disabled at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: system_log.write
+        data:
+          message: 'Business Access PIN used while disabled at {{ door_name }}.'
+          level: warning
+
+    # --- SCENARIO 8: BUSINESS ACCESS (STRIKE + MAGLOCK, TEMP) ---
+    - conditions: '{{ event_type == ''esphome.access_control_keypad_entry'' and customer_pin_enabled and door_name in [''strike'', ''maglock''] and entered_code != '''' and entered_code == customer_pin }}'
+      sequence:
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_access_control_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - Business Access at ' ~ (door_name | title) ~ '\n' ~ states('input_text.phoenix_access_control_log'))[:255] }}
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Business access at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      # Unlock Logic (Strike + Maglock)
+      - if: '{{ door_name == ''strike'' }}'
+        then:
+          - parallel:
+              - sequence:
+                  - service: script.buzz_in_strike_safe
+                    data: { log_event: false, door_name: strike }
+              - sequence:
+                  - delay: { seconds: 1.5 }
+                  - service: script.buzz_in_maglock
+                    data: { log_event: false }
+      - if: '{{ door_name == ''maglock'' }}'
+        then:
+          - service: script.buzz_in_maglock
+            data: { log_event: false }
+      - service: timer.cancel
+        target: { entity_id: timer.hallway_guard_window }
+      - service: timer.start
+        target: { entity_id: timer.hallway_guard_window }
+      - service: input_select.select_option
+        target: { entity_id: input_select.phoenix_security_mode }
+        data:
+          option: Customer
+    # --- SCENARIO 9: RFID UNKNOWN TAG ---
+    - conditions: '{{ event_type == ''esphome.access_control_rfid_entry'' and rfid_role == ''unknown'' }}'
+      sequence:
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: 'Unknown RFID tag at {{ door_name | title }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: system_log.write
+        data:
+          message: 'Unknown RFID tag presented at {{ door_name }} keypad.'
+          level: warning
+      - service: script.phoenix_access_control_register_invalid_attempt
+        data:
+          door_name: "{{ door_name }}"
+          credential_method: "{{ credential_method }}"
+
+    # --- SCENARIO FAILURE ---
+    default:
+    - service: logbook.log
+      data:
+        name: Access Control
+        message: 'Invalid credential attempt ({{ credential_method }}) at {{ door_name | title }} keypad'
+        entity_id: input_text.phoenix_access_control_log
+    - service: system_log.write
+      data:
+        message: 'Failed login attempt on {{ door_name }} keypad.'
+        level: warning
+    - service: script.phoenix_access_control_register_invalid_attempt
+      data:
+        door_name: "{{ door_name }}"
+        credential_method: "{{ credential_method }}"
+
+# ------------------------------------------------------------------------------
+# 1B. RFID CAPTURE (NEXT TAG)
+# Stores the next scanned RFID UID into a helper for easy copy/paste into role tags.
+# ------------------------------------------------------------------------------
+- id: phoenix_rfid_capture_next_tag
+  alias: Phoenix RFID - Capture Next Tag
+  description: When capture mode is enabled, stores the next RFID tag UID and disables capture mode.
+  mode: single
+  trigger:
+    - platform: event
+      event_type: esphome.access_control_rfid_entry
+  condition:
+    - condition: state
+      entity_id: input_boolean.phoenix_rfid_capture_next_tag
+      state: 'on'
+  action:
+    - variables:
+        door_name: "{{ trigger.event.data.door_name | default(trigger.event.data.door | default('unknown')) }}"
+        raw_uid: "{{ (trigger.event.data.tag_uid | default(trigger.event.data.uid | default(''))) | string | trim }}"
+        uid_norm: >-
+          {% set u = (raw_uid | string | trim | lower) %}
+          {% if u[0:2] == '0x' %}{{ u[2:] }}{% else %}{{ u }}{% endif %}
+        uid_masked: >-
+          {% set u = (uid_norm | default('') | string) %}
+          {% if u == '' %}n/a
+          {% elif u | length <= 4 %}****
+          {% else %}{{ '****' ~ u[-4:] }}
+          {% endif %}
+    - choose:
+        - conditions: "{{ uid_norm != '' }}"
+          sequence:
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.phoenix_rfid_last_tag_uid
+              data:
+                value: "{{ uid_norm }}"
+            - service: logbook.log
+              data:
+                name: RFID Capture
+                message: "Captured tag {{ uid_masked }} at {{ door_name | title }}"
+            - service: system_log.write
+              data:
+                level: info
+                message: "Captured RFID UID (masked) {{ uid_masked }} at door={{ door_name }}"
+        - conditions: "{{ uid_norm == '' }}"
+          sequence:
+            - service: system_log.write
+              data:
+                level: warning
+                message: "RFID capture mode was enabled, but event had no UID (door={{ door_name }})"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.phoenix_rfid_capture_next_tag
+
+# ------------------------------------------------------------------------------
+# 1C. RFID ASSIGNMENT (LAST CAPTURED -> ROLE)
+# Lets the dashboard assign last captured UID into a role tag helper.
+# ------------------------------------------------------------------------------
+- id: phoenix_rfid_assign_last_tag_to_role
+  alias: Phoenix RFID - Assign Last Captured Tag
+  description: Assigns the last captured RFID UID to the selected role tag helper.
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: input_button.phoenix_rfid_assign_last_tag
+  action:
+    - variables:
+        caller_user_id: "{{ trigger.to_state.context.user_id if trigger.to_state is not none else '' }}"
+        ha_user_id_boss: !secret lovelace_boss_user_id
+        is_authorized: "{{ caller_user_id is none or caller_user_id == '' or caller_user_id == ha_user_id_boss }}"
+    - if:
+        - condition: template
+          value_template: "{{ not is_authorized }}"
+      then:
+        - service: logbook.log
+          data:
+            name: Security
+            message: 'UNAUTHORIZED: RFID assignment blocked'
+            entity_id: input_text.phoenix_access_control_log
+        - stop: 'Unauthorized RFID assignment'
+    - variables:
+        role: "{{ states('input_select.phoenix_rfid_assign_role') | default('') | string }}"
+        uid: "{{ states('input_text.phoenix_rfid_last_tag_uid') | default('') | string | trim | lower }}"
+        uid_norm: >-
+          {% if uid[0:2] == '0x' %}{{ uid[2:] }}{% else %}{{ uid }}{% endif %}
+        uid_masked: >-
+          {% set u = (uid_norm | default('') | string) %}
+          {% if u == '' %}n/a
+          {% elif u | length <= 4 %}****
+          {% else %}{{ '****' ~ u[-4:] }}
+          {% endif %}
+    - choose:
+        - conditions: "{{ uid_norm == '' }}"
+          sequence:
+            - service: system_log.write
+              data:
+                level: warning
+                message: "RFID assign requested but last captured tag is empty"
+            - stop: "No last captured tag"
+        - conditions: "{{ role not in ['owner','worker_klein','worker_montrose','worker_bachrach'] }}"
+          sequence:
+            - service: system_log.write
+              data:
+                level: warning
+                message: "RFID assign requested but role is invalid: role={{ role }}"
+            - stop: "Invalid role"
+    - choose:
+        - conditions: "{{ role == 'owner' }}"
+          sequence:
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.phoenix_rfid_owner_tag
+              data:
+                value: "{{ uid_norm }}"
+        - conditions: "{{ role == 'worker_klein' }}"
+          sequence:
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.phoenix_rfid_worker_klein_tag
+              data:
+                value: "{{ uid_norm }}"
+        - conditions: "{{ role == 'worker_montrose' }}"
+          sequence:
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.phoenix_rfid_worker_montrose_tag
+              data:
+                value: "{{ uid_norm }}"
+        - conditions: "{{ role == 'worker_bachrach' }}"
+          sequence:
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.phoenix_rfid_worker_bachrach_tag
+              data:
+                value: "{{ uid_norm }}"
+    - service: logbook.log
+      data:
+        name: RFID Tag Assignment
+        message: "Assigned tag {{ uid_masked }} to role={{ role }}"
+    - service: system_log.write
+      data:
+        level: info
+        message: "RFID tag assigned (masked) {{ uid_masked }} to role={{ role }}"
+
+# ------------------------------------------------------------------------------
+# 2. LIGHT & PRESENCE CONTROLLER (UNIFIED)
+# The "Brain" for the visual system.
+# ------------------------------------------------------------------------------
+- id: phoenix_light_controller_unified
+  alias: "Phoenix V2: Master Light Controller"
+  description: Controls lights based on presence states. Handles Blinking (On Way) and Solid (Arrived).
+  mode: restart
+  trigger:
+  - platform: state
+    entity_id:
+    - input_boolean.phoenix_user_is_here
+    - input_boolean.phoenix_worker_is_here
+    - input_boolean.phoenix_user_on_the_way
+    - input_boolean.phoenix_worker_on_the_way
+  - platform: homeassistant
+    event: start
+  action:
+  # Reset any blinking scripts first
+  - service: script.turn_off
+    target:
+      entity_id:
+      - script.blink_red
+      - script.blink_orange_red_alternating
+
+  - choose:
+    # --- PRIORITY 1: ARRIVALS (BLINKING) ---
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.phoenix_user_is_here
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.phoenix_worker_on_the_way
+        state: 'on'
+      sequence:
+      - service: script.turn_on
+        target: { entity_id: script.blink_orange_red_alternating }
+
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.phoenix_worker_on_the_way
+        state: 'on'
+      sequence:
+      - service: script.turn_on
+        target: { entity_id: script.blink_red }
+
+    # --- PRIORITY 2: PRESENCE (SOLID COLORS) ---
+    # BOTH HERE -> ORANGE
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.phoenix_user_is_here
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.phoenix_worker_is_here
+        state: 'on'
+      sequence:
+      - if:
+          - condition: template
+            value_template: "{{ states('light.smart_notification_light') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: light.turn_on
+            target:
+              entity_id: light.smart_notification_light
+            data:
+              rgb_color: [255, 140, 0]
+              brightness_pct: 100
+      - if:
+          - condition: template
+            value_template: "{{ states('light.downstairs_status_light') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: light.turn_on
+            target:
+              entity_id: light.downstairs_status_light
+            data:
+              rgb_color: [255, 140, 0]
+              brightness_pct: 100
+
+    # OWNER ONLY -> BLUE
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.phoenix_user_is_here
+        state: 'on'
+      sequence:
+      - if:
+          - condition: template
+            value_template: "{{ states('light.smart_notification_light') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: light.turn_on
+            target:
+              entity_id: light.smart_notification_light
+            data:
+              rgb_color: [0, 0, 255]
+              brightness_pct: 100
+      - if:
+          - condition: template
+            value_template: "{{ states('light.downstairs_status_light') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: light.turn_on
+            target:
+              entity_id: light.downstairs_status_light
+            data:
+              rgb_color: [0, 0, 255]
+              brightness_pct: 100
+
+    # WORKER ONLY -> RED
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.phoenix_worker_is_here
+        state: 'on'
+      sequence:
+      - if:
+          - condition: template
+            value_template: "{{ states('light.smart_notification_light') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: light.turn_on
+            target:
+              entity_id: light.smart_notification_light
+            data:
+              rgb_color: [255, 0, 0]
+              brightness_pct: 100
+      - if:
+          - condition: template
+            value_template: "{{ states('light.downstairs_status_light') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: light.turn_on
+            target:
+              entity_id: light.downstairs_status_light
+            data:
+              rgb_color: [255, 0, 0]
+              brightness_pct: 100
+
+    # NOBODY HERE -> GREEN
+    default:
+    - if:
+        - condition: template
+          value_template: "{{ states('light.smart_notification_light') not in ['unknown', 'unavailable'] }}"
+      then:
+        - service: light.turn_on
+          target:
+            entity_id: light.smart_notification_light
+          data:
+            rgb_color: [0, 255, 0]
+            brightness_pct: 100
+    - if:
+        - condition: template
+          value_template: "{{ states('light.downstairs_status_light') not in ['unknown', 'unavailable'] }}"
+      then:
+        - service: light.turn_on
+          target:
+            entity_id: light.downstairs_status_light
+          data:
+            rgb_color: [0, 255, 0]
+            brightness_pct: 100
+
+  # --- ROOM LIGHTS (ON/OFF) ---
+  - if:
+      - condition: template
+        value_template: "{{ is_state('input_boolean.phoenix_user_is_here', 'on') or is_state('input_boolean.phoenix_worker_is_here', 'on') }}"
+    then:
+      - if:
+          - condition: template
+            value_template: "{{ states('switch.deserted_house_lights') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: switch.deserted_house_lights
+      - if:
+          - condition: template
+            value_template: "{{ states('switch.control_room_strip_lights') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: switch.control_room_strip_lights
+      # Desk light joined this group on 2026-09-15 at the owner's request.
+      - if:
+          - condition: template
+            value_template: "{{ states('switch.smart_plug_waiting_room') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: switch.smart_plug_waiting_room
+    else:
+      - if:
+          - condition: template
+            value_template: "{{ states('switch.deserted_house_lights') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: switch.deserted_house_lights
+      - if:
+          - condition: template
+            value_template: "{{ states('switch.control_room_strip_lights') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: switch.control_room_strip_lights
+      # Desk light joined this group on 2026-09-15 at the owner's request.
+      - if:
+          - condition: template
+            value_template: "{{ states('switch.smart_plug_waiting_room') not in ['unknown', 'unavailable'] }}"
+        then:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: switch.smart_plug_waiting_room
+
+# ------------------------------------------------------------------------------
+# 3. MANUAL BUTTON HANDLER
+# 1 Tap = Buzz Control Room Door, 2 Taps = Toggle Workers, 3 Taps = Toggle Boss
+# Long Press (>=2.2s) = Buzz Outside Door
+# ------------------------------------------------------------------------------
+- id: phoenix_manual_button_handler
+  alias: 'Phoenix V2: Control Room Button Handler'
+  mode: queued
+  trigger:
+  - platform: event
+    event_type: esphome.control_room_button_buzz_control_room
+    id: single_click
+  - platform: event
+    event_type: esphome.control_room_button_toggle_workers
+    id: double_click
+  - platform: event
+    event_type: esphome.control_room_button_toggle_boss
+    id: triple_click
+  - platform: event
+    event_type: esphome.control_room_button_buzz_outside
+    id: long_press
+  action:
+  - choose:
+    # 1 TAP: BUZZ CONTROL ROOM DOOR
+    - conditions:
+      - condition: trigger
+        id: single_click
+      sequence:
+      - action: script.buzz_in_maglock
+
+    # 2 TAPS: TOGGLE WORKERS
+    - conditions:
+      - condition: trigger
+        id: double_click
+      sequence:
+      - target: { entity_id: input_boolean.phoenix_worker_is_here }
+        action: input_boolean.toggle
+      - delay: 00:00:05
+    # 3 TAPS: TOGGLE BOSS (ZABZ)
+    - conditions:
+      - condition: trigger
+        id: triple_click
+      sequence:
+      - target: { entity_id: input_boolean.phoenix_user_is_here }
+        action: input_boolean.toggle
+      - delay: 00:00:05
+    # LONG PRESS: BUZZ OUTSIDE DOOR
+    - conditions:
+      - condition: trigger
+        id: long_press
+      sequence:
+      - action: script.buzz_in_strike_safe
+        data:
+          door_name: outside
+
+# ------------------------------------------------------------------------------
+# 4. AUTO-DEPARTURE (SAFETY NET)
+# If room is empty for 10 mins, warn, then turn everyone off.
+# ------------------------------------------------------------------------------
+- id: phoenix_auto_departure
+  alias: 'Phoenix V2: Auto-Departure'
+  description: If room is empty for 5 mins, warn via Alexa, then mark everyone away.
+  triggers:
+  - entity_id:
+    - binary_sensor.zone_control_room_occupied
+    to: 'off'
+    for: '00:05:00'
+    trigger: state
+  conditions:
+  - condition: or
+    conditions:
+    - condition: state
+      entity_id: input_boolean.phoenix_user_is_here
+      state: 'on'
+    - condition: state
+      entity_id: input_boolean.phoenix_worker_is_here
+      state: 'on'
+  actions:
+  - delay: 00:00:08
+  # Wait for Response
+  - target: { entity_id: timer.phoenix_presence_warning_timer }
+    action: timer.start
+  - wait_for_trigger:
+    - entity_id: binary_sensor.zone_control_room_occupied
+      to: 'on'
+      trigger: state
+    - event_type: timer.finished
+      event_data: { entity_id: timer.phoenix_presence_warning_timer }
+      trigger: event
+    timeout: 00:01:00
+    continue_on_timeout: false
+  
+  # Handle Response
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ wait.trigger.event is defined and wait.trigger.event.event_type == ''timer.finished'' }}'
+      sequence:
+      - target:
+          entity_id:
+          - input_boolean.phoenix_user_is_here
+          - input_boolean.phoenix_worker_is_here
+        action: input_boolean.turn_off
+      - delay: 00:00:05
+    - conditions:
+      - condition: template
+        value_template: '{{ wait.trigger.event is not defined or wait.trigger.event.event_type != ''timer.finished'' }}'
+      sequence:
+      - target: { entity_id: timer.phoenix_presence_warning_timer }
+        action: timer.cancel
+      - stop: Presence confirmed by zone occupancy sensor.
+
+# ------------------------------------------------------------------------------
+# 5. WORKER AUTO-ARRIVAL (GPS) - FIXED
+# Includes Startup Check to prevent "Green Light" error if already home.
+# ------------------------------------------------------------------------------
+- id: phoenix_worker_auto_arrival
+  alias: 'Phoenix V2: Worker Auto-Arrival (GPS)'
+  description: Turns on Worker mode when Montrose or Bachrach arrive home.
+  triggers:
+  - entity_id:
+    - person.montrose
+    to: home
+    trigger: state
+  - platform: homeassistant
+    event: start
+  conditions:
+  - condition: template
+    value_template: "{{ is_state('person.montrose', 'home') or is_state('person.bachrach', 'home') }}"
+  - condition: state
+    entity_id: input_boolean.phoenix_worker_is_here
+    state: 'off'
+  actions:
+  - service: input_boolean.turn_on
+    target: { entity_id: input_boolean.phoenix_worker_is_here }
+  - delay: 00:00:05
+# ------------------------------------------------------------------------------
+# 6. SMART TOGGLE EXCLUSIVITY
+# Ensures a person cannot be "Here" and "On the Way" simultaneously.
+# ------------------------------------------------------------------------------
+- id: presence_dashboard_smart_toggles
+  alias: 'Presence: Smart Toggle Exclusivity'
+  mode: parallel
+  max: 4
+  trigger:
+  - platform: state
+    entity_id:
+      - input_boolean.phoenix_user_is_here
+      - input_boolean.phoenix_user_on_the_way
+      - input_boolean.phoenix_worker_is_here
+      - input_boolean.phoenix_worker_on_the_way
+    to: 'on'
+  action:
+  - variables:
+      triggered_entity: '{{ trigger.entity_id }}'
+      user_type: "{{ 'user' if 'user' in triggered_entity else 'worker' }}"
+      opposite_entity: >-
+        {% if 'is_here' in triggered_entity %}
+          input_boolean.phoenix_{{ user_type }}_on_the_way
+        {% else %}
+          input_boolean.phoenix_{{ user_type }}_is_here
+        {% endif %}
+  - service: input_boolean.turn_off
+    target: { entity_id: '{{ opposite_entity }}' }
+
+# ------------------------------------------------------------------------------
+# 7. SECURITY: UNKNOWN PERSON ALERT (FIXED - OPTION A)
+# Alerts if Room Occupied for 5m but presence is OFF.
+# Alerts if Worker logs OFF but stays in room for 5m.
+# ------------------------------------------------------------------------------
+- id: phoenix_unknown_presence_alert
+  alias: 'Phoenix V2: Unknown Presence Alert'
+  description: Triggers if room is occupied but system thinks it's empty.
+  initial_state: false
+  triggers:
+  # Case 1: Room becomes occupied (Arrival without login)
+  - entity_id: binary_sensor.control_room_hub_control_room_presence
+    to: 'on'
+    for: 00:05:00
+    trigger: state
+  # Case 2: User Logs out (Button) but STAYS (Room Sensor is ON)
+  - entity_id: input_boolean.phoenix_worker_is_here
+    to: 'off'
+    for: 00:05:00
+    trigger: state
+  # Case 3: Owner Logs out (Button) but STAYS
+  - entity_id: input_boolean.phoenix_user_is_here
+    to: 'off'
+    for: 00:05:00
+    trigger: state
+  conditions:
+  # Only run if NOBODY is marked 'Here' but the SENSOR is 'On'
+  - condition: state
+    entity_id: input_boolean.phoenix_user_is_here
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_worker_is_here
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_house_guest_mode_active
+    state: 'off'
+  - condition: state
+    entity_id: binary_sensor.control_room_hub_control_room_presence
+    state: 'on'
+  actions:
+  - delay: 00:00:08
+# ------------------------------------------------------------------------------
+# 8. SECURITY: INVALID PIN BURST WINDOW RESET
+# Resets the invalid PIN counter when the rolling window timer finishes.
+# ------------------------------------------------------------------------------
+- id: phoenix_invalid_pin_window_reset
+  alias: 'Phoenix V2: Invalid PIN Window Reset'
+  initial_state: true
+  trigger:
+    - platform: event
+      event_type: timer.finished
+      event_data:
+        entity_id: timer.phoenix_invalid_pin_window
+  action:
+    - service: counter.reset
+      target:
+        entity_id: counter.phoenix_invalid_pin_attempts
+
+
+# ------------------------------------------------------------------------------
+# 9. SECURITY: ACCESS CONTROL LOCKOUT AUTO-CLEAR
+# Clears lockdown when the lockout timer finishes.
+# ------------------------------------------------------------------------------
+- id: phoenix_access_control_lockout_finished
+  alias: 'Phoenix V2: Access Control Lockout Finished'
+  initial_state: true
+  trigger:
+    - platform: event
+      event_type: timer.finished
+      event_data:
+        entity_id: timer.phoenix_access_control_lockout
+  action:
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.phoenix_access_control_lockdown
+    - service: counter.reset
+      target:
+        entity_id: counter.phoenix_invalid_pin_attempts
+    - service: timer.cancel
+      target:
+        entity_id: timer.phoenix_invalid_pin_window
+    - service: logbook.log
+      data:
+        name: Access Control
+        message: "SECURITY: Access control lockout cleared."
+
+
+# ==============================================================================
+# STANDARD HOUSEKEEPING & NOTIFICATIONS (PRESERVED)
+# ==============================================================================
+
+- id: phoenix_block_unauthorized_sensitive_helper_changes
+  alias: Phoenix - Block Unauthorized Helper Changes
+  description: Blocks worker-initiated service calls that try to modify sensitive PIN/RFID helpers (reverts the change, logs, and notifies boss).
+  mode: queued
+  max: 20
+  trigger:
+  - platform: state
+    entity_id:
+    # Security / access control mode (owner only)
+    - input_select.phoenix_security_mode
+    - input_boolean.phoenix_access_control_lockdown
+    - input_boolean.phoenix_customer_pin_enabled
+    - input_boolean.phoenix_user_is_here
+    # PINs (owner only)
+    - input_text.phoenix_admin_pin
+    - input_text.phoenix_parent_pin
+    - input_text.phoenix_worker_pin
+    - input_text.phoenix_worker_klein_pin
+    - input_text.phoenix_worker_montrose_pin
+    - input_text.phoenix_worker_bachrach_pin
+    - input_text.phoenix_customer_pin
+    - input_text.phoenix_drop_off_pin
+    # PINs (parent allowed)
+    - input_text.phoenix_house_access_pin
+    - input_boolean.phoenix_house_access_pin_enabled
+    - input_number.phoenix_house_access_pin_duration
+    # RFID (owner only)
+    - input_boolean.phoenix_rfid_capture_next_tag
+    - input_select.phoenix_rfid_assign_role
+    - input_text.phoenix_rfid_owner_tag
+    - input_text.phoenix_rfid_worker_klein_tag
+    - input_text.phoenix_rfid_worker_montrose_tag
+    - input_text.phoenix_rfid_worker_bachrach_tag
+  condition:
+  - condition: template
+    value_template: "{{ trigger.to_state is not none and trigger.from_state is not none and trigger.to_state.state != trigger.from_state.state }}"
+  action:
+  - variables:
+      entity_id: "{{ trigger.entity_id }}"
+      old_value: "{{ trigger.from_state.state if trigger.from_state is not none else '' }}"
+      caller_user_id: "{{ trigger.to_state.context.user_id if trigger.to_state is not none else '' }}"
+      ha_user_id_boss: !secret lovelace_boss_user_id
+      ha_user_id_parent_1: !secret lovelace_parent_1_user_id
+      is_user_initiated: "{{ caller_user_id is not none and caller_user_id != '' }}"
+      is_parent_allowed_entity: >-
+        {{ entity_id in [
+          'input_text.phoenix_house_access_pin',
+          'input_boolean.phoenix_house_access_pin_enabled',
+          'input_number.phoenix_house_access_pin_duration'
+        ] }}
+      is_authorized: >-
+        {% if not (caller_user_id is not none and caller_user_id != '') %}
+          true
+        {% elif is_parent_allowed_entity %}
+          {{ caller_user_id in [ha_user_id_boss, ha_user_id_parent_1] }}
+        {% else %}
+          {{ caller_user_id == ha_user_id_boss }}
+        {% endif %}
+  - choose:
+      - conditions: "{{ (not is_user_initiated) or is_authorized }}"
+        sequence:
+          - stop: "Allowed helper change"
+    default:
+      - choose:
+          - conditions: "{{ entity_id.split('.')[0] == 'input_text' }}"
+            sequence:
+              - service: input_text.set_value
+                target: { entity_id: "{{ entity_id }}" }
+                data:
+                  value: "{{ old_value }}"
+          - conditions: "{{ entity_id.split('.')[0] == 'input_boolean' }}"
+            sequence:
+              - choose:
+                  - conditions: "{{ old_value == 'on' }}"
+                    sequence:
+                      - service: input_boolean.turn_on
+                        target: { entity_id: "{{ entity_id }}" }
+                  - conditions: "{{ old_value == 'off' }}"
+                    sequence:
+                      - service: input_boolean.turn_off
+                        target: { entity_id: "{{ entity_id }}" }
+          - conditions: "{{ entity_id.split('.')[0] == 'input_number' }}"
+            sequence:
+              - service: input_number.set_value
+                target: { entity_id: "{{ entity_id }}" }
+                data:
+                  value: "{{ old_value | float(0) }}"
+          - conditions: "{{ entity_id.split('.')[0] == 'input_select' }}"
+            sequence:
+              - service: input_select.select_option
+                target: { entity_id: "{{ entity_id }}" }
+                data:
+                  option: "{{ old_value }}"
+      - service: logbook.log
+        data:
+          name: Security
+          message: "UNAUTHORIZED: blocked helper edit to {{ entity_id }}"
+          entity_id: input_text.phoenix_access_control_log
+      - service: notify.mobile_app_zabz_waze
+        data:
+          message: "SECURITY: blocked unauthorized edit to {{ entity_id }}"
+
+- id: house_access_pin_auto_reset
+  # DISABLED 2026-10-22: the room code now rotates in the same run as the door
+  # codes, from /opt/phoenix-pin-rotation on the authority, because a rotation
+  # without a message to a human is an outage (owner, 2026-10-22: codes rotate
+  # every two weeks AND the text carries the new pin).
+  initial_state: false
+  alias: House Access PIN - Auto Reset
+  trigger:
+  - platform: time
+    at: 03:15:00
+  condition:
+  - condition: template
+    value_template: '{{ now().timetuple().tm_yday % 14 == 0 }}'
+  action:
+  - service: input_text.set_value
+    target: { entity_id: input_text.phoenix_house_access_pin }
+    data:
+      value: '{{ range(1000, 10000) | random }}'
+  # ADDED 2026-10-18. Until now the code changed every third day of the year and NOBODY was
+  # told: anybody holding it found it dead within 72 hours and had no way to learn the new
+  # one. A rotation without an announcement is an outage, not a policy.
+  - service: notify.mobile_app_zabz_waze
+    data:
+      title: House access PIN rotated
+      message: >-
+        New 4-digit house access code: {{ states('input_text.phoenix_house_access_pin') }}.
+        It stays valid for two weeks. Share it only with people who need the room.
+
+- id: house_access_pin_control_timer
+  alias: Master Temp - Control Timer
+  trigger:
+  - platform: state
+    entity_id: input_boolean.phoenix_house_access_pin_enabled
+  action:
+  - choose:
+    - conditions: '{{ trigger.to_state.state == ''on'' }}'
+      sequence:
+      - service: timer.cancel
+        target: { entity_id: timer.phoenix_house_access_timer }
+      - service: timer.start
+        target: { entity_id: timer.phoenix_house_access_timer }
+        data:
+          duration: '{{ states(''input_number.phoenix_house_access_pin_duration'') | int(1) * 3600 }}'
+      # ADDED 2026-10-22. The temp code now opens the apartment door, so its keypad
+      # slot must exist exactly while the switch is on.
+      - service: mqtt.publish
+        data:
+          topic: zigbee2mqtt/Apartment_Door_Smart_Lock/set
+          payload: >-
+            {"pin_code": {"user": 6, "pin_code": "{{ states('input_text.phoenix_house_access_pin') }}"}}
+    - conditions: '{{ trigger.to_state.state == ''off'' }}'
+      sequence:
+      - service: timer.cancel
+        target: { entity_id: timer.phoenix_house_access_timer }
+      - service: mqtt.publish
+        data:
+          topic: zigbee2mqtt/Apartment_Door_Smart_Lock/set
+          payload: '{"pin_code": {"user": 6, "pin_code": ""}}'
+
+- id: house_access_pin_timer_finished
+  alias: House Access PIN - Disable When Timer Finishes
+  trigger:
+  - platform: event
+    event_type: timer.finished
+    event_data: { entity_id: timer.phoenix_house_access_timer }
+  action:
+  - service: input_boolean.turn_off
+    target: { entity_id: input_boolean.phoenix_house_access_pin_enabled }
+
+- id: security_mode_house_guest_presence_follow
+  alias: 'Security Mode - House Guest Presence Follow'
+  description: While house guest mode is active, keep security_mode=Home only while the control room occupancy indicates someone is actually present; revert to Away after 4 minutes empty (if nobody is marked present).
+  mode: restart
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.control_room_hub_control_room_presence
+      to: 'on'
+    - platform: state
+      entity_id: binary_sensor.control_room_hub_control_room_presence
+      to: 'off'
+      for: '00:04:00'
+    - platform: state
+      entity_id: input_boolean.phoenix_house_access_pin_enabled
+      to: 'off'
+  condition:
+    - condition: state
+      entity_id: input_boolean.phoenix_house_guest_mode_active
+      state: 'on'
+    - condition: state
+      entity_id: input_boolean.phoenix_user_is_here
+      state: 'off'
+    - condition: state
+      entity_id: input_boolean.phoenix_worker_is_here
+      state: 'off'
+  action:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: binary_sensor.control_room_hub_control_room_presence
+              state: 'on'
+          sequence:
+            - service: input_select.select_option
+              target: { entity_id: input_select.phoenix_security_mode }
+              data:
+                option: Home
+      default:
+        - service: input_boolean.turn_off
+          target: { entity_id: input_boolean.phoenix_house_guest_mode_active }
+        - service: input_select.select_option
+          target: { entity_id: input_select.phoenix_security_mode }
+          data:
+            option: Away
+
+- id: security_mode_revert_after_hallway_window
+  alias: 'Security Mode - Revert After Hallway Window'
+  description: When the hallway guard window expires, revert from Customer mode back to Home (if someone is here) or Away (if nobody is here).
+  mode: single
+  trigger:
+  - platform: event
+    event_type: timer.finished
+    event_data: { entity_id: timer.hallway_guard_window }
+  condition:
+  - condition: state
+    entity_id: input_select.phoenix_security_mode
+    state: Customer
+  action:
+  - choose:
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: input_boolean.phoenix_user_is_here
+                state: 'on'
+              - condition: state
+                entity_id: input_boolean.phoenix_worker_is_here
+                state: 'on'
+        sequence:
+          - service: input_select.select_option
+            target: { entity_id: input_select.phoenix_security_mode }
+            data:
+              option: Home
+    default:
+      - service: input_select.select_option
+        target: { entity_id: input_select.phoenix_security_mode }
+        data:
+          option: Away
+
+- id: security_mode_auto_away_on_empty
+  alias: 'Security Mode - Auto Away When Empty'
+  description: Automatically sets security_mode to Away when the control room is empty for 4 minutes, unless a hallway/guest session is active or the system is Armed.
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.control_room_hub_control_room_presence
+      to: 'off'
+      for: '00:04:00'
+  condition:
+    - condition: state
+      entity_id: timer.hallway_guard_window
+      state: 'idle'
+    - condition: state
+      entity_id: input_boolean.phoenix_house_guest_mode_active
+      state: 'off'
+    - condition: state
+      entity_id: input_boolean.phoenix_user_is_here
+      state: 'off'
+    - condition: state
+      entity_id: input_boolean.phoenix_worker_is_here
+      state: 'off'
+    - condition: template
+      value_template: "{{ states('input_select.phoenix_security_mode') != 'Armed' }}"
+  action:
+    - service: input_select.select_option
+      target: { entity_id: input_select.phoenix_security_mode }
+      data:
+        option: Away
+
+- id: security_mode_auto_home_on_occupancy
+  alias: 'Security Mode - Auto Home On Occupancy'
+  description: Automatically sets security_mode to Home when occupancy is detected and an authorized/guest indicator is already active; does not override Customer/Armed.
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.control_room_hub_control_room_presence
+      to: 'on'
+  condition:
+    - condition: state
+      entity_id: input_select.phoenix_security_mode
+      state: Away
+    - condition: or
+      conditions:
+        - condition: state
+          entity_id: input_boolean.phoenix_user_is_here
+          state: 'on'
+        - condition: state
+          entity_id: input_boolean.phoenix_worker_is_here
+          state: 'on'
+        - condition: state
+          entity_id: input_boolean.phoenix_house_guest_mode_active
+          state: 'on'
+  action:
+    - service: input_select.select_option
+      target: { entity_id: input_select.phoenix_security_mode }
+      data:
+        option: Home
+
+- id: hallway_guard_interior_door_opened
+  alias: Hallway Guard - Interior Door Opened
+  description: Alert-only. Notifies if an interior door opens during an active customer/guest hallway window while no authorized presence is set.
+  mode: single
+  trigger:
+  - platform: state
+    entity_id:
+    - binary_sensor.phoenix_control_room_exterior_door_contact
+    - binary_sensor.phoenix_control_room_interior_door_contact
+    to: 'on'
+  condition:
+  - condition: state
+    entity_id: timer.hallway_guard_window
+    state: 'active'
+  - condition: state
+    entity_id: input_boolean.phoenix_house_guest_mode_active
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_user_is_here
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_worker_is_here
+    state: 'off'
+  action:
+  - variables:
+      door_label: >-
+        {% if trigger.entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' %}Control Room exterior door
+        {% elif trigger.entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' %}Control Room interior door
+        {% else %}Interior door
+        {% endif %}
+      base_url: !secret phoenix_external_base_url
+      base_url_public: !secret phoenix_public_base_url
+      cache_bust: "{{ now().strftime('%Y%m%d_%H%M%S_%f') }}"
+      snapshot_filename_doorbell: >-
+        {% if trigger.entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' %}latest_control_room_open_doorbell.jpg
+        {% elif trigger.entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' %}latest_control_room_interior_open_doorbell.jpg
+        {% else %}latest_unknown_doorbell.jpg
+        {% endif %}
+      snapshot_url: "{{ base_url }}/local/snapshots/{{ snapshot_filename_doorbell }}?ts={{ cache_bust }}"
+      snapshot_url_public: "{{ base_url_public }}/local/snapshots/{{ snapshot_filename_doorbell }}?ts={{ cache_bust }}"
+  - service: logbook.log
+    data:
+      name: Hallway Guard
+      message: 'Interior door opened during customer/guest hallway window: {{ door_label }}'
+  - delay: '00:00:04'
+  - service: notify.mobile_app_zabz_waze
+    data:
+      message: 'SECURITY: {{ door_label }} opened while customer/guest hallway window active.'
+      data:
+        image: '{{ snapshot_url }}'
+        clickAction: '{{ snapshot_url_public }}'
+
+- id: hallway_guard_extend_window_on_people_detection
+  alias: Hallway Guard - Extend Window on People Detection
+  description: Extends the active hallway guard window when hallway-related cameras/doorbell detect people.
+  mode: restart
+  trigger:
+  - platform: state
+    entity_id:
+    - binary_sensor.cam_front_hallway_smart_motion_human_2
+    - binary_sensor.cam_waiting_room_smart_motion_human_2
+    - binary_sensor.video_doorbell_person
+    - binary_sensor.video_doorbell_visitor
+    to: 'on'
+  condition:
+  - condition: state
+    entity_id: timer.hallway_guard_window
+    state: 'active'
+  action:
+  - service: timer.cancel
+    target: { entity_id: timer.hallway_guard_window }
+  - service: timer.start
+    target: { entity_id: timer.hallway_guard_window }
+
+- id: security_interior_door_opened_while_away
+  alias: 'Security - Interior Door Opened While Away'
+  description: Alert-only. Notifies if an interior door opens while nobody is marked present.
+  mode: single
+  trigger:
+  - platform: state
+    entity_id:
+    - binary_sensor.phoenix_control_room_exterior_door_contact
+    - binary_sensor.phoenix_control_room_interior_door_contact
+    to: 'on'
+  condition:
+  - condition: state
+    entity_id: input_boolean.phoenix_user_is_here
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_worker_is_here
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_house_guest_mode_active
+    state: 'off'
+  action:
+  - variables:
+      door_label: >-
+        {% if trigger.entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' %}Control Room exterior door
+        {% elif trigger.entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' %}Control Room interior door
+        {% else %}Interior door
+        {% endif %}
+      base_url: !secret phoenix_external_base_url
+      base_url_public: !secret phoenix_public_base_url
+      cache_bust: "{{ now().strftime('%Y%m%d_%H%M%S_%f') }}"
+      snapshot_filename_doorbell: >-
+        {% if trigger.entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' %}latest_control_room_open_doorbell.jpg
+        {% elif trigger.entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' %}latest_control_room_interior_open_doorbell.jpg
+        {% else %}latest_unknown_doorbell.jpg
+        {% endif %}
+      snapshot_url: "{{ base_url }}/local/snapshots/{{ snapshot_filename_doorbell }}?ts={{ cache_bust }}"
+      snapshot_url_public: "{{ base_url_public }}/local/snapshots/{{ snapshot_filename_doorbell }}?ts={{ cache_bust }}"
+  - service: logbook.log
+    data:
+      name: Security
+      message: 'Interior door opened while nobody is marked present: {{ door_label }}'
+  - delay: '00:00:04'
+  - service: notify.mobile_app_zabz_waze
+    data:
+      message: 'SECURITY: {{ door_label }} opened while nobody is marked present.'
+      data:
+        image: '{{ snapshot_url }}'
+        clickAction: '{{ snapshot_url_public }}'
+
+- id: security_occupancy_detected_while_away
+  alias: 'Security - Occupancy Detected While Away'
+  description: Critical. Push notification if control room occupancy is detected while security_mode is Away/Armed and no authorized/guest presence is set.
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.control_room_hub_control_room_presence
+      to: 'on'
+  condition:
+    - condition: or
+      conditions:
+        - condition: state
+          entity_id: input_select.phoenix_security_mode
+          state: Away
+        - condition: state
+          entity_id: input_select.phoenix_security_mode
+          state: Armed
+    - condition: state
+      entity_id: input_boolean.phoenix_user_is_here
+      state: 'off'
+    - condition: state
+      entity_id: input_boolean.phoenix_worker_is_here
+      state: 'off'
+    - condition: state
+      entity_id: input_boolean.phoenix_house_guest_mode_active
+      state: 'off'
+  action:
+    - variables:
+        base_url: !secret phoenix_external_base_url
+        base_url_public: !secret phoenix_public_base_url
+        cache_bust: "{{ now().strftime('%Y%m%d_%H%M%S_%f') }}"
+        snapshot_filename_interior: latest_control_room_presence_control_room_interior.jpg
+        snapshot_url: "{{ base_url }}/local/snapshots/{{ snapshot_filename_interior }}?ts={{ cache_bust }}"
+        snapshot_url_public: "{{ base_url_public }}/local/snapshots/{{ snapshot_filename_interior }}?ts={{ cache_bust }}"
+    - service: logbook.log
+      data:
+        name: Security
+        message: 'Occupancy detected while in {{ states(''input_select.phoenix_security_mode'') }} mode.'
+    - service: script.snapshot_entry_cameras
+      data:
+        event_name: control_room_presence
+        log_message: 'SECURITY: occupancy detected (entry cameras)'
+        delay_seconds: 0
+        cooldown_seconds: 15
+    - service: script.snapshot_control_room_cameras
+      data:
+        event_name: control_room_presence
+        role_tag: >-
+          {% set boss = is_state('input_boolean.phoenix_user_is_here', 'on') %}
+          {% set worker = is_state('input_boolean.phoenix_worker_is_here', 'on') %}
+          {% if boss and worker %}mixed
+          {% elif boss %}boss
+          {% elif worker %}worker
+          {% else %}unknown
+          {% endif %}
+        log_message: 'SECURITY: occupancy detected (control room cams)'
+        delay_seconds: 0
+    - delay: '00:00:02'
+    - service: notify.mobile_app_zabz_waze
+      data:
+        message: 'SECURITY: Occupancy detected in control room while system is {{ states(''input_select.phoenix_security_mode'') }}.'
+        data:
+          ttl: 0
+          priority: high
+          image: '{{ snapshot_url }}'
+          clickAction: '{{ snapshot_url_public }}'
+
+- id: snapshot_control_room_interior_door_open_entry_cameras
+  alias: Snapshot - Control Room Interior Door Open (+2s, Cameras)
+  mode: single
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.phoenix_control_room_interior_door_contact
+    to: 'on'
+  action:
+  - service: script.snapshot_entry_cameras
+    data:
+      event_name: control_room_interior_open
+      log_message: 'Control Room interior door opened (+2s): snapshots saved (doorbell + both hallways)'
+      delay_seconds: 2
+      cooldown_seconds: 30
+  - service: script.snapshot_control_room_cameras
+    data:
+      event_name: control_room_interior_open
+      role_tag: >-
+        {% set boss = is_state('input_boolean.phoenix_user_is_here', 'on') %}
+        {% set worker = is_state('input_boolean.phoenix_worker_is_here', 'on') %}
+        {% if boss and worker %}mixed
+        {% elif boss %}boss
+        {% elif worker %}worker
+        {% else %}unknown
+        {% endif %}
+      log_message: 'Control Room interior door opened: snapshots saved (control room cams)'
+      delay_seconds: 2
+
+- id: security_doors_left_open_while_away
+  alias: 'Security - Doors Left Open While Away'
+  description: Alert-only. If a door is left open 3 minutes while nobody is marked present, announce via Alexa every 3 minutes for 1 hour, then go quiet; on close, enforce door locked.
+  mode: parallel
+  max: 3
+  trigger:
+  - platform: state
+    entity_id:
+    - binary_sensor.phoenix_outside_door_contact
+    - binary_sensor.phoenix_control_room_exterior_door_contact
+    - binary_sensor.phoenix_control_room_interior_door_contact
+    to: 'on'
+    for: 00:03:00
+  condition:
+  - condition: state
+    entity_id: input_boolean.phoenix_user_is_here
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_worker_is_here
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.phoenix_house_guest_mode_active
+    state: 'off'
+  action:
+  - variables:
+      door_entity_id: "{{ trigger.entity_id }}"
+      door_friendly_name: "{{ trigger.to_state.attributes.friendly_name | default(trigger.entity_id) }}"
+      door_label: >-
+        {% if door_entity_id == 'binary_sensor.phoenix_outside_door_contact' %}Outside door
+        {% elif door_entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' %}Control Room exterior door
+        {% elif door_entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' %}Control Room interior door
+        {% else %}Door
+        {% endif %}
+      incident_start_ts: "{{ as_timestamp(now()) }}"
+      reminder_end_ts: "{{ as_timestamp(now()) + 3600 }}"
+  - service: logbook.log
+    data:
+      name: Security
+      message: '{{ door_label }} left open 3 minutes while nobody is marked present: {{ door_friendly_name }}'
+  - repeat:
+      while:
+        - condition: template
+          value_template: "{{ is_state(door_entity_id, 'on') and (as_timestamp(now()) < reminder_end_ts) }}"
+      sequence:
+        - wait_for_trigger:
+            - platform: state
+              entity_id: binary_sensor.phoenix_outside_door_contact
+              to: 'off'
+            - platform: state
+              entity_id: binary_sensor.phoenix_control_room_exterior_door_contact
+              to: 'off'
+            - platform: state
+              entity_id: binary_sensor.phoenix_control_room_interior_door_contact
+              to: 'off'
+            - platform: state
+              entity_id: input_boolean.phoenix_user_is_here
+              to: 'on'
+            - platform: state
+              entity_id: input_boolean.phoenix_worker_is_here
+              to: 'on'
+          timeout: '00:03:00'
+          continue_on_timeout: true
+        - choose:
+            - conditions: "{{ is_state(door_entity_id, 'off') }}"
+              sequence:
+                - choose:
+                    - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_outside_door_contact' }}"
+                      sequence:
+                        - service: switch.turn_off
+                          target: { entity_id: switch.smart_switch_l1 }
+                    - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' }}"
+                      sequence:
+                        - service: switch.turn_on
+                          target: { entity_id: switch.smart_switch_l2 }
+                    - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' }}"
+                      sequence:
+                        - service: switch.turn_on
+                          target: { entity_id: switch.smart_switch_l4 }
+                - service: logbook.log
+                  data:
+                    name: Security
+                    message: '{{ door_label }} closed; enforced locked.'
+                - stop: '{{ door_label }} closed.'
+            - conditions: "{{ is_state('input_boolean.phoenix_user_is_here', 'on') or is_state('input_boolean.phoenix_worker_is_here', 'on') }}"
+              sequence:
+                - service: logbook.log
+                  data:
+                    name: Security
+                    message: '{{ door_label }} still open; authorized presence arrived (pausing reminders until closed).'
+          default:
+  - choose:
+      - conditions: "{{ is_state(door_entity_id, 'on') and (as_timestamp(now()) >= reminder_end_ts) and is_state('input_boolean.phoenix_user_is_here', 'off') and is_state('input_boolean.phoenix_worker_is_here', 'off') }}"
+        sequence:
+          - service: logbook.log
+            data:
+              name: Security
+              message: '{{ door_label }} still open after 1 hour; going quiet until closed (will still enforce lock on close).'
+          - wait_template: "{{ is_state(door_entity_id, 'off') }}"
+          - choose:
+              - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_outside_door_contact' }}"
+                sequence:
+                  - service: switch.turn_off
+                    target: { entity_id: switch.smart_switch_l1 }
+              - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' }}"
+                sequence:
+                  - service: switch.turn_on
+                    target: { entity_id: switch.smart_switch_l2 }
+              - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' }}"
+                sequence:
+                  - service: switch.turn_on
+                    target: { entity_id: switch.smart_switch_l4 }
+          - service: logbook.log
+            data:
+              name: Security
+              message: '{{ door_label }} closed; enforced locked.'
+
+  - choose:
+      - conditions: "{{ is_state(door_entity_id, 'on') and (is_state('input_boolean.phoenix_user_is_here', 'on') or is_state('input_boolean.phoenix_worker_is_here', 'on')) }}"
+        sequence:
+          - wait_for_trigger:
+              - platform: state
+                entity_id: binary_sensor.phoenix_outside_door_contact
+                to: 'off'
+              - platform: state
+                entity_id: binary_sensor.phoenix_control_room_exterior_door_contact
+                to: 'off'
+              - platform: state
+                entity_id: binary_sensor.phoenix_control_room_interior_door_contact
+                to: 'off'
+            timeout: '02:00:00'
+            continue_on_timeout: true
+          - choose:
+              - conditions: "{{ is_state(door_entity_id, 'off') }}"
+                sequence:
+                  - choose:
+                      - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_outside_door_contact' }}"
+                        sequence:
+                          - service: switch.turn_off
+                            target: { entity_id: switch.smart_switch_l1 }
+                      - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_control_room_exterior_door_contact' }}"
+                        sequence:
+                          - service: switch.turn_on
+                            target: { entity_id: switch.smart_switch_l2 }
+                      - conditions: "{{ door_entity_id == 'binary_sensor.phoenix_control_room_interior_door_contact' }}"
+                        sequence:
+                          - service: switch.turn_on
+                            target: { entity_id: switch.smart_switch_l4 }
+                  - service: logbook.log
+                    data:
+                      name: Security
+                      message: '{{ door_label }} closed; enforced locked.'
+
+- id: log_door_and_lock_physical_activity
+  alias: Log Door and Lock Physical Activity
+  mode: single
+  trigger:
+  - platform: state
+    entity_id:
+    - binary_sensor.phoenix_outside_door_contact
+    - binary_sensor.phoenix_control_room_exterior_door_contact
+    - binary_sensor.phoenix_control_room_interior_door_contact
+    - switch.smart_switch_l1
+    - switch.smart_switch_l2
+    - switch.smart_switch_l4
+    - lock.0x002446fffd0a4705
+  condition:
+  - condition: template
+    value_template: '{{ trigger.to_state.state not in [''unavailable'', ''unknown''] }}'
+  action:
+  - variables:
+      entity_name: '{{ trigger.to_state.attributes.friendly_name }}'
+      entity_id: '{{ trigger.entity_id }}'
+      new_state: '{{ trigger.to_state.state }}'
+      action_message: "{% if entity_id.startswith('binary_sensor.') %}\n  {{ 'Opened' if new_state == 'on' else 'Closed' }}\n{% elif entity_id == 'switch.smart_switch_l1' %}\n  {{ 'Unlocked' if new_state == 'on' else 'Locked' }}\n{% elif entity_id in ['switch.smart_switch_l2', 'switch.smart_switch_l4'] %}\n  {{ 'Locked' if new_state == 'on' else 'Unlocked' }}\n{% elif entity_id.startswith('lock.') %}\n  {{ new_state | title }}\n{% else %}\n  state changed to {{ new_state }}\n{% endif %}\n"
+  - choose:
+      - conditions: "{{ entity_id.startswith('binary_sensor.') }}"
+        sequence:
+          - service: logbook.log
+            data:
+              name: Door Activity
+              message: '{{ entity_name }} {{ "opened" if new_state == "on" else "closed" }}'
+              entity_id: input_text.phoenix_door_activity_log
+  - service: input_text.set_value
+    target: { entity_id: input_text.phoenix_door_activity_log }
+    data:
+      value: >-
+        {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - ' ~ entity_name ~ ' ' ~ action_message ~ '\n' ~ states('input_text.phoenix_door_activity_log'))[:255] }}
+
+- id: notify_person_detected_front_door
+  alias: Notify - Person Detected at Front Door
+  mode: single
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.video_doorbell_person
+    to: 'on'
+  action:
+  - variables:
+      base_url: !secret phoenix_external_base_url
+      base_url_public: !secret phoenix_public_base_url
+      cache_bust: "{{ now().strftime('%Y%m%d_%H%M%S_%f') }}"
+      snapshot_filename_doorbell: latest_person_doorbell.jpg
+      snapshot_url: '{{ base_url }}/local/snapshots/{{ snapshot_filename_doorbell }}?ts={{ cache_bust }}'
+      snapshot_url_public: '{{ base_url_public }}/local/snapshots/{{ snapshot_filename_doorbell }}?ts={{ cache_bust }}'
+  - service: script.snapshot_entry_cameras
+    data:
+      event_name: person
+      log_message: 'Doorbell person: snapshots saved (doorbell + both hallways)'
+      delay_seconds: 0
+  - delay: 00:00:02
+  - service: notify.mobile_app_zabz_waze
+    data:
+      message: Person detected at the front door.
+      data:
+        image: '{{ snapshot_url }}'
+        clickAction: '{{ snapshot_url_public }}'
+
+- id: snapshot_outside_door_activity_entry_cameras
+  alias: Snapshot - Outside Door Activity (Entry Cameras)
+  mode: queued
+  max: 10
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.phoenix_outside_door_contact
+    to: 'on'
+    id: opened
+  - platform: state
+    entity_id: binary_sensor.phoenix_outside_door_contact
+    to: 'off'
+    id: closed
+  action:
+  - service: script.snapshot_entry_cameras
+    data:
+      event_name: outside_door
+      log_message: >-
+        Outside door {{ 'opened' if trigger.id == 'opened' else 'closed' }}: snapshots saved (doorbell + both hallways)
+      delay_seconds: 0
+
+- id: snapshot_hallway_loop_start_on_recent_humans
+  alias: Snapshot - Hallway Loop Start (Humans Recent)
+  description: Starts 1/min hallway snapshots while hallway humans are recently detected (2-minute tail)
+  mode: restart
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.hallway_humans_recent
+    to: 'on'
+  action:
+  - service: script.turn_on
+    target:
+      entity_id: script.hallway_snapshot_loop
+
+- id: snapshot_doorbell_ring_entry_cameras
+  alias: Snapshot - Doorbell Ring (Entry Cameras)
+  mode: single
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.video_doorbell_visitor
+    to: 'on'
+  action:
+  - service: script.snapshot_entry_cameras
+    data:
+      event_name: doorbell_ring
+      log_message: 'Doorbell ring: snapshots saved (doorbell + both hallways)'
+      delay_seconds: 0
+      cooldown_seconds: 60
+
+- id: snapshot_strike_unlock_entry_cameras
+  alias: Snapshot - Strike Unlocked (+2s, Entry Cameras)
+  mode: single
+  trigger:
+  - platform: state
+    entity_id: switch.smart_switch_l1
+    to: 'on'
+  action:
+  - service: script.snapshot_entry_cameras
+    data:
+      event_name: strike_unlock
+      log_message: 'Strike unlocked (+2s): snapshots saved (doorbell + both hallways)'
+      delay_seconds: 2
+      cooldown_seconds: 15
+
+- id: snapshot_control_room_door_open_entry_cameras
+  alias: Snapshot - Control Room Door Open (+3s, Entry Cameras)
+  mode: single
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.phoenix_control_room_exterior_door_contact
+    to: 'on'
+  action:
+  - service: script.snapshot_entry_cameras
+    data:
+      event_name: control_room_open
+      log_message: 'Control Room exterior door opened (+3s): snapshots saved (doorbell + both hallways)'
+      delay_seconds: 3
+      cooldown_seconds: 30
+  - service: script.snapshot_control_room_cameras
+    data:
+      event_name: control_room_open
+      role_tag: >-
+        {% set boss = is_state('input_boolean.phoenix_user_is_here', 'on') %}
+        {% set worker = is_state('input_boolean.phoenix_worker_is_here', 'on') %}
+        {% if boss and worker %}mixed
+        {% elif boss %}boss
+        {% elif worker %}worker
+        {% else %}unknown
+        {% endif %}
+      log_message: 'Control Room exterior door opened: snapshots saved (control room cams)'
+      delay_seconds: 3
+
+- id: snapshot_control_room_presence_entry_cameras
+  alias: Snapshot - Control Room Presence (Entry Cameras)
+  description: Takes entry-camera snapshots when control room occupancy/presence is detected.
+  mode: queued
+  max: 10
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.control_room_hub_control_room_presence
+    to: 'on'
+    for: '00:00:02'
+  action:
+  - service: script.snapshot_entry_cameras
+    data:
+      event_name: control_room_presence
+      log_message: 'Control room presence: snapshots saved (doorbell + both hallways)'
+      delay_seconds: 1
+      cooldown_seconds: 15
+  - service: script.snapshot_control_room_cameras
+    data:
+      event_name: control_room_presence
+      role_tag: >-
+        {% set boss = is_state('input_boolean.phoenix_user_is_here', 'on') %}
+        {% set worker = is_state('input_boolean.phoenix_worker_is_here', 'on') %}
+        {% if boss and worker %}mixed
+        {% elif boss %}boss
+        {% elif worker %}worker
+        {% else %}unknown
+        {% endif %}
+      log_message: 'Control room presence: snapshots saved (control room cams)'
+      delay_seconds: 1
+  - service: script.turn_on
+    target:
+      entity_id: script.control_room_snapshot_loop
+
+- id: housekeeping_purge_old_snapshots
+  alias: Housekeeping - Purge Old Snapshots
+  trigger:
+  - platform: time
+    at: 04:05:00
+  action:
+  - service: shell_command.purge_old_snapshots
+
+- id: deadbolt_pin_sync_and_activity_logger
+  alias: Deadbolt - PIN Sync and Activity Logger
+  mode: queued
+  trigger:
+  # 2026-10-25 (owner directive: one writer per slot): the pin-sync branch was
+  # REMOVED from this automation. It used to trigger on
+  # input_text.phoenix_admin_pin / input_text.phoenix_worker_pin and republish
+  # slots 1 and 2 through script.ui_set_kwikset_pin. Slot 1 is owned by
+  # phoenix-pin-rotation. Slot 2 was an unattributed legacy code and was cleared
+  # the same night. What remains below is the ACTIVITY LOGGER ONLY: this
+  # automation can no longer write any slot. See /config/apartment_deadbolt_codes.md.
+  - platform: mqtt
+    id: '1'
+    topic: zigbee2mqtt/Apartment_Door_Smart_Lock
+  action:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: '1'
+      sequence:
+      - variables:
+          payload: '{{ trigger.payload_json }}'
+          action: '{{ payload.get(''action'', ''unknown'') }}'
+          source: '{{ payload.action_source_name }}'
+          user_id: '{{ payload.action_user }}'
+          user_name: '{% if user_id == 1 %} Boss {% elif user_id == 2 %} Worker {% elif user_id == 3 %} Guest {% elif user_id != null %} User {{ user_id }} {% else %} Unknown {% endif %}'
+          logbook_message: "{% if source == 'keypad' %}Apartment Deadbolt unlocked by {{ user_name }}{% elif source == 'manual' %}Apartment Deadbolt {{ 'Locked' if action == 'manual_lock' else 'Unlocked' }} manually{% elif source == 'rf' %}Apartment Deadbolt operated by remote{% else %}Apartment Deadbolt state changed to {{ payload.lock_state }}{% endif %}"
+          log_message: "{% if source == 'keypad' %}\n  Apartment Deadbolt Unlocked by {{ user_name }}\n{% elif source == 'manual' %}\n  Apartment Deadbolt {{ 'Locked' if action == 'manual_lock' else 'Unlocked' }} Manually\n{% elif source == 'rf' %}\n  Apartment Deadbolt Operated by Remote\n{% else %}\n  Apartment Deadbolt state changed to {{ payload.lock_state }}\n{% endif %}\n"
+      - service: logbook.log
+        data:
+          name: Access Control
+          message: '{{ logbook_message }}'
+          entity_id: input_text.phoenix_access_control_log
+      - service: input_text.set_value
+        target: { entity_id: input_text.phoenix_door_activity_log }
+        data:
+          value: >-
+            {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - ' ~ log_message ~ '\n' ~ states('input_text.phoenix_door_activity_log'))[:255] }}
+
+# ------------------------------------------------------------------------------
+# DOOR RELAY STARTUP ASSERTION
+# Ensure relays return to a secure default state after HA restarts.
+# - Strike (fail-secure): OFF = locked
+# - Maglocks (fail-safe): ON = locked
+# ------------------------------------------------------------------------------
+- id: phoenix_assert_door_relays_locked_on_start
+  alias: Phoenix - Assert Door Relays Locked on Start
+  description: Ensures strike/maglocks are returned to locked defaults after Home Assistant restarts.
+  initial_state: true
+  mode: single
+  trigger:
+    - platform: homeassistant
+      event: start
+  condition:
+    - condition: state
+      entity_id: input_boolean.phoenix_access_control_enabled
+      state: 'on'
+  action:
+    - delay: '00:00:15'
+    - choose:
+        - conditions: "{{ states('switch.smart_switch_l1') not in ['unknown', 'unavailable'] }}"
+          sequence:
+            - service: switch.turn_off
+              target:
+                entity_id: switch.smart_switch_l1
+    - choose:
+        - conditions: "{{ states('switch.smart_switch_l2') not in ['unknown', 'unavailable'] }}"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.smart_switch_l2
+    - choose:
+        - conditions: "{{ states('switch.smart_switch_l4') not in ['unknown', 'unavailable'] }}"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.smart_switch_l4
+    - service: logbook.log
+      data:
+        name: Security
+        message: "Startup: asserted door relays to locked defaults (strike OFF, maglocks ON)."
+
+# ------------------------------------------------------------------------------
+# INTERIOR DOOR LEFT OPEN NAGGING
+# Escalating urgency reminders via Alexa: gentle ΓåÆ firm ΓåÆ critical (repeating)
+# ------------------------------------------------------------------------------
+- id: phoenix_interior_door_left_open_nag
+  alias: Phoenix - Interior Door Left Open Nagging
+  description: Nag via Alexa with escalating urgency if interior door left open
+  initial_state: false
+  mode: restart
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.phoenix_control_room_interior_door_contact
+      to: 'on'
+  condition:
+    - condition: state
+      entity_id: input_boolean.phoenix_access_control_enabled
+      state: 'on'
+  action:
+    # Initial grace period
+    - delay:
+        seconds: >-
+          {{ states('input_number.phoenix_interior_door_nag_grace_seconds') | int(10) }}
+    - condition: state
+      entity_id: binary_sensor.phoenix_control_room_interior_door_contact
+      state: 'on'
+    
+    # GENTLE reminder
+    - delay:
+        seconds: >-
+          {{ states('input_number.phoenix_interior_door_nag_gentle_delay_seconds') | int(30) }}
+    - condition: state
+      entity_id: binary_sensor.phoenix_control_room_interior_door_contact
+      state: 'on'
+    
+    # FIRM reminder
+    - delay:
+        seconds: >-
+          {{ states('input_number.phoenix_interior_door_nag_firm_delay_seconds') | int(60) }}
+    - condition: state
+      entity_id: binary_sensor.phoenix_control_room_interior_door_contact
+      state: 'on'
+    
+    # CRITICAL reminder (repeating)
+# ------------------------------------------------------------------------------
+# INTERIOR MAGLOCK TAMPER PROTECTION
+# Automatically re-locks interior maglock if manually toggled + sends alert
+# ------------------------------------------------------------------------------
+- id: phoenix_interior_maglock_tamper_restore
+  alias: Phoenix - Interior Maglock Tamper Restore
+  description: Automatically re-locks interior maglock if someone manually turns it off, and sends alert to owner.
+  initial_state: true
+  mode: restart
+  trigger:
+  - platform: state
+    entity_id: switch.smart_switch_l4
+    to: 'off'
+  condition:
+  - condition: state
+    entity_id: input_boolean.phoenix_access_control_enabled
+    state: 'on'
+  # Don't treat a deliberate buzz-in (unlock window) as tamper.
+  - condition: state
+    entity_id: timer.phoenix_interior_maglock_buzz_window
+    state: 'idle'
+  action:
+  - service: switch.turn_on
+    target:
+      entity_id: switch.smart_switch_l4
+  - service: logbook.log
+    data:
+      name: Security Alert
+      message: Interior maglock manually tampered - automatically restored to LOCKED
+      entity_id: switch.smart_switch_l4
+  - service: persistent_notification.create
+    data:
+      title: "ΓÜá∩╕Å Interior Maglock Tamper"
+      message: >-
+        Interior maglock was manually toggled OFF at {{ now().strftime('%I:%M %p') }}.
+        Automatically restored to LOCKED state.
+      notification_id: interior_maglock_tamper
+  - service: input_text.set_value
+    target:
+      entity_id: input_text.phoenix_door_activity_log
+    data:
+      value: >-
+        {{ (now().strftime('%b %d, %-I:%M %p') ~ ' - ΓÜá∩╕Å INTERIOR MAGLOCK TAMPER - Restored to locked\n' ~ states('input_text.phoenix_door_activity_log'))[:255] }}
+
+# ADDED 2026-10-18 - INTERIM MITIGATION, pending the owner's decision on the real rule (#720).
+#
+# MEASURED: input_boolean.phoenix_house_guest_mode_active is switched ON by three credential
+# scenarios in this very file (parent PIN :241, house-access PIN :433, Yitz PIN :477) and
+# switched OFF by nothing anywhere. It is the third term of
+# binary_sensor.phoenix_everyone_away, so while it is on the alarm CANNOT arm. A parent entry at
+# 2026-10-18 02:01 left the shop disarmed for twenty hours, through a full business day and
+# after closing, and nobody noticed.
+#
+# This does not decide what guest mode should mean. It guarantees an empty shop is armed again
+# every night whatever credential was used that day, which is the property whose absence caused
+# those twenty hours.
+#
+# Safe against the obvious risk: while nobody is present the only alarm inputs are the three
+# door contacts and the two zones. A tenant entering the apartment at night uses the deadbolt,
+# which has no contact sensor and cannot trigger it.
+- id: phoenix_house_guest_mode_night_reset
+  alias: "Phoenix - Arm at night when the shop is empty (guest mode reset)"
+  mode: single
+  trigger:
+    - platform: time
+      at: "23:00:00"
+  condition:
+    - condition: state
+      entity_id: input_boolean.phoenix_user_is_here
+      state: "off"
+    - condition: state
+      entity_id: input_boolean.phoenix_worker_is_here
+      state: "off"
+    - condition: state
+      entity_id: input_boolean.phoenix_house_guest_mode_active
+      state: "on"
+  action:
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.phoenix_house_guest_mode_active
+    - service: logbook.log
+      data:
+        name: Security
+        message: "Guest mode reset at night with nobody present - alarm re-armed."
+
+# ADDED 2026-10-19 for queue #720 (guest mode latch).
+#
+# The 2026-10-18 night reset above is a backstop, not a complete off path: it fires only at
+# 23:00 and only if user/worker presence is already off. The original latch happened because
+# the presence-follow automation looks at one instant (control room empty for 4 minutes) and
+# its condition requires user_is_here/worker_is_here off AT THAT INSTANT. When a worker was
+# still marked here at the four-minute mark, the condition failed and there was no retrigger
+# when the worker later went off - so guest mode stayed on and everyone_away stayed off.
+#
+# This watchdog runs every minute, so it cannot miss that later transition. It clears guest
+# mode only when the shop is genuinely empty: nobody marked here AND the control-room presence
+# sensor has been off for at least four minutes. It does not arm while anyone is present.
+- id: security_mode_house_guest_watchdog
+  alias: "Security Mode - House Guest Empty Watchdog"
+  mode: single
+  trigger:
+    - platform: time_pattern
+      minutes: "/1"
+  condition:
+    - condition: state
+      entity_id: input_boolean.phoenix_house_guest_mode_active
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.phoenix_user_is_here
+      state: "off"
+    - condition: state
+      entity_id: input_boolean.phoenix_worker_is_here
+      state: "off"
+    - condition: template
+      value_template: >-
+        {{ is_state('binary_sensor.control_room_hub_control_room_presence', 'off')
+           and (as_timestamp(now()) - as_timestamp(states.binary_sensor.control_room_hub_control_room_presence.last_changed)) >= 240 }}
+  action:
+    - service: input_boolean.turn_off
+      target: { entity_id: input_boolean.phoenix_house_guest_mode_active }
+    - service: input_select.select_option
+      target: { entity_id: input_select.phoenix_security_mode }
+      data: { option: Away }
+    - service: logbook.log
+      data:
+        name: Security
+        message: "Guest mode cleared by the empty-shop watchdog - alarm re-armed."

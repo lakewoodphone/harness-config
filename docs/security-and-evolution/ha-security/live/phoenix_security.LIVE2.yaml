@@ -1,0 +1,392 @@
+# /config/packages/phoenix_security.yaml
+# Security Logic for Extreme Intrusion (Zero Tolerance)
+# Triggers when unauthorized entry occurs while everyone is away.
+
+# ------------------------------------------------------------------------------
+# 1. State Definitions
+# ------------------------------------------------------------------------------
+template:
+  - binary_sensor:
+      - name: "Phoenix Everyone Away"
+        unique_id: phoenix_everyone_away
+        state: >
+          {{ is_state('input_boolean.phoenix_user_is_here', 'off') and
+             is_state('input_boolean.phoenix_worker_is_here', 'off') and
+             is_state('input_boolean.phoenix_house_guest_mode_active', 'off') }}
+
+# ------------------------------------------------------------------------------
+# 2. Automations
+# ------------------------------------------------------------------------------
+automation:
+  - alias: "Phoenix: Extreme Intrusion Trigger"
+    id: phoenix_extreme_intrusion_trigger
+    trigger:
+      # TRIGGER LIST CORRECTED 2026-10-26 (owner's geometry, ledger S55/S61 + the 16:55 alarm).
+      #
+      # The building, as the owner described it and as the video shows: the street door stands open
+      # onto a PUBLIC hallway that is a 24/6 drop-off and pickup. Off that hallway there are exactly
+      # two doors that lead anywhere - the apartment door on the left and the shop door on the right.
+      #
+      # So the only things that can mean "somebody came in" are those two doors. Removed:
+      #   * binary_sensor.zone_hallway_active - a zone describing a PUBLIC space (doorbell person +
+      #     the hallway door). It produced 13 of 13 false alarms, including the one at 16:55 today.
+      #   * binary_sensor.phoenix_outside_door_contact - the hallway door itself, which is supposed
+      #     to stand open; 83% duty, three open stretches of 168/143/168 hours.
+      #   * binary_sensor.zone_control_room_active - fed by the same two contacts below plus camera
+      #     detectors that have never fired, so it only duplicated them.
+      # What remains is the two real doors: the apartment door (exterior) and the shop door (interior).
+      - platform: state
+        entity_id:
+          - binary_sensor.phoenix_control_room_exterior_door_contact
+          - binary_sensor.phoenix_control_room_interior_door_contact
+        to: "on"
+    condition:
+      # ONLY if the defined "Everyone Away" state is active
+      - condition: state
+        entity_id: binary_sensor.phoenix_everyone_away
+        state: "on"
+      # Not already active (prevent re-triggering the initial sequence)
+      - condition: state
+        entity_id: input_boolean.phoenix_intrusion_active
+        state: "off"
+    # Test Mode (silent) is handled inside the called scripts
+    action:
+      # AUTHORIZED-ARRIVAL GRACE WINDOW (added 2026-09-16).
+      #
+      # MEASURED, and this is the whole reason it exists: on 2026-09-15/16 the alarm fired
+      # three times inside 80 minutes, and two of the three were a legitimate entrant the
+      # system had not credited yet:
+      #   23:35:02Z  binary_sensor.phoenix_outside_door_contact -> on   (alarm armed)
+      #   23:35:04Z  input_boolean.phoenix_worker_is_here       -> on   (disarmed 2 s later)
+      #   00:20:00Z  binary_sensor.phoenix_outside_door_contact -> on   (alarm armed)
+      #   00:20:01Z  input_boolean.phoenix_worker_is_here       -> on   (disarmed 1 s later)
+      #   00:43:35Z  binary_sensor.phoenix_outside_door_contact -> on   (nothing registered; the
+      #                                                                 only one of the three
+      #                                                                 that may have been real)
+      # The door contact is reported BEFORE the PIN/presence path finishes, so a worker letting
+      # himself in was indistinguishable from a break-in for one to four seconds - long enough to
+      # set off the siren, page the owner, his wife and his mother, start the Mac mini overhead
+      # alarm and strobe the lights. Re-checking after a short grace window costs nothing against
+      # a real intrusion (the siren still sounds and evidence is still captured) and removes that
+      # entire false-alarm class.
+      #
+      # Keep `mode` at its default (single): while this delay is running a second trigger is
+      # dropped rather than queued, so a burst of triggers cannot postpone the alarm forever.
+      - delay: "00:00:06"
+      - condition: state
+        entity_id: binary_sensor.phoenix_everyone_away
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.phoenix_intrusion_active
+        state: "off"
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.phoenix_intrusion_active
+      # Initial Response Sequence
+      - service: script.phoenix_intrusion_initial_response
+
+  - alias: "Phoenix: Extreme Intrusion Disarm"
+    id: phoenix_extreme_intrusion_disarm
+    trigger:
+      # Valid PIN Entry (Any valid user)
+      - platform: event
+        event_type: phoenix.valid_pin
+      # Authorized Presence Detected (User or Worker arrives)
+      - platform: state
+        entity_id: binary_sensor.phoenix_everyone_away
+        to: "off"
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.phoenix_intrusion_active
+      - service: script.phoenix_intrusion_reset
+
+  # ADDED 2026-10-26 (ledger S12/S14/S19/S23). The overhead siren is a LATCH in a different
+  # process: `POST /alarm/on` starts a `while` loop inside the Mac listener and only
+  # `POST /alarm/off` clears it. Nothing in this configuration used to guarantee that second
+  # call, so a siren started after a disarm, or before a restart, ran until a human walked over.
+  # Measured: 12 h 01 m of siren between 23:23:38 and 11:25:25 on 2026-10-25/26, with 9 h 11 m of
+  # that after HA had already killed the strobe loop at its iteration cap.
+  # This is belt-and-braces on purpose: three triggers, three tries, and it never touches the
+  # alarm flag itself - it only guarantees the audio cannot outlive the alarm.
+  - alias: "Phoenix: Siren Fail-Safe"
+    id: phoenix_siren_fail_safe
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: input_boolean.phoenix_intrusion_active
+        to: "off"
+      - platform: state
+        entity_id: script.phoenix_intrusion_loop
+        to: "off"
+      - platform: homeassistant
+        event: start
+    action:
+      # 3 s, so a `phoenix_alarm_mac_on` that is already in flight lands FIRST and is then undone,
+      # rather than this racing it and losing (ledger S23: the window between the arm condition and
+      # the siren call is about five seconds wide).
+      - delay: "00:00:03"
+      - repeat:
+          count: 3
+          sequence:
+            - service: rest_command.phoenix_alarm_mac_off
+              continue_on_error: true
+            - delay: "00:00:10"
+
+
+  # ADDED 2026-10-26 (CP-01 bell timeout). The loop is `repeat: while: flag on` with no cap, and the
+  # prior session measured 12 h 01 m of siren on 10-25/26. This turns the FLAG off at 15 minutes, which
+  # stops the loop through the existing fail-safe, and it logs that it did so rather than going quiet.
+  - alias: "Phoenix: Siren Maximum Duration"
+    id: phoenix_siren_max_duration
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: input_boolean.phoenix_intrusion_active
+        to: "on"
+        for:
+          minutes: 15
+    action:
+      - service: logbook.log
+        data:
+          name: "Phoenix Intrusion"
+          message: "Siren reached its 15-minute maximum; clearing the alarm flag so the audio stops."
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.phoenix_intrusion_active
+
+# ------------------------------------------------------------------------------
+# 3. Scripts
+# ------------------------------------------------------------------------------
+script:
+  phoenix_intrusion_initial_response:
+    alias: "Phoenix: Intrusion Initial Response"
+    mode: single
+    sequence:
+      # TEST MODE (added 2026-09-16, DEFECT FIXED).
+      #
+      # `input_boolean.phoenix_intrusion_test_mode` is labelled "Intrusion Test Mode (No Siren)"
+      # in the UI, and NOTHING in the whole configuration consumed it. Measured 2026-09-16 while
+      # trying to verify the evidence path safely: turning it on changed nothing, so a drill ran
+      # the lights, the strobe, the Mac mini overhead alarm - and sent a REAL "Extreme intrusion"
+      # page to the owner, his wife and his mother. The label was a lie, and there was no safe way
+      # for the owner to drill his own alarm. That is a worse defect than the alarm being loud.
+      #
+      # `test_mode` is evaluated ONCE here. It does three things below: it suppresses the lights,
+      # it suppresses the siren and the overhead audio, and it changes the page's `event` to
+      # `intrusion_test`, which the secretary backend deliberately skips (`paged: false`) unless
+      # the caller passes `force`. Evidence capture still runs, so a drill still proves the picture.
+      - variables:
+          test_mode: "{{ is_state('input_boolean.phoenix_intrusion_test_mode', 'on') }}"
+
+      # 0. PAGE FIRST - ADDED 2026-10-26 (ledger S11). The page used to be the LAST step, after the
+      #    siren loop. A script called as `service:` BLOCKS, and `phoenix_intrusion_loop` repeats
+      #    while the alarm is armed, so the page could not even be ATTEMPTED until the alarm ended.
+      #    Measured: loop started 23:23:38, HA's 10,000-iteration cap killed it at 02:14:22, and
+      #    `evidence_and_page` started IN THAT SAME SECOND - a page attempt 2 h 51 m after the
+      #    intrusion. A real intrusion is never disarmed, so a real intrusion was never paged on
+      #    time. Paging now happens before anything that can block.
+      #    This step is deliberately ABOVE the disarm condition below: a page is never suppressed
+      #    by the alarm de-escalating (ledger S21).
+      - service: script.phoenix_intrusion_evidence_and_page
+        data:
+          event: "{{ 'intrusion_test' if test_mode else 'intrusion' }}"
+          avs_level: "{{ 0 if test_mode else 3 }}"
+          detail: "{{ 'TEST DRILL - no page was sent - intruder evidence check' if test_mode else 'Extreme intrusion triggered - nobody expected present' }}"
+
+      # 0. Snapshots (Critical Evidence) - all relevant cameras.
+      #    This must be the FIRST action: it is the only step that produces evidence,
+      #    and it happens before the lights and siren give the intruder a reason to leave.
+      - parallel:
+          - service: script.snapshot_entry_cameras
+            data:
+              event_name: intrusion
+              log_message: "INTRUSION - entry snapshots"
+              delay_seconds: 0
+              cooldown_seconds: 0
+          - service: script.snapshot_control_room_cameras
+            data:
+              event_name: intrusion
+              role_tag: intrusion
+              log_message: "INTRUSION - control room snapshots"
+              delay_seconds: 0
+              cooldown_seconds: 0
+
+      # 1. Lights off (1 s) - attention signal. Also suppressed in test mode, so a drill
+      #    leaves the room exactly as it found it.
+      - if:
+          - condition: template
+            value_template: "{{ not test_mode }}"
+        then:
+          - service: homeassistant.turn_off
+            target:
+              entity_id:
+                - switch.deserted_house_lights
+                - switch.control_room_strip_lights
+
+          - delay: "00:00:01"
+
+          # 2. Lights on (solid) while the audio alarm starts.
+          - parallel:
+              - service: homeassistant.turn_on
+                target:
+                  entity_id:
+                    - switch.deserted_house_lights
+                    - switch.control_room_strip_lights
+
+      # 4. Siren, overhead audio and strobe. SUPPRESSED IN TEST MODE - the whole point of a drill.
+      #
+      # STOP HERE IF THE ALARM WAS DISARMED WHILE THIS SEQUENCE WAS RUNNING (added 2026-10-26).
+      #
+      # MEASURED - this is what left the siren screaming on 2026-10-26:
+      #   14:03:15  a person at the front door turned binary_sensor.zone_hallway_active on
+      #   14:03:21  the 6 s grace window expired -> input_boolean.phoenix_intrusion_active on
+      #             -> this script started
+      #   14:03:29  passive arrival credited (Montrose phone + control room occupied) ->
+      #             "Extreme Intrusion Disarm" -> intrusion_active OFF + intrusion_reset
+      #   14:03:43  this script reached the siren step - 22 s later, because the two snapshot
+      #             blocks and the evidence-verify step before it take that long - and ran
+      #             rest_command.phoenix_alarm_mac_on AFTER the disarm, with nothing left that
+      #             would ever turn it off. It ran until a human manually reset it at 14:05:40.
+      # A `condition` step aborts the sequence. Everything above it is evidence capture and
+      # must always run; everything below it is the alarm, and an alarm that has already been
+      # disarmed must not sound, must not strobe, and must not page the family. A real
+      # intrusion never reaches this line with the flag off, so nothing is weakened.
+      # CP-01 ENTRY DELAY, explicit (2026-10-26). The arithmetic, stated so it can be checked:
+      #   door edge -> flag on   6 s  (the trigger's grace window)
+      #   snapshots             7-22 s measured (two parallel blocks + the verify step; the prior
+      #                         session timed 22 s on one run, the audit's range is 7-17 s)
+      #   this delay           17 s
+      #   total               30-45 s from the door edge.
+      # 17 is chosen so the FASTEST case still reaches CP-01's 30 s floor: 6 + 7 + 17 = 30. A smaller
+      # number would let a fast camera start the siren early, which is the thing an entry delay exists
+      # to prevent. The slowest case is 45 s, inside CP-01's 30 s-4 min band.
+      - delay: "00:00:17"
+
+      - condition: state
+        entity_id: input_boolean.phoenix_intrusion_active
+        state: "on"
+
+      - if:
+          - condition: template
+            value_template: "{{ not test_mode }}"
+        then:
+          # A dead, asleep or slow Mac must never abort this sequence (ledger S41: the call had no
+          # `continue_on_error`, so a 5 s timeout here ended the script - and with the old ordering
+          # that also meant no page. It can no longer block the page, but it must not block the rest
+          # of the response either.)
+          - service: rest_command.phoenix_alarm_mac_on
+            continue_on_error: true
+          # NON-BLOCKING (ledger S11). Called as `service: script.phoenix_intrusion_loop` this
+          # blocks until the strobe ends - which is the entire duration of the alarm. `script.turn_on`
+          # starts it and returns, so this sequence finishes and the loop keeps running beside it.
+          - service: script.turn_on
+            target:
+              entity_id: script.phoenix_intrusion_loop
+        else:
+          - service: logbook.log
+            data:
+              name: "Phoenix Intrusion"
+              message: "TEST MODE: lights, siren and overhead audio were suppressed; evidence was still captured and the page was sent as intrusion_test (the secretary skips those)."
+
+      # The paging step MOVED to step 0 at the top of this sequence (2026-10-26, ledger S11).
+      # It used to live here, after the siren loop, and that ordering is what delayed every page
+      # by the entire duration of the alarm. Do not move it back below anything that can block.
+      #
+      # DEFECT FIXED 2026-09-11: this sequence was mis-indented so badly that the
+      # whole file failed to parse ("expected <block end>, but found <block sequence>"),
+      # and `rest_command.phoenix_security_page` sat at one-space indentation as a
+      # bare list item. Nothing here had ever been loaded from the repo.
+      #
+      # DEFECT FIXED 2026-09-16: the bare paging call sent only `event` and `detail`,
+      # so the owner never received a picture. `phoenix_intrusion_evidence_and_page`
+      # (packages/phoenix_intrusion_evidence.yaml) snapshots four cameras directly
+      # (bypassing the cooldown-gated shared snapshot scripts), verifies each file is on disk,
+      # puts the confirmed file names in `snapshots`, and retries the page.
+  phoenix_intrusion_loop:
+    alias: "Phoenix: Intrusion Loop (Flash & Audio)"
+    mode: single
+    sequence:
+      - repeat:
+          while:
+            - condition: state
+              entity_id: input_boolean.phoenix_intrusion_active
+              state: "on"
+          sequence:
+            # ------------------------------------------------------------------
+            # A. Chaotic Lighting (Strobe Effect)
+            # ------------------------------------------------------------------
+            - service: homeassistant.turn_off
+              target:
+                entity_id:
+                  - switch.deserted_house_lights
+                  - switch.control_room_strip_lights
+            
+            - delay: 
+                milliseconds: "{{ range(200, 800)|random }}"
+
+            - service: homeassistant.turn_on
+              target:
+                entity_id:
+                  - switch.deserted_house_lights
+                  - switch.control_room_strip_lights
+
+            - delay: 
+                milliseconds: "{{ range(200, 800)|random }}"
+            
+            # ------------------------------------------------------------------
+            # B. Periodic Audio Overlay (Every ~15s)
+            # ------------------------------------------------------------------
+  phoenix_intrusion_reset:
+    alias: "Phoenix: Intrusion Reset"
+    mode: single
+    sequence:
+      # CLEAR THE FLAG FIRST (2026-10-26, ledger S16). Pressed alone from the dashboard, this script
+      # used to silence the siren and restore the lights while leaving the strobe running and the
+      # building unarmed, because it never touched `phoenix_intrusion_active` and the loop's `while`
+      # reads nothing else. It now does the whole stop: flag off, siren off, lights normal.
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.phoenix_intrusion_active
+      - service: rest_command.phoenix_alarm_mac_off
+        continue_on_error: true
+      - service: homeassistant.turn_on # Restore to normal
+        target:
+          entity_id:
+            - switch.deserted_house_lights
+            - switch.control_room_strip_lights
+  phoenix_test_intrusion_sequence:
+    alias: 'Phoenix: TEST Intrusion Sequence'
+    mode: single
+    sequence:
+      - service: input_boolean.turn_on
+        target:
+          entity_id:
+            - input_boolean.phoenix_intrusion_active
+            - input_boolean.phoenix_intrusion_test_mode
+      - service: script.phoenix_intrusion_initial_response
+
+# Owner paging for a real intrusion. Defined HERE, and only here: the live host had already
+# split this out of secretary.yaml into this package, and it works there. Recovered into git
+# 2026-09-11 so a redeploy cannot drop it. The backend (personal-secretary-mvp) sends the
+# owner SMS and skips test events (`intrusion_test`).
+#
+# `snapshots` (added 2026-09-16) is a JSON array of evidence FILE NAMES, e.g.
+#   "snapshots": ["intrusion_20260916_004335_123456_doorbell.jpg", ...]
+# The backend MMS-attaches the first one. Names, not URLs, because the only public host for HA
+# (https://ha.abletelsolutions.com) is behind Cloudflare Access and returns an HTML sign-in page
+# for every path, while the LAN host is unreachable from Twilio - so the secretary resolves the
+# name itself. `tojson` keeps the payload valid JSON for an empty list (`[]`), for one entry and
+# for many. `default([], true)` matters: without it a caller that forgets `snapshots` renders
+# `tojson` over Undefined and RAISES, failing the whole rest_command. Measured - see
+# scripts/check_intrusion_payload.py check (c2).
+rest_command:
+  phoenix_security_page:
+    url: "https://ai.abletelsolutions.com/webhook/ha/security-alert"
+    method: POST
+    content_type: application/json
+    headers:
+      x-ps-api-key: !secret secretary_security_api_key
+    payload: '{"event": "{{ event }}", "detail": "{{ detail }}", "avs_level": {{ avs_level | default(3) }}, "snapshots": {{ snapshots | default([], true) | tojson }}}'
+    timeout: 15
+

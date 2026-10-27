@@ -1,0 +1,48 @@
+# /config/packages/phoenix_core.yaml - CORRECTED AND CONSOLIDATED VERSION
+
+# This single file now contains all the core YAML logic for the Phoenix Access Manager.
+# Make sure to remove the conflicting script and automation from your main scripts.yaml and automations.yaml files.
+
+script:
+  phoenix_relay_unlock_sequence:
+    alias: "Phoenix: Relay Unlock Sequence"
+    mode: single
+    fields:
+      lock_entity_id:
+        description: "The entity ID of the relay to buzz."
+    sequence:
+      - variables:
+          # A lock is "fail-secure" if it needs power to UNLOCK.
+          # Electric Strike relay: switch.smart_switch_l1
+          is_fail_secure: "{{ lock_entity_id == 'switch.smart_switch_l1' }}"
+      
+      # Step 1: Unlock the door.
+      # - If it's fail-secure (electric strike), turn it ON.
+      # - Otherwise (it's a maglock), turn it OFF.
+      - service: "switch.turn_{{ 'on' if is_fail_secure else 'off' }}"
+        target:
+          entity_id: "{{ lock_entity_id }}"
+      
+      # Step 2: Wait for the buzz-in duration.
+      - delay:
+          seconds: 5
+          
+      # Step 3: Return the door to its locked state.
+      # - If it's fail-secure, turn it back OFF.
+      # - Otherwise (maglock), turn it back ON.
+      - service: "switch.turn_{{ 'off' if is_fail_secure else 'on' }}"
+        target:
+          entity_id: "{{ lock_entity_id }}"
+
+automation:
+  - alias: "Phoenix: Keypad Event Handler"
+    id: phoenix_keypad_event_handler
+    initial_state: false
+    mode: queued
+    trigger:
+      - platform: event
+        event_type: esphome.access_control_keypad_entry
+    action:
+      - service: phoenix_access_manager.validate_pin
+        data:
+          pin: "{{ trigger.event.data.code }}"

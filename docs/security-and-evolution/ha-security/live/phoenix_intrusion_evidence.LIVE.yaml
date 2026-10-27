@@ -1,0 +1,409 @@
+# /config/packages/phoenix_intrusion_evidence.yaml
+#
+# Intrusion EVIDENCE + PAGING. Owns the half of the intrusion page that was missing:
+# the owner's SMS said "Extreme intrusion triggered" and carried NO picture.
+#
+# WHAT WAS BROKEN (measured 2026-09-16, not inferred):
+#   * `phoenix_intrusion_initial_response` took snapshots via script.snapshot_entry_cameras /
+#     script.snapshot_control_room_cameras, then dropped the file paths on the floor
+#     (`rest_command.phoenix_security_page` already accepted a `snapshots` array - nothing filled it).
+#   * Both of those shared scripts STOP when their cooldown timer is already active.
+#     On the 2026-09-16T00:43:35Z intrusion the door sensor's own snapshot automation
+#     (config/automations/access_control.yaml) grabbed `timer.phoenix_snapshot_entry_cooldown`
+#     in the SAME SECOND, so script.snapshot_entry_cameras returned at its first step and
+#     produced NO doorbell/hallway evidence. Only one file existed afterwards
+#     (`latest_intrusion_control_room_interior.jpg`) - doors and hallways, the best intruder
+#     evidence, were silently skipped in exactly the event that needed them.
+#   => This script therefore calls `camera.snapshot` DIRECTLY and never touches the shared
+#      scripts or their cooldown timers. Evidence capture must not be gated by a timer that
+#      some unrelated door automation can consume first.
+#
+# WHAT THIS SENDS, AND WHY IT IS A FILE NAME AND NOT A URL (settled 2026-09-16):
+#   Both candidate base URLs were tested from the public internet and both are useless to a
+#   third-party fetcher such as Twilio's MMS service:
+#     * `phoenix_public_base_url` = https://ha.abletelsolutions.com sits ENTIRELY behind
+#       Cloudflare Access. GET .../local/snapshots/<file>.jpg answers HTTP 200 with
+#       content-type text/html (~33 KB) whose body is "<title>Sign in - Cloudflare Access</title>",
+#       redirecting to dawn-cell-26a7.cloudflareaccess.com. It never returns the JPEG.
+#       This is the trap that made the picture silently impossible: a URL built from it looks
+#       perfectly correct in the logbook and hands Twilio an HTML sign-in page.
+#     * `phoenix_external_base_url` = http://192.168.50.34:8123 IS a real JPEG (verified
+#       content-type image/jpeg), but it is RFC1918, so only an office-LAN machine can fetch it.
+#   Therefore the payload carries BARE FILE NAMES. The secretary resolves each name against its
+#   own LAN endpoint and rehosts the image on a host it controls. Home Assistant never depends
+#   on a public host here.
+#   Verified 2026-09-16 from the server `secratary`:
+#     GET http://192.168.50.34:8123/local/snapshots/latest_intrusion_control_room_interior.jpg
+#       -> 200 image/jpeg, JPEG magic bytes present.
+#
+# FAIL-CLOSED ORDERING: evidence is captured AND verified on disk BEFORE the page is sent, so a
+#   name can never be sent for a file that does not exist. If every camera fails, `snapshots`
+#   is an empty list and the page is STILL sent - a text-only page beats no page.
+
+shell_command:
+  # Confirm an evidence file is really on disk (and non-empty) before its name is allowed into
+  # the payload. `-s` proves the file exists AND has size, not merely that a snapshot service
+  # call did not raise.
+  #
+  # DEFECT FIXED 2026-10-26 - this command had NEVER run. Home Assistant executes
+  # `shell_command` with `create_subprocess_exec(*shlex.split(command))`: there is no shell,
+  # so the first word must be an executable. The first word here was `for`, and every
+  # intrusion in the last 43 hours died on it:
+  #   ERROR ... phoenix_intrusion_evidence_and_page: Unexpected error for call_service at
+  #   pos 5: [Errno 2] No such file or directory: 'for'
+  # `continue_on_error: true` does NOT save it - `continue_on_error` covers service errors,
+  # and this is a FileNotFoundError raised inside the service, which aborts the whole script.
+  # The abort happens BEFORE step 6, so the owner page was never sent once: 6 intrusion
+  # episodes on 2026-10-24..26, 0 SMS in sms_log. Wrap in `bash -c` (single-quoted so
+  # shlex hands bash one argv element) and the loop actually runs.
+  phoenix_verify_evidence_files: >-
+    bash -c 'for f in {{ files }}; do if [ -s "$f" ]; then echo "PHOENIX_EVIDENCE_OK $f"; fi; done'
+  # Retention for the intrusion_* evidence files. Bounded two ways so a bad night or a stuck
+  # trigger cannot fill the SD card:
+  #   (1) age  - delete anything older than 14 days;
+  #   (2) count - keep only the newest 120 files, whatever their age.
+  # Arithmetic (measured on the HA host 2026-09-16): /config has 6.8 GB free of 28.5 GB.
+  # The 39 JPEGs in /config/www/snapshots then averaged 256 KB (median 187 KB, max 683 KB).
+  # One intrusion writes 4 images + 4 `latest` tiles ~= 8 x 256 KB ~= 2 MB. The intrusion
+  # fired 3 times in one night (2026-09-15T23:35Z, 2026-09-16T00:20Z, 2026-09-16T00:43Z), so
+  # 3 kicks/night x 2 MB = ~6 MB/night ~= 84 MB over the full 14 days. The 120-file cap is the
+  # real ceiling: 120 x 256 KB ~= 31 MB typical, and even at the largest observed file
+  # 120 x 683 KB ~= 82 MB - under 1.3% of the 6.8 GB free either way.
+  # The existing nightly `shell_command.purge_old_snapshots` (04:05, automations/access_control.yaml)
+  # only prunes /config/www/snapshots/history/ - which does not exist - so it does NOT cover
+  # these top-level files and this local bound is required.
+  # `-mtime +0` (older than 24h) guards the cap: a file written by an intrusion being handled
+  # right now, or within the last day, can never be deleted by a concurrent or following run.
+  #
+  # DEFECT FIXED 2026-10-26 - same defect class as the verifier above: this was a bare
+  # shell pipeline handed to create_subprocess_exec, so `|` and `;` were passed to `find`
+  # as arguments instead of being interpreted, and NOTHING was ever pruned. Measured on
+  # the host: 48 `intrusion_*.jpg` files, the oldest dated Sep 16 - 40 days old - against a
+  # 14-day retention rule. /config/www/snapshots holds 18.2 MB of the 10.0 GB free.
+  #
+  # MEASURED on the host 2026-10-26: the HA container runs BusyBox 1.37, whose `find` has NO
+  # `-printf`, and `xargs -r` is not guaranteed. The count cap therefore sorts by file name
+  # (`intrusion_<YYYYMMDD_HHMMSS>_<role>.jpg`, so reverse lexicographic IS newest-first) and
+  # feeds `tail -n +121` directly - no `xargs`, no `ls`, nothing that can fall back to listing
+  # the current directory when the match list is empty.
+  phoenix_prune_intrusion_evidence: >-
+    bash -c 'find /config/www/snapshots -maxdepth 1 -type f -name "intrusion_*.jpg" -mtime +14 -delete; find /config/www/snapshots -maxdepth 1 -type f -name "intrusion_*.jpg" -mtime +0 | sort -r | tail -n +121 | while read -r f; do rm -f "$f"; done'
+
+script:
+  # Runs BEFORE paging. Captures evidence, verifies it, then pages with the pictures attached.
+  phoenix_intrusion_evidence_and_page:
+    alias: "Phoenix: Intrusion Evidence And Page"
+    mode: queued
+    max: 5
+    fields:
+      event:
+        description: "Event name for the page payload (default intrusion)"
+        example: intrusion
+        default: intrusion
+      detail:
+        description: "Human-readable detail for the page payload"
+        example: "Extreme intrusion triggered - nobody expected present"
+        default: "Extreme intrusion triggered - nobody expected present"
+    sequence:
+      # ------------------------------------------------------------------------------
+      # 0. Camera roster. Priority order: doorbell first (the only entry camera with a
+      #    microphone and the best face shot), then front hallway, then the two interiors.
+      #    Dependency (measured 2026-09-16 via /api/states: 1084 entities): ONLY the first
+      #    four exist. camera.cam_waiting_room_main and camera.cam_deserted_exit_main are
+      #    absent from the state machine entirely - they are disabled at the config-entry
+      #    level in live HA, so they are not merely `unavailable`, they do not exist.
+      #    A different workstream is re-enabling them; when it does, add them here.
+      #    This script tolerates ANY of these being unavailable/unknown/missing because each
+      #    capture is `continue_on_error: true` and every consumer of the roster filters on
+      #    the entity's own state rather than assuming it is present.
+      # ------------------------------------------------------------------------------
+      - variables:
+          page_event: "{{ event | default('intrusion') }}"
+          page_detail: "{{ detail | default('Extreme intrusion triggered - nobody expected present') }}"
+          stamp: "{{ now().strftime('%Y%m%d_%H%M%S_%f') }}"
+          # camera entity_id -> short role used in the filename
+          evidence_roster:
+            - entity: camera.video_doorbell_fluent
+              role: doorbell
+            - entity: camera.cam_front_hallway_main
+              role: front_hallway
+            - entity: camera.cam_deserted_interior_main
+              role: control_room_interior
+            - entity: camera.cam_larry_s_interior_main
+              role: larry_interior
+
+      # ------------------------------------------------------------------------------
+      # 2. Capture. ONE `parallel:` block, one snapshot service call per camera, each
+      #    `continue_on_error: true`: a dead, disabled or slow camera cannot stop the
+      #    evidence and can never stop the page. `camera.snapshot` writes the file inside
+      #    the service call (homeassistant/components/camera/__init__.py
+      #    async_handle_snapshot_service -> _write_image), so when this block finishes every
+      #    file it managed to write is on disk. `parallel` waits for ALL branches.
+      #    The `if` guard keeps the roster data-driven and means a disabled entry costs
+      #    nothing. NOTE: no cooldown timer is consulted anywhere here, by design.
+      # ------------------------------------------------------------------------------
+      - parallel:
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.video_doorbell_fluent') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.video_doorbell_fluent
+                data:
+                  filename: /config/www/snapshots/intrusion_{{ stamp }}_doorbell.jpg
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.cam_front_hallway_main') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.cam_front_hallway_main
+                data:
+                  filename: /config/www/snapshots/intrusion_{{ stamp }}_front_hallway.jpg
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.cam_deserted_interior_main') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.cam_deserted_interior_main
+                data:
+                  filename: /config/www/snapshots/intrusion_{{ stamp }}_control_room_interior.jpg
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.cam_larry_s_interior_main') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.cam_larry_s_interior_main
+                data:
+                  filename: /config/www/snapshots/intrusion_{{ stamp }}_larry_interior.jpg
+
+      # ------------------------------------------------------------------------------
+      # 3. Refresh the `latest_intrusion_<role>.jpg` tiles used by Lovelace. These are
+      #    overwritten every intrusion, so they add no unbounded growth. Taken in a second
+      #    pass from the same cameras; a second or two later still shows the intruder.
+      # ------------------------------------------------------------------------------
+      - parallel:
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.video_doorbell_fluent') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.video_doorbell_fluent
+                data:
+                  filename: /config/www/snapshots/latest_intrusion_doorbell.jpg
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.cam_front_hallway_main') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.cam_front_hallway_main
+                data:
+                  filename: /config/www/snapshots/latest_intrusion_front_hallway.jpg
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.cam_deserted_interior_main') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.cam_deserted_interior_main
+                data:
+                  filename: /config/www/snapshots/latest_intrusion_control_room_interior.jpg
+          - if:
+              - condition: template
+                value_template: "{{ states('camera.cam_larry_s_interior_main') not in ['unknown', 'unavailable'] }}"
+            then:
+              - service: camera.snapshot
+                continue_on_error: true
+                target:
+                  entity_id: camera.cam_larry_s_interior_main
+                data:
+                  filename: /config/www/snapshots/latest_intrusion_larry_interior.jpg
+
+      # ------------------------------------------------------------------------------
+      # 4. Build the candidate file list (data-driven, so a re-enabled 5th camera only
+      #    needs a roster line) and ask the host which of those files actually exist.
+      #    No leftover file can be mistaken for fresh evidence: the filename carries a
+      #    microsecond-resolution stamp unique to this run.
+      # ------------------------------------------------------------------------------
+      - variables:
+          # NOTE: built with an explicit loop, not `map('regex_replace', '^(.*)$', '..._\\1.jpg')`.
+          # The backreference form silently drops the role - verified against HA's own template
+          # engine 2026-09-16, it renders "..._<stamp>_.jpg" for every camera, which would list
+          # four paths that match no file and so send NO evidence at all.
+          expected_files: >-
+            {% set ns = namespace(files=[]) %}
+            {% for cam in evidence_roster %}
+              {% set ns.files = ns.files + ['/config/www/snapshots/intrusion_' ~ stamp ~ '_' ~ cam.role ~ '.jpg'] %}
+            {% endfor %}
+            {{ ns.files }}
+      - service: shell_command.phoenix_verify_evidence_files
+        continue_on_error: true
+        data:
+          # Jinja renders a list as "['/a.jpg', '/b.jpg']"; join into shell words.
+          files: "{{ expected_files | join(' ') }}"
+        response_variable: evidence_check
+
+      # ------------------------------------------------------------------------------
+      # 5. Confirmed files -> BARE FILENAMES for the payload. ONLY files the host reported
+      #    are used, so a missing file can never produce a fabricated entry.
+      #    `confirmed_files` is [] when nothing was written, and the page still goes out.
+      #
+      #    WHY FILENAMES AND NOT URLs (settled 2026-09-16, both halves measured):
+      #      * `https://ha.abletelsolutions.com` is entirely behind Cloudflare Access. Every
+      #        path - including /local/snapshots/<file>.jpg - answers HTTP 200 with the
+      #        "Sign in - Cloudflare Access" HTML page (content-type text/html, ~33 KB),
+      #        never the JPEG. So `!secret phoenix_public_base_url` is NOT fetchable by any
+      #        third party, and building a URL from it would hand Twilio an HTML login page.
+      #        That is the trap that made this feature silently impossible.
+      #      * `!secret phoenix_external_base_url` is http://192.168.50.34:8123 - a real
+      #        JPEG, but RFC1918, so only an office-LAN machine (the secretary) can fetch it.
+      #      * So neither URL can be used directly. The intake is now the file name; the
+      #        secretary resolves it against its own LAN endpoint and rehosts the image.
+      #    Verified serving image/jpeg from the LAN: http://192.168.50.34:8123/local/snapshots/<file>
+      # ------------------------------------------------------------------------------
+      - variables:
+          confirmed_files: >-
+            {{ (evidence_check.stdout | default('', true)) | regex_findall('PHOENIX_EVIDENCE_OK (\S+)') }}
+          snapshot_urls: >-
+            {{ confirmed_files | map('regex_replace', '^.*/', '') | list }}
+          snapshot_count: "{{ snapshot_urls | count }}"
+
+      # ------------------------------------------------------------------------------
+      # 6. PAGE THE OWNER - with pictures when we have them and without them when we do
+      #    not. `snapshots` is always a list, so the payload is always valid JSON.
+      #
+      #    Why this is a retry loop and not a single call (measured 2026-09-16):
+      #    TWO of the three intrusion pages on 2026-09-15/16 reached NOBODY because the
+      #    secretary API was briefly down and Home Assistant does not retry a rest_command.
+      #      * server journalctl: "Failed to proxy http://localhost:8002/webhook/ha/security-alert
+      #        Error: connect ECONNREFUSED 127.0.0.1:8002" at 23:35:15Z and again at 00:20:34Z
+      #      * HA core log, twice: "WARNING (MainThread) [homeassistant.components.rest_command]
+      #        Error. Url: https://ai.abletelsolutions.com/webhook/ha/security-alert.
+      #        Status code 500. Payload: b'{"event": "intrusion", ...}'"
+      #      * only the 00:43:58Z alarm got through (webhook logged 200 OK); Twilio confirmed all
+      #        four roster recipients received it.
+      #    A silent rest_command failure is INVISIBLE in HA unless you read the core log, which
+      #    is exactly how two alarms died unnoticed. Hence: retry, and fail LOUD when all fail.
+      #
+      #    Response shape (homeassistant/components/rest_command/__init__.py, 2025.10.3, line 233):
+      #    with `response_variable` set, HA returns {"content": <parsed JSON>, "status": <int>,
+      #    "headers": {...}}. A transport failure raises -> swallowed by `continue_on_error` ->
+      #    the variable keeps its previous value, so it is reset to a sentinel before EVERY
+      #    attempt. Success is `status < 400 and content.ok`, never `is defined` alone.
+      # ------------------------------------------------------------------------------
+      - variables:
+          # Attempt 1. `continue_on_error` keeps a total transport failure from aborting the
+          # sequence (the alarm loop that follows must still run).
+          page_result: {}
+          attempts: 0
+          page_ok: false
+      - service: rest_command.phoenix_security_page
+        continue_on_error: true
+        response_variable: page_result
+        data:
+          event: "{{ page_event }}"
+          # DEFECT FIXED 2026-10-26: the reference stamp goes into the body. The backend refuses
+          # an identical body to the same number within 30 minutes, so with a fixed string a
+          # SECOND intrusion inside half an hour paged nobody and was recorded as a failure.
+          # The stamp also gives the retry an idempotency key. (Ledger S36.)
+          detail: "{{ page_detail }} (ref {{ stamp }})"
+          snapshots: "{{ snapshot_urls }}"
+
+      # ------------------------------------------------------------------------------
+      # DEFECT FIXED 2026-10-26 - the retry loop ran BACKWARDS (ledger S22).
+      #
+      # It was `repeat: count: 4` whose body ended in `- stop: "page not confirmed - retrying"`.
+      # In HA, `stop` ends the WHOLE SCRIPT, not the loop (helpers/script.py: `_StopScript` is
+      # caught as `script_execution_set("finished")` and re-raised out of sub-scripts), so:
+      #   * on FAILURE the first retry killed the script - the "SECURITY PAGE FAILED"
+      #     notification below, the audit line and the prune were unreachable code, and the run
+      #     was recorded as *finished*;
+      #   * on SUCCESS there was no break, so iterations 2-4 re-sent the page - up to five
+      #     SMS+MMS per recipient per intrusion.
+      # A `while:` that goes false ends the loop NORMALLY and leaves the rest of the sequence
+      # reachable. `page_ok` is also type-checked with `is mapping`, because a non-JSON 2xx
+      # makes rest_command set `content` to a plain string and `.get` on that raises inside an
+      # if-condition, which aborts the script before the fail-loud block.
+      # ------------------------------------------------------------------------------
+      - variables:
+          page_ok: >-
+            {{ page_result is mapping and page_result is not none
+               and (page_result.get('status') | int(0)) < 400
+               and (page_result.get('content') is mapping)
+               and (page_result.get('content') | default({}, true)).get('ok') }}
+      - repeat:
+          while:
+            - condition: template
+              value_template: "{{ not page_ok and attempts < 4 }}"
+          sequence:
+            - variables:
+                attempts: "{{ attempts + 1 }}"
+                page_result: {}
+            - delay:
+                seconds: 12
+            - service: rest_command.phoenix_security_page
+              continue_on_error: true
+              response_variable: page_result
+              data:
+                event: "{{ page_event }}"
+                detail: "{{ page_detail }} (ref {{ stamp }})"
+                snapshots: "{{ snapshot_urls }}"
+            - variables:
+                page_ok: >-
+                  {{ page_result is mapping and page_result is not none
+                     and (page_result.get('status') | int(0)) < 400
+                     and (page_result.get('content') is mapping)
+                     and (page_result.get('content') | default({}, true)).get('ok') }}
+
+      # Fail LOUD, not silent. The local siren is already sounding, but a human looking at the
+      # dashboard must be able to SEE that the page failed. Nothing here is outbound: no SMS,
+      # no email, no second channel - only HA-local surfaces.
+      # (This block used to be unreachable: the `stop` above ended the script first. Ledger S22.)
+      - if:
+          - condition: template
+            value_template: "{{ not page_ok }}"
+        then:
+          - service: persistent_notification.create
+            data:
+              notification_id: phoenix_intrusion_paging_failed
+              title: "SECURITY PAGE FAILED - intrusion not delivered"
+              message: >-
+                Home Assistant could not deliver the intrusion page to the secretary after
+                {{ attempts + 1 }} attempt(s) (1 initial + {{ attempts }} retries).
+                Event '{{ page_event }}' - {{ page_detail }}.
+                Evidence files: {{ snapshot_urls | join(', ') if snapshot_urls else 'none captured' }}.
+                Nobody was paged. The siren and strobe follow this step and will still run if the
+                alarm is still armed. Check the secretary API and page the roster manually.
+          - service: logbook.log
+            data:
+              name: Intrusion Evidence
+              message: >-
+                PAGE FAILED after {{ attempts + 1 }} attempt(s) - owner SMS not delivered;
+                {{ snapshot_urls | join(', ') }}
+              entity_id: input_text.phoenix_door_activity_log
+
+      # ------------------------------------------------------------------------------
+      # 7. Audit trail, then bounded retention. Both run AFTER paging, so neither can delay
+      #    or suppress it. Retention files written by this run are younger than 24h and are
+      #    therefore outside the count cap.
+      # ------------------------------------------------------------------------------
+      - service: logbook.log
+        data:
+          name: Intrusion Evidence
+          message: >-
+            captured {{ snapshot_count }} image(s) for {{ page_event }}: {{ snapshot_urls | join(', ') }}
+      - service: shell_command.phoenix_prune_intrusion_evidence
+        continue_on_error: true
+
