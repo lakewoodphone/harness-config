@@ -3,7 +3,14 @@
 **2026-10-27. Written before any code, because the contract is the hard part and the mapping is nearly free.** The
 estate already owns a priority-aware owner notification system; the security page must join it, not imitate it.
 
-## 1. The one thing this reuses
+> **CORRECTED the same evening, from a measured reading of the live path.** The first version of this document assumed
+> the security alert already travelled through the priority system and only needed a level→priority mapping. **It does
+> not. `POST /webhook/ha/security-alert` bypasses `notification_manager` entirely** and calls `send_message` directly,
+> so there is **no priority, no quiet-hours awareness, no digest and no interrupt-cost gating anywhere on the security
+> path today**. The mapping below is therefore a *change of route*, not a reuse of an existing one — and the four
+> defects in §1b are things that would have made the pager fail silently *after* it looked finished.
+
+## 1. The system to reuse, and the reason it is not currently reused
 
 `app/services/notification_manager.py` — read at `228-337` (2026-10-27):
 
@@ -22,6 +29,29 @@ async def notify_owner(settings, message: str, *, urgency: str | Priority | int 
 Also already present and inherited for free: `owner_quiet_hours` inference, digest snooze
 (`snooze_digests_for`, line 86), the outbound retry buffer, `_owner_sms_allowed()` (line 406), digest batching
 (`_batch_for_digest`, line 442), and a **hard kill switch that blocks all owner SMS including P0** (line 370).
+
+## 1b. What the live path actually does — measured by the fleet, 2026-10-27, from the repo at `da7d1946`
+
+Read from `app/main.py:8505-8666`, `app/sms_service.py:1743-1949` and `app/config.py` on a mesh child that reported its
+revision. Five findings, each of which would have shipped as a silent failure:
+
+| # | finding | why it matters |
+|---|---|---|
+| 1 | **The owner's daily SMS quota (20/day) applies to security pages.** `direct_owner_request` is never set on this path (`sms_service.py:948-1042`), so only the kill switch is bypassed, not the quota. | After 20 owner sends in a UTC day, **the owner is silently dropped while the extra recipients still get paged** — the one person the page exists for is the one who can miss it. |
+| 2 | **`paged: true` is hardcoded** in the 200 response, including when no recipient is configured or Twilio is unconfigured (`main.py:8653-8663`, `sms_service.py:1937-1938`). | `ok` is the only honest field. Anything that gates on `paged` believes a page happened. |
+| 3 | **`ok = all(recipients)`** (`sms_service.py:1948`) and Home Assistant retries on `not ok` up to 4 more times, 12 s apart (`phoenix_intrusion_evidence.yaml:303-332`). | **One** bad or quota-blocked number makes every retry re-page the recipients who succeeded: up to five copies for them, zero for him. |
+| 4 | **Dedupe is inert.** The DB duplicate-body block references an undefined `settings` and imports a `get_db_connection` that does not exist (`sms_service.py:572-617`). What actually holds is an in-memory 10/hour per number. | Two POSTs ten seconds apart produce two full pages; nothing at the endpoint is idempotent. |
+| 5 | **No cancel, no nonce, no id.** Two security routes exist in the whole app (`main.py:8505`, `8670`); the request and response carry no identifier, and the only handle is the per-recipient Twilio SID returned over HTTP. | An acknowledgement cannot be built on top of this without inventing the identifier first. |
+
+Two further measured facts that shape the work: the recipient list is **`owner_phone_number` plus a comma-separated
+`HA_SECURITY_EXTRA_RECIPIENTS` env var** — not a roster, not a tier — and `OWNER_NOTIFY_NUMBER` is **ignored** on this
+path although `owner_notify_target()` exists for exactly that purpose; and **the picture has never travelled**, because
+the Home Assistant evidence script aborts: `shell_command.phoenix_verify_evidence_files` contains a bare `for … done`
+that is `exec`'d rather than shell'd (`[Errno 2] No such file or directory: 'for'`), and the WIP fix `069a18b` does not
+parse.
+
+**So the build is not "wire level 3 to a page". It is: give the security path a priority, exempt it from the daily
+quota, make its success signal honest, make it idempotent, and give it an identifier — then wire it.**
 
 ## 2. The level → priority mapping, and why it is exactly one line each
 
