@@ -72,6 +72,11 @@ hours, so their entry is *expected* rather than tolerated. If not, retire it as 
 
 **Decision needed:** does the tenant still have access?
 
+> **CLOSED 2026-10-27 — and this item's premise was wrong.** The live lock reports slot 11 as `available`, so **no
+> tenant code exists**; the enabled slots are 1, 4 and 5, all family. `apartment_deadbolt_codes.yaml` is the *write
+> path* for slot 11, not evidence that a code was ever set. Nothing to revoke. The only open part is whether to retire
+> the Tenant role or keep the guarded mechanism empty for a future tenant — the owner's call, and small.
+
 ## 4. Who owns the 03:00 decision when you are away
 
 **What I read.** You are away for Shabbat and Yom Tov and the shop empties; an alarm then reaches a phone you

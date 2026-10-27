@@ -126,6 +126,22 @@ credential, a known schedule.
 
 **What I need:** the list, with times.
 
+> **ANSWERED 2026-10-27.** *"apartment door is family, shop door really no one should be going, though family may
+> sometimes need to go."*
+>
+> This is the strongest answer the design could have received, and it removes a whole component:
+>
+> - **The shop door has no expected traffic.** No cleaner, no staff opening up, no deliveries put inside, no tenant.
+>   So an opening of that door in a declared empty state is a real event, with essentially no false-alarm population
+>   behind it. That is the opposite of the situation the old alarm was in.
+> - **The apartment door is family only.**
+> - **The one exception is family through the shop door**, occasionally — which is precisely what the `expected`
+>   flag and the declared state are for. It does not need a schedule; it needs a person the system can recognise or a
+>   state the owner has declared.
+>
+> **The consequence for D9 is that it is nearly empty**, which is recorded there. There are no windows to declare
+> because there are no recurring legitimate visitors.
+
 ## Q6. What is actually at risk overnight?
 
 Cash in the drawer, phones and laptops in for repair, tools, the safe? The number matters because it decides how
@@ -262,6 +278,16 @@ than lowering the alarm: an entry inside a window with no credential is a level 
 
 **Decision:** accept, and give me the windows (Q5).
 
+> **DECIDED 2026-10-27, and the design gets simpler instead of more complex.** Q5's answer was "shop door: no one
+> should be going; apartment door: family; family may occasionally need the shop door". So there are **no recurring
+> legitimate visitors** — no cleaner, no staff rota, no delivery window — and therefore **no declared windows to
+> build**. The window mechanism is dropped rather than left as an empty feature.
+>
+> What replaces it is smaller and stronger: the `expected` flag from `D8`/Q9 plus the credential layer. A family
+> member entering the shop when it should be empty is either **recognised** (a credential, so named) or **declared**
+> (the owner says so, one line). Anything else in that doorway is a level-3 event with nothing legitimate to hide
+> behind — which is a materially better position than a system full of windows it cannot verify.
+
 ## D10. The tenant's code
 
 **Read:** slot 11 is live and never rotated; `D7429` says the expected roster has no tenant.
@@ -270,6 +296,18 @@ than lowering the alarm: an entry inside a window with no credential is a level 
 revoke it as a new row, never a delete.
 
 **Decision:** does the tenant still have access.
+
+> **RESOLVED 2026-10-27 by reading the lock, and the record was wrong.** `sensor.apartment_deadbolt_user_slots` on the
+> live system reports slot 11 as **`available`** — i.e. **no tenant code exists**. Enabled slots are **1, 4 and 5
+> only** (Eliyahu, the shared parent slot, Yocheved, all family on the 14-day rotation), and slot 6 (master temp) reads
+> `available` too. So the earlier statement in this document and in `OWNER-DECISIONS.md` — *"slot 11 is live and never
+> rotated"* — was **false**: the slot was written by `apartment_deadbolt_codes.yaml`, which is the mechanism, not the
+> state. The mechanism exists; the code does not.
+>
+> **Therefore there is nothing to revoke.** The question that remains is smaller and is the owner's: the apartment is
+> family, so should the **Tenant role be retired outright**, or kept as an empty mechanism for a future tenant? My
+> recommendation: keep the write path (it is guarded, refuses every slot but 11, and never rotates or texts), but stop
+> describing a tenant as present anywhere in the record until one is registered.
 
 ## D11. Per-person credentials, or shared
 
