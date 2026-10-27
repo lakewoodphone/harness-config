@@ -29,7 +29,7 @@
 100.72.162.5      # zabz-yoga-1     the owner's laptop (home)
 100.85.105.93     # iphone-15-pro   the owner's iPhone
 100.85.153.96     # zabz-tech       the office desktop
-100.84.72.88      # secratary       the always-on company authority
+100.84.72.88      # secratary       FROZEN rollback anchor (NOT the authority since 2026-10-11)
 100.105.248.90    # zabz-tech-linux
 #
 # ADDED 2026-10-08. Every address below was read from `tailscale status` ON `secratary` in the same
