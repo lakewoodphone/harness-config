@@ -206,6 +206,23 @@ reason. Level 0/1 never page; level 2 goes to a digest.
 
 **Decision:** on, or recording-only until there is more history.
 
+> **ACCEPTED 2026-10-27 — and it is a mandate, not a preference.** His words: *"yes, as part of the owner texting
+> system, with priorities and all, build this out end to end fully."*
+>
+> Two things in that sentence govern the whole piece of work:
+> 1. **"As part of the owner texting system."** The security page joins the **existing** owner-paging path — the same
+>    one that already carries decision questions, the same guards, the same caps — rather than growing a second sender.
+>    That is the estate's standing rule (one source of truth per thing), and it is also the only way the page inherits
+>    the work already done on delivery, refusal and dedupe.
+> 2. **"With priorities."** A page carries a priority and the priority means something: what wakes him, what waits for a
+>    digest, what repeats. Level 0/1 never page; level 2 is digest; **level 3 and above page** with the picture and the
+>    one-line reason, which is what the `security_evidence` table was built for.
+>
+> Tracked as a goal with 30 rounds, fanned out across agents, and not finished until a real page has been delivered and
+> the exact body was approved before it went. Nothing here bypasses the outbound rule: the rule says nothing leaves
+> without his word on that message, and this is his word for the class — the first real page is still shown to him
+> first.
+
 ## D2. Who gets woken up
 
 **Read:** the live roster is your number plus two others; `D240` says your mother was meant to be on it; the page
