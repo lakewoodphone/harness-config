@@ -420,6 +420,59 @@ is a timezone and a **ragged** one is a dying clock, and those need different re
 thing this whole excursion into the recorder's settings produced, and it is worth keeping in software rather than in a
 conversation.
 
+---
+
+## 11. Built and verified 2026-10-27: the evidence table and the clock register
+
+Both DST windows are left as they are (the owner's decision: "whatever you think", answered by making the record
+independent of them rather than chasing a setting on two devices). The part that needed nobody's hands is done and
+proved on the authority.
+
+**`schema/02-evidence.sql`** adds two tables to `/root/authority.db`:
+
+- **`security_evidence`** — one row per attempted capture, with `captured_at` (host clock, authoritative),
+  `camera_id`, `osd_offset_s` and `osd_measured_at`, `path`, `sha256`, `bytes`, `source_host`, and a **`result`
+  column** (`ok | http_500 | timeout | no_frame | too_small | wrong_camera`) plus the verbatim `detail`. The result
+  column exists because of `cam_larry_s_interior_main`: a capture that fails must leave a row saying so, because an
+  absent row and a row saying `http_500` are different facts and only one of them is honest.
+- **`camera_clock`** — one row per camera per measurement of its burned-in stamp, with the offset in seconds and a
+  `verdict` of `clean | whole_hour | ragged | unreadable`, so the difference between a timezone and a dying clock
+  survives as history instead of being rediscovered.
+
+**Applied and verified on the authority**, not merely written:
+
+```
+$ sqlite3 -readonly /root/authority.db "select name from sqlite_master where type='table' ..."
+camera_clock  credential  entry_event  security_action  security_decision
+security_event  security_evidence  security_label  subject
+
+$ pragma table_info(security_evidence)
+id event_id entry_id door_id camera_id captured_at captured_at_local osd_offset_s
+osd_measured_at path sha256 bytes width height source_host result detail created_at
+
+$ select 'security_evidence', count(1) ... union all select 'camera_clock', count(1) ...
+security_evidence|0      camera_clock|7
+```
+
+**The clock register is seeded with the day's real measurements**, which is what makes it a register rather than an
+empty promise:
+
+| camera | measured | offset | verdict |
+|---|---|---|---|
+| `cam_front_hallway_main` | 2026-10-27T16:21:25Z | 3084 s | ragged (before NTP was enabled) |
+| `cam_front_hallway_main` | 2026-10-27T21:22:01Z | 3601 s | whole_hour (after the owner's sync) |
+| `cam_larry_s_exit_main_2` | 2026-10-27T16:21:25Z | 3082 s | ragged |
+| `cam_deserted_exit_main` | 2026-10-27T16:52:31Z | 3087 s | ragged (read from a second machine) |
+| `reolink … snapshots_clear` | 2026-10-27T16:54:29Z | 4046 s | ragged |
+| `reolink … snapshots_clear` | 2026-10-27T21:22:04Z | 3599 s | whole_hour |
+| `cam_larry_s_interior_main` | 2026-10-27T16:52:40Z | — | **unreadable** (HTTP 500 on all three channels) |
+
+**What is still missing, and it is the only thing between this and a working record:** nothing yet writes a row. The
+capture step — on a door edge or a credential event, fetch one still from each camera covering that door, save it,
+hash it, and insert the row — is the next piece of work, and it needs no credential and no setting on any device. The
+`result` semantics, the entity choice (snapshot/clear entity, never the substream) and the offset lookup all have a
+home now.
+
 ### 10.3 The disk answers the retention question — and says video *is* being recorded
 
 From `Storage`:
