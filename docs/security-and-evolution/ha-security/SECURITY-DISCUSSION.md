@@ -131,6 +131,19 @@ Cameras that can see the public hallway, audio recording, the tenant's rights, t
 New Jersey is a one-party state for audio but a business premises with employees has its own rules. Also: is
 there anyone in your life whose presence at the shop would be a problem if it were *recorded*?
 
+> **ANSWERED 2026-10-27, in two parts.** Audio is already settled by scope A: **no audio is captured or kept**, which
+> removes the one-party consent question entirely rather than managing it.
+>
+> For people — and this got specific once Q3 established that his family sleeps in the same basement — he chose
+> **record everyone, mark residents expected**. Nobody is excluded from the record; a resident's movement is simply
+> flagged so it never raises an alarm or a page. Recorded as journal `D9378`; the schema consequence is
+> `schema/03-expected-state.sql`, which gives every decision a `declared_state`, an `expected` flag, an optional
+> `subject_id` and a link to its `evidence_id`.
+>
+> **Why marking rather than excluding, in his terms.** Completeness is the product; a blind spot for residents is a
+> hole an intruder learns to use. But an unmarked resident event is a false alarm at two in the morning, and false
+> alarms are what destroy belief in an alarm. Marking keeps both properties and costs nothing but a column.
+
 ## Q10. How do you want to be reached at three in the morning?
 
 Text, call, both — and does it depend on what happened? A text with a picture can be read in bed in ten seconds;
