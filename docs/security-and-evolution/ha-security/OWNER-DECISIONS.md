@@ -3,6 +3,11 @@
 **2026-10-26 · ZABZ-YOGA.** Everything I can do without you is done. These are the rest, in the order they
 unblock work. Each one has what I read, why it is yours, my recommendation, and the single decision needed.
 
+> **SUPERSEDED IN ORDER, 2026-10-27.** You answered Q1: the record outranks the alarm. The list below is
+> unchanged and every item still stands, but the sequence is now the one in Part 5 of
+> `SECURITY-DISCUSSION.md`, and the engineering consequence is `55-OBSERVATION-FIRST.md`. Decision 1 (the four
+> calls) was applied on 2026-10-26 22:24Z and no longer needs you.
+
 ---
 
 ## Where the build stands, in six lines

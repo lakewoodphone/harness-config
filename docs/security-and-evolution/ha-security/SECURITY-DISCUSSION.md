@@ -3,9 +3,12 @@
 **2026-10-26 late · ZABZ-YOGA.** Prepared after the rebuild went live. We go through this one item at a time,
 not top to bottom in one sitting.
 
-> **STATUS 2026-10-26, end of session: Q1 has been asked and is awaiting his answer.** The session ran out with
-> the alarm fixed, the company side in shadow, and the paging decision (D1) and the threat model (Q1) both open.
-> Nothing here has been decided by him yet. Start with Q1.
+> **STATUS 2026-10-27: Q1 IS ANSWERED, AND IT RE-RANKS THIS DOCUMENT.** The alarm is wanted, but the thing he
+> actually wants is **the record** — every person who came, a picture or video of them, when they came and when
+> they left — and that ranks **above** burglary, which he does not fear in that neighbourhood. So the build order
+> in Part 5 is re-ranked below, observation before alarm, and the engineering consequence is written out in
+> `55-OBSERVATION-FIRST.md`. **This document was ordered alarm-first; it is no longer.** The next items are Q3 and
+> Q9, not D1.
 **Where it stands, in five lines.** The alarm arms and disarms on a credential instead of a ghost, and that
 survives a restart. The siren fires thirty seconds after the alarm regardless of the cameras and stops itself at
 fifteen minutes. A listener, an episode engine and a model verdict run in shadow, recording everything and
@@ -28,6 +31,20 @@ answers — different sensors, different responses, sometimes different law.
 
 **What I need:** your ranking. Burglary when closed, insider (staff, tenant, family, ex), robbery while open,
 package theft, vandalism, fire/flood — which are real for this building and which are noise?
+
+> **ANSWERED 2026-10-27.** Burglary protection is wanted but is not the fear — *"it's a pretty secure
+> neighborhood, I'm not so scared of that."* What he wants first is **extreme tracking**: *"I want to know every
+> person who came and want a little picture or video of them. I want to know when they came, when they left. And
+> very good tracking of everything that ever happened there is more important to me even."*
+>
+> So the ranking is: **1. a complete, pictured, timestamped record of every person and every entry; 2. the
+> intrusion alarm** (keep what was built — a credential disarms, presence never does); **3. the rest**, including
+> fire/flood, which nothing in this design currently covers and which is a different product (sensors, not
+> cameras). Insider and tenant cases are not ranked as threats but they are unavoidable as *identity*: the record
+> cannot answer "who" without them, which is why Q8 and D10/D11 are now load-bearing rather than tidy-up.
+>
+> The consequence is not a preference, it is an inversion of this document's priority: every stage that makes a
+> person appear in the record with a likeness and a correct clock now outranks every stage that tunes the alarm.
 
 ## Q2. When it is real — who responds, and how fast?
 
@@ -364,15 +381,24 @@ matter.
 
 ---
 
-# Part 5 — The order I would take them in
+# Part 5 — The order I would take them in (re-ranked 2026-10-27 after Q1)
 
-1. **Q1, Q2, Q3** — threat, response and whether anyone sleeps behind the door. Everything downstream depends on
-   these three, and D8, D9, D13 and D14 cannot be settled without them.
-2. **D1, D2, D3** — paging. The single biggest change in what the system *does*, and the one item where a wrong
-   choice at 3am costs the most.
-3. **Q4, Q5, D9** — hours and expected entries. This is what turns false alarms into notes.
-4. **D10, D11, D12** — the credential layer. Small, and it decides what the record can ever say about who.
-5. **D7, D13, D14, D15** — the operating rules: test mode, siren behaviour, drills, digest.
-6. **D16, D21, D22, D20** — money, tokens, where things live. Engineering and spend, low drama.
-7. **D17, D18, D19** — hardware and retention. Purchases and disk.
-8. **D4, D5, D6** — the escalation and autonomy detail, once the shape above is settled.
+The old order put paging second and hardware seventh, because the product was assumed to be an alarm. It is not.
+The product is the record, so the parts that decide whether a person can be seen at all, at the right time, and
+for how long, move to the front, and the alarm work keeps its place behind them.
+
+1. **Q3, Q9, D8** — does anyone sleep behind the shop door; what may lawfully and decently be recorded (hallway
+   cameras, audio, the tenant, customers); and therefore how many armed states exist. These three decide camera
+   placement, retention and privacy, and none of them is mine to assume.
+2. **Q4, Q5, D9** — the shop's hours, the people who are *expected*, and the declared windows. This is the
+   vocabulary that lets the record say "expected" or "unexpected", and turns an anonymous edge into a named row.
+3. **D17, D18, D19** — hardware, clocks and retention. Promoted from last-but-one to third: a camera that is not
+   looking at the door, a clock sixteen minutes wrong and a fourteen-day prune are now defects in the product
+   rather than gaps in a backup.
+4. **D10, D11, D12** — the credential layer: what the record can honestly say about *who*, and what "unknown"
+   will be rendered as.
+5. **D1, D2, D3, D4, D5** — paging, escalation and cancellation. Wanted, but second: the record already earns its
+   keep on a night nothing is paged.
+6. **D7, D13, D14, D15** — the operating rules: test mode, the siren tail, drills, the weekly digest.
+7. **D16, D21, D22, D20** — money, tokens, where the listener lives, the frozen box.
+8. **D6** — the agent's allow-list and `buzz_in`, once the shape above is settled.
