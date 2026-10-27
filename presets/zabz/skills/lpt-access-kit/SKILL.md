@@ -1,6 +1,6 @@
 ---
 name: lpt-access-kit
-description: Use whenever the owner wants to get INTO a machine rather than read about it — "tunnel you in", "full access", "remote in", "open access", a customer PC that has to be diagnosed at the bench, Enable-PSRemoting / Enter-PSSession, the LPT USB stick, 3-OPEN-ACCESS / 4-CLOSE-ACCESS, installing OpenSSH on a target, or any question about why an access window did not open. Covers the one-command default (PSRemoting), the six conditions that force the USB fallback, the two actions the operator performs, key custody, how to prove the kit works without asking anyone to walk to a machine, and the eleven ways the kit has already failed.
+description: Use whenever the owner wants to get INTO a machine rather than read about it — "tunnel you in", "full access", "remote in", "open access", a customer PC that has to be diagnosed at the bench, Enable-PSRemoting / Enter-PSSession, the LPT USB stick, 3-OPEN-ACCESS / 4-CLOSE-ACCESS, installing OpenSSH on a target, or any question about why an access window did not open. Covers the default two double-clicks (`0-FAST-ACCESS` on the target, `Connect-FastAccess.cmd` on ZABZ-TECH), the six conditions that force the USB fallback, the two actions the operator performs, key custody, how to prove the kit works without asking anyone to walk to a machine, and the eleven ways the kit has already failed.
 ---
 
 # Getting into a machine
