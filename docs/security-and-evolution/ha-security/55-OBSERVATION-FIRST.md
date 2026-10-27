@@ -473,6 +473,43 @@ hash it, and insert the row — is the next piece of work, and it needs no crede
 `result` semantics, the entity choice (snapshot/clear entity, never the substream) and the offset lookup all have a
 home now.
 
+### 11.1 The capture step now writes rows — verified 2026-10-27 21:26Z
+
+`scripts/security-capture.py` (deployed on the authority as `/root/security-capture.py`, run by
+`/opt/company/.venv/bin/python`) takes a camera entity and three optional keys (`door_id`, `event_id`, `entry_id`),
+fetches one still through `GET /api/camera_proxy/<entity>`, stores it under
+`/root/security-evidence/YYYY/MM/DD/`, hashes it, looks up that camera's most recent measured offset from
+`camera_clock`, and inserts the row. A failure path writes a row too, with `result` set and the verbatim `detail`.
+
+Three real rows, on the first run:
+
+```
+camera.cam_front_hallway_main                        ok        168851 bytes  row ev-20261027T212648Z-cam_front_hallway_main
+camera.reolink_video_doorbell_poe_snapshots_clear   ok        667863 bytes  row ev-20261027T212650Z-…
+camera.cam_larry_s_interior_main                    http_500  HTTP Error 500: Internal Server Error
+```
+
+and the table as it now reads:
+
+| camera | door | result | bytes | sha256 (first 12) | osd_offset_s |
+|---|---|---|---|---|---|
+| `cam_front_hallway_main` | `shop_door` | ok | 168 851 | `5395a78f185d` | 3601 |
+| `reolink … snapshots_clear` | `outside_door` | ok | 667 863 | `32ab748a696a` | 3599 |
+| `cam_larry_s_interior_main` | `inner_door` | **http_500** | — | — | — |
+
+**The dead camera is in the record as a failure, not as silence** — which is the whole reason the `result` column
+exists, and it worked on the first attempt.
+
+**And the row's arithmetic checks out against the picture itself.** The stored hallway frame burns in
+`2026-10-27 16:26:48`; the row says `captured_at = 2026-10-27T21:26:48Z` with `osd_offset_s = 3601`, and
+`21:26:48Z − 3601 s` is `17:26:47` local, which is `16:26:47` in the camera's standard-time frame of reference —
+one second from what the picture says. The file's sha256 on the authority, in the database, and after being pulled to
+another machine and re-hashed here are the same value:
+`5395a78f185de03374d2a2d4bf1b37f7c2641bcfcf27ce80a33fdf221705989a`.
+
+That is the first end-to-end proof of the whole design: **a person's entry can be answered with a picture, taken at a
+time the record can defend, and a camera that failed to deliver says so in the record instead of leaving a hole.**
+
 ### 10.3 The disk answers the retention question — and says video *is* being recorded
 
 From `Storage`:
