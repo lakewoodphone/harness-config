@@ -181,6 +181,10 @@ The four things a session must know before it builds anything in this area:
 
 15. **A meter reading an unpopulated column is worse than no meter.** Pass one concluded `deepseek-flash` cached 1.13 % from `model_usage.cached_tokens` — a column nothing writes. The truth, from `dsh_session_events`, is **99.0 %**. The wrong figure produced a whole cost strategy. **When a number decides something expensive, check what WRITES the field before you check the number.**
 
+16. **THE SHOP'S PAPER PATH RUNS THROUGH THE FROZEN ANCHOR (measured 2026-10-27).** `/usr/local/bin/lpt-label` exists on **`secratary` and nowhere else** — not on the authority, not on `zabz-tech-linux`, not on `lakewooechsmini`. The code is on the authority (`/root/code/lpt-ops`), the *installation* is on the box this estate is told never to start anything on, and the **authority has no ssh access to it at all** (`Permission denied (publickey)`), so no automated check can even see it. The shim is portable: it is a nine-line `exec` into `lpt-ops` with an `install-label.sh` that re-creates it.
+    **What is NOT established:** whether a printer is physically attached there. `/dev/usb/lp*` is empty and there is no CUPS queue — consistent with no printer at rest, a libusb device, or Bluetooth. **Do not assume the printer follows the code until you have seen a tag come out.**
+    **Why it matters:** one machine is simultaneously *"do not touch, it is the rollback point"* and *"the only thing that prints"*. Any shop change that ends in paper — a bin field on the work order, reprinting a lost tag, a ticket for a walk-in — is blocked until this moves. **Move it by running `install-label.sh` onto `zabz-tech-linux`, never by unfreezing the anchor.**
+
 ---
 
 ## 5. Before you build: the 10-minute survey
