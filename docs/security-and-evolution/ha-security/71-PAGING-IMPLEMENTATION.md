@@ -214,6 +214,42 @@ acknowledgement, i.e. a real page first.
 3. **The first real page**, body shown to the owner first. That single event also proves the voice escalation and the
    `COVERED` dedupe branch with real data instead of synthetic rows.
 
+
+### 9. `avs_level` is honoured: an alarm goes, a note may wait — DONE 2026-10-27 22:49Z
+
+Home Assistant has always sent `avs_level` (default 3) in the payload and nothing read it. It now decides exactly one
+thing, in a **pure function** so it can be tested without sending anything:
+
+```python
+def page_decision(avs_level: int, quiet_now: bool) -> str   # "send" | "defer"
+    level >= 3            -> "send"          # an alarm is never held
+    level <= 2 and quiet  -> "defer"         # a note may wait for daylight
+    level <= 2, not quiet -> "send"
+    unparseable level     -> "send"          # never default a broken level to "note"
+```
+
+`within_quiet_hours(settings)` self-disables when `OWNER_QUIET_HOURS_ENABLED` is off, so the gate is **inert today**
+(the flag is `false` live) and changes nothing until someone enables quiet hours. A deferred note is recorded as a
+`security_action` row with `result='refused'` and `quiet_hours: level 2 note deferred, not sent`, and returns
+`{"ok": true, "paged": false, "deferred": "quiet_hours"}` — `ok: true` on purpose, so Home Assistant does not retry a
+note that was deliberately held.
+
+**Verified, sending nothing:**
+
+```
+level=3 quiet=True  -> send    level=2 quiet=True  -> defer    level=None quiet=True -> send
+level=3 quiet=False -> send    level=2 quiet=False -> send
+level=4 quiet=True  -> send    level=0 quiet=True  -> defer
+FAILURES: 0
+```
+
+Then, after the restart: no key → **401**; a test event with the key →
+`{"ok":true,"paged":false,"reason":"test event, skipped owner SMS"}`; `security_action` rows **0**.
+
+**Not proven:** no real page has passed through this gate, because quiet hours are off and reaching the gate means
+sending. The decision is proven; its wiring is proven to compile and serve; the branch itself waits for the first real
+page.
+
 ## Remaining
 
 | # | fix | live location | note |
