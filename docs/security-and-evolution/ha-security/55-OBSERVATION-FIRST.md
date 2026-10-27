@@ -375,6 +375,51 @@ error for as long as that rule says "standard time". So the DST window must be c
 trusted from NTP, not after. Where the two dates are read-only in that panel, the working sequence is to set the time
 by hand and leave Synchronize alone until 1 November, after which the rule is right by accident.
 
+### 10.3 Where it stands after the owner's two fixes — measured at 17:22 EDT
+
+The owner says the Reolink's DST dates are **not editable**, and his decision is to leave that one as it is. Both
+devices were then measured again, from pictures:
+
+| device | burned in | host clock | offset |
+|---|---|---|---|
+| `cam_front_hallway_main` (Dahua, via the NVR) | **16:22:00** | 17:22:01 | **60 m 01 s** |
+| `reolink_video_doorbell_poe_snapshots_clear` | **16:22:05** | 17:22:04 | **59 m 59 s** |
+
+**What the owner's two fixes achieved, which is not the clock.** This morning the two systems were **16 m 09 s apart**
+from each other (Dahua −51 m 25 s, Reolink −67 m 34 s). They are now **five seconds apart**, with one constant hour on
+top. O3 — "arrival and departure times are comparable between cameras" — was the requirement that mattered and it is
+now met: a single constant can be subtracted from every stamp in the building. What remains is one known, uniform error
+rather than two competing ones.
+
+**What "leave it" costs, per device — and they are not the same cost:**
+
+| device | its DST rule | hours per year that the picture is wrong |
+|---|---|---|
+| **NVR (4 channels)** | `Jan 1 → Jan 2`, so daylight saving **never** applies | roughly **eight months** — every March-to-November day, one hour early. Correct in winter only |
+| **Reolink doorbell** | `Mar 2nd week → Oct last week` | up to **seven days** a year, in the window between the last Sunday of October and the first Sunday of November. Correct the rest of the year |
+
+So leaving both alone is not one decision with one cost. The doorbell's is a rounding error against a year; **the NVR's
+is eight months of every picture stamped an hour early**, and unlike the doorbell's, the NVR's two dates are **editable
+dropdowns** (`Type = Week`, `Start = Mar 2nd week Sunday 02:00`, `End = Nov 1st week Sunday 02:00`). It is the one of
+the two that is worth two minutes.
+
+### 10.4 The engineering decision that makes either of them tolerable
+
+**Host time is authoritative; the burned-in stamp is decoration with a measured offset.** Concretely, every evidence
+row carries:
+
+- `captured_at` — Home Assistant's clock at the moment the still was fetched, accurate to the second and verified;
+- `camera_id` — which device produced the frame;
+- `osd_offset_s` — that camera's measured offset **as of a date**, nullable;
+- `osd_measured_at` — when that offset was last checked against a picture.
+
+A picture is therefore never trusted for *when*; it is trusted for *who*, and its own stamp is a redundant second
+opinion that can be checked against a known constant. The health check reports the age of the last offset measurement
+per camera and raises when it is older than thirty days or the offset is not a whole hour — because a **round** hour
+is a timezone and a **ragged** one is a dying clock, and those need different repairs. That distinction is the one
+thing this whole excursion into the recorder's settings produced, and it is worth keeping in software rather than in a
+conversation.
+
 ### 10.3 The disk answers the retention question — and says video *is* being recorded
 
 From `Storage`:
