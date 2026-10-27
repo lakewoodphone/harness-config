@@ -1,0 +1,51 @@
+# /config/packages/phoenix_test_mode_autoclear.yaml
+#
+# A drill must not outlive the person who started it.
+#
+# WHY THIS FILE EXISTS, measured 2026-10-27. While `input_boolean.phoenix_intrusion_test_mode` is on, an intrusion
+# sounds nothing — the siren branch reads the flag and stays quiet. Across all six deployed package files the entity
+# appears only as a READ (the arm template) and as an entry in a trigger list; there is no `turn_off` anywhere. So a
+# drill switched on and forgotten leaves the next real alarm silent, indefinitely, with nothing in the system to end
+# it and no local indication that it is on.
+#
+# HOW TO INSTALL — and why it is a file rather than something applied through the API. Home Assistant's REST
+# endpoint `POST /api/config/automation/config/<id>` accepts this automation and stores it (measured: `{"result":"ok"}`,
+# and `GET` returns the full body), but this installation never LOADS it, even after
+# `POST /api/services/automation/reload`: the automations here are file-based packages, so the UI store that endpoint
+# writes to is not read. The stored copy was deleted again rather than left behind as a dead artifact. **This file is
+# therefore the installation path**: drop it in `/config/packages/` and reload automations (or restart), and the
+# property holds from the next drill onwards.
+#
+# WHAT IT DOES. Thirty minutes after the flag comes on, it turns the flag off and writes one line to the logbook, so a
+# drill cannot silently outlive itself. `mode: single` and a `for:` on the state trigger mean the timer only starts
+# while the flag is genuinely on; if it is turned off by hand the timer is cancelled by the trigger itself.
+#
+# WHAT IT DELIBERATELY DOES NOT DO. It does not touch the siren, the intrusion flag, or any credential, and it does
+# not restart anything. If it is removed, nothing else in the system changes — the only loss is the expiry.
+#
+# VERIFIED AFTER INSTALL: turn the flag on, wait, and the flag reads `off` with one logbook line; or shorten
+# `for:` to `00:01:00` while testing and put it back.
+
+automation:
+  - id: phoenix_test_mode_autoclear
+    alias: "Phoenix - Test mode clears itself after 30 minutes"
+    description: >-
+      A drill must not outlive the person who started it. Nothing in the packages ever cleared
+      input_boolean.phoenix_intrusion_test_mode, so a forgotten drill left the next real alarm silent.
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: input_boolean.phoenix_intrusion_test_mode
+        to: "on"
+        for: "00:30:00"
+    condition: []
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.phoenix_intrusion_test_mode
+      - service: logbook.log
+        data:
+          name: Security
+          message: >-
+            Intrusion test mode expired after 30 minutes and was cleared automatically - a drill can no longer
+            silence the next real alarm.
