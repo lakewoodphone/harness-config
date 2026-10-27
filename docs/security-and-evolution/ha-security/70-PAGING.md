@@ -99,6 +99,41 @@ false of the branch: all three were created on 2026-10-27 and are in `agent/secu
 see a local worktree, and its checkout was six weeks behind — so its schema claims are superseded, while its findings
 about the HA page path and the missing `security_action` writer are not.
 
+## 1d. Which sender the page uses — decided, with the measurements behind it
+
+A third reading mapped the **owner-attention pager** (`scripts/owner_attention.py` → `send_owner_update`,
+`app/tool_factory.py:1881`), and it is the wrong transport for a security page. The reasons are measured, and three of
+them are configured on the live server right now:
+
+| finding | evidence | effect on a page |
+|---|---|---|
+| **`owner_sms_min_urgency` defaults to `urgent`** and is **not set in `/opt/company/.env`** (checked 2026-10-27) | `config.py:1076`, `tool_factory.py:1991-2003` | a page marked `normal` is **held**, not sent — reason `below_owner_sms_threshold` |
+| **`send_message` overwrites urgency to `normal` at its own gate** | `sms_service.py:1134` | the caller's priority never reaches the last decision point; "priority" would be decorative |
+| **20-minute rate floor** and **30-minute identical-body dedupe** | `owner_text.py:2507-2520`, `sms_service.py:873-897` | a page within 20 minutes of any owner text is refused; a repeat page with the same body is dropped |
+| quiet hours exist but are **disabled and not enforced on this path** | `OWNER_QUIET_HOURS_ENABLED=false` live; `config.py:998` | no help, no harm |
+
+**So: the security page keeps using the security-alert webhook → `send_security_alert_mms`.** That path already
+bypasses the kill switch (`bypass_owner_kill_switch=True`), already carries media, and already reaches Twilio. The pager
+is for questions, not for life-safety, and forcing a page through it would have added three new ways to hold it.
+
+**The two live confirmations that matter:** the kill-switch file is **absent** on the authority
+(`/opt/company/data/OWNER_SMS_KILL_SWITCH` and `/root/data/…` both missing), so owner SMS are not blanket-blocked; and
+`POST https://ai.abletelsolutions.com/webhook/ha/security-alert` with no key returns **401**, so the endpoint is live
+and enforcing auth rather than being quietly unreachable.
+
+**What "priority" therefore means for a page, concretely** — and this is the whole of D1's "with priorities":
+
+| avs_level | urgency | channel | why |
+|---|---|---|---|
+| 3, 4 | `critical` | SMS **and a voice call** | the case the system exists for |
+| 2 | `normal` | SMS, digest if the day is already busy | "a note, not a page", the sentinel's own words |
+| 0, 1 | — | nothing | a credential was used |
+
+The carrier already exists and is unused: Home Assistant's `rest_command` sends **`avs_level`** in the payload
+(`phoenix_security.LIVE2.yaml:384-391`) and the handler neither documents nor reads it (`main.py:8513-8519`). So the
+priority hook is in the wire format today and only needs the receiving end to honour it — the cleanest possible seam,
+and one that needs no new Home Assistant file.
+
 ## 2. The level → priority mapping, and why it is exactly one line each
 
 | security decision | page | why |
