@@ -142,6 +142,11 @@ INTERPRETATIONS the contract left open (implemented, and reported as such):
       impossible and "one live row per issue" is the intent. Reviving a row
       that has already failed `max_attempts` times prints
       `suppressed:attempts` - guard 9 outranks guard 1.
+    * A subject that names an ISO week (`:YYYY-Www`, e.g.
+      `owner-text:scorecard:2026-W43`) is about that ONE week. A terminal row
+      that finished inside its week prints `deduped` instead of reviving, unless
+      the caller passes `--refile`; a subject naming an earlier week prints
+      `suppressed:stale-week` and is never released under the current week.
     * The per-source cap counts wake rows with a claim in the last rolling hour,
       by source, so a noisy source cannot starve the rest of the queue.
 """
@@ -957,12 +962,44 @@ def family_last_activity(rows: list[dict], project: bool) -> datetime | None:
     return max(stamps) if stamps else None
 
 
+_ISO_WEEK_RE = re.compile(r":(\d{4})-W(\d{2})(?![0-9])")
+
+
+def subject_iso_week(subject: str) -> tuple[int, int] | None:
+    """The ISO (year, week) a subject encodes as ':YYYY-Www', else None.
+
+    A weekly subject is a claim about ONE ISO week. `subject` is UNIQUE, so
+    without this guard a terminal row is revived by the next poll as soon as its
+    cooldown elapses, and a deferred row can be released a week later still
+    carrying last week's prompt - both measured in ledger item 755.
+    """
+    found = None
+    for found in _ISO_WEEK_RE.finditer(subject or ""):
+        pass
+    if found is None:
+        return None
+    year, week = int(found.group(1)), int(found.group(2))
+    return (year, week) if 1 <= week <= 53 else None
+
+
+def _iso_week_of(dt: datetime | None) -> tuple[int, int] | None:
+    if dt is None:
+        return None
+    iso = dt.isocalendar()
+    return (int(iso[0]), int(iso[1]))
+
+
+def _iso_week_label(week: tuple[int, int] | None) -> str:
+    return "" if week is None else "%04d-W%02d" % week
+
+
 def file_wake(conn: sqlite3.Connection, *, subject: str, prompt: str, context: str = "",
               kind: str = "task", source: str = "", priority: str = "normal",
               cooldown_seconds: int | None = None,
               max_attempts: int | None = None,
               allow_from_session: bool = False,
               defer_on_cooldown: bool = True,
+              refile: bool = False,
               detail: dict | None = None) -> tuple[str, int | None]:
     """File, dedupe, suppress or cap. Returns (result, row_id). Never raises on
     a guard decision: every decision is one of the four frozen words.
@@ -1000,6 +1037,44 @@ def file_wake(conn: sqlite3.Connection, *, subject: str, prompt: str, context: s
 
     stamp = now()
     existing = row_dict(conn.execute("SELECT * FROM wake WHERE subject=?", (subject,)).fetchone())
+
+    # guard 1a - an ISO-week subject is about ONE week. A terminal row for the
+    # same subject that finished inside that week is a completed week, not new
+    # work: the UNIQUE subject used to revive it as soon as the cooldown passed
+    # (item 755: six releases in eleven hours for a subject whose own docstring
+    # said one session per ISO week). A weekly subject whose week has passed is
+    # stale by definition - re-filing it would wake a session for last week's
+    # condition, so it is suppressed even with --refile; the caller advances the
+    # subject to the current week instead.
+    subject_week = subject_iso_week(subject)
+    if subject_week is not None:
+        current_week = _iso_week_of(now_dt())
+        if subject_week != current_week:
+            if detail is not None:
+                detail.update({
+                    "guard": "iso-week",
+                    "subject_week": _iso_week_label(subject_week),
+                    "current_week": _iso_week_label(current_week),
+                    "note": (f"suppressed:stale-week: subject names "
+                             f"{_iso_week_label(subject_week)} but the current ISO week "
+                             f"is {_iso_week_label(current_week)}; advance the subject "
+                             f"to the current week"),
+                })
+            return "suppressed:stale-week", (int(existing["id"])
+                                             if existing is not None else None)
+        if (not refile and existing is not None
+                and existing["state"] in TERMINAL_STATES
+                and _iso_week_of(parse_dt(existing.get("finished_at"))) in (None, subject_week)):
+            if detail is not None:
+                detail.update({
+                    "guard": "iso-week",
+                    "subject_week": _iso_week_label(subject_week),
+                    "finished_at": existing.get("finished_at"),
+                    "note": (f"deduped: {subject} already finished inside "
+                             f"{_iso_week_label(subject_week)}; pass --refile to "
+                             f"re-file it (the normal cooldown still applies)"),
+                })
+            return "deduped", int(existing["id"])
 
     # THE FAMILY. For a project subject the guards below are evaluated against
     # `project:<id>:<day>`, so the `#<n>` day-suffix cannot restart them. For any
@@ -1163,6 +1238,7 @@ def cmd_flag(args) -> int:
                 max_attempts=getattr(args, "max_attempts", None),
                 allow_from_session=allow,
                 defer_on_cooldown=not bool(getattr(args, "no_defer", False)),
+                refile=bool(getattr(args, "refile", False)),
                 detail=detail,
             )
         ok = True
@@ -1272,6 +1348,37 @@ def selector_reading() -> dict:
     return {"kind": kind, "value": value} if kind else {}
 
 
+def _expire_stale_weekly_rows(conn: sqlite3.Connection) -> int:
+    """Terminally retire `new` weekly rows whose ISO week has passed.
+
+    The dispatcher releases a `new` row whenever `not_before` lets it, so a
+    weekly row deferred for a full week (the 604800 s cooldown the weekly
+    sources pass) used to wake a session on the NEXT week's date still carrying
+    LAST week's prompt - measured 2026-10-27T03:38 on
+    owner-text:conformance:2026-W43. A weekly subject that is no longer the
+    current week is stale, not pending; `expired` is the only honest state for
+    it, and it keeps the queue from releasing it by accident.
+    """
+    current = _iso_week_of(now_dt())
+    stamp = now()
+    stale = []
+    for raw in conn.execute("SELECT * FROM wake WHERE state='new'").fetchall():
+        r = row_dict(raw)
+        week = subject_iso_week(r["subject"]) if r is not None else None
+        if week is not None and week != current:
+            stale.append((r, week))
+    for r, week in stale:
+        conn.execute(
+            """UPDATE wake SET state='expired', finished_at=?, outcome=?,
+                   not_before=NULL, lease_until=NULL
+               WHERE id=? AND state='new'""",
+            (stamp,
+             f"expired: weekly subject names {_iso_week_label(week)}, current ISO "
+             f"week is {_iso_week_label(current)}; not released", r["id"]),
+        )
+    return len(stale)
+
+
 def _candidates(conn: sqlite3.Connection):
     """New rows that are past their not_before and inside every per-row gate."""
     quiet = night_quiet_active()
@@ -1364,6 +1471,7 @@ def _candidates_gated(conn: sqlite3.Connection) -> dict:
 def cmd_claim(args) -> int:
     conn = connect()
     with _tx(conn):
+        _expire_stale_weekly_rows(conn)
         blocked = release_block(conn)
         if blocked is not None:
             payload = {"ok": True, "row": None, "blocked_by": blocked}
@@ -1967,6 +2075,9 @@ def _add_flag_args(parser) -> None:
                         help="item 232: this source is day-bucketed -- never let the "
                              "cooldown DEFER its row (refresh a live unclaimed row "
                              "instead, and do not re-arm a terminal one)")
+    parser.add_argument("--refile", action="store_true",
+                        help="item 755: re-file a weekly (:YYYY-Www) subject that "
+                             "already finished inside its ISO week")
     parser.add_argument("--json", action="store_true")
 
 
