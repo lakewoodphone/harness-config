@@ -148,6 +148,33 @@ payload would be better and HA is the only thing that can supply it, which is th
 actually sent. And nothing has yet exercised `page()` against the live endpoint with a real key — that is the first
 real page, which needs the body shown to the owner first.
 
+
+### 7. The cancel window exists, and the record says who cancelled — DONE 2026-10-27 22:47Z
+
+`POST /webhook/ha/security-page/cancel` on the live API, plus a `security_page_ack` table on the authority
+(`page_id`, `who`, `noted_at`, `note`, `window_s`). A cancel **appends** — it never disarms anything, never deletes
+evidence and never rewrites the decision; it records that a page was answered, by whom, and how long after it went.
+
+Verified end to end, and nothing was sent to anyone:
+
+| path | result |
+|---|---|
+| no `x-ps-api-key` | **401** |
+| with the key, but no page exists | `{"ok":false,"reason":"no page recorded to cancel"}` — it does not invent one |
+| a planted `PAGE` row, then a cancel | `{"ok":true,"page_id":3,"who":"owner-pin","age_s":0,"inside_window":true,"window_s":600}` |
+| the acknowledgement row | `3 by owner-pin inside_window=1` |
+| cancelling the same page twice | `{"ok":true,"page_id":3,"already":true,...}` — idempotent, returns the original who and time |
+
+The window is 600 s (D5). `inside_window` is computed and returned rather than enforced by refusal, because an
+acknowledgement that arrives late is still a fact the record should keep: it tells you the page rang for four minutes
+before anyone answered, which is exactly the number that decides whether escalation is set correctly.
+
+Everything planted for the test was deleted by exact id: `actions=0  acks=0`.
+
+**What remains for the objective:** escalation when a page is unanswered (the acknowledgement table now makes that
+possible — a `PAGE` with no ack inside the window is the trigger), a quiet-hours policy for the security path, the
+picture that has never travelled (blocked on a file route into `/config`), and the first real page.
+
 ## Remaining
 
 | # | fix | live location | note |
