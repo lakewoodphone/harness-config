@@ -53,6 +53,52 @@ parse.
 **So the build is not "wire level 3 to a page". It is: give the security path a priority, exempt it from the daily
 quota, make its success signal honest, make it idempotent, and give it an identifier — then wire it.**
 
+## 1c. **The page already exists. Do not build a second one.** (Measured 2026-10-27, second reading)
+
+This is the correction that matters most, and it invalidates the plan in §2 and §6 below.
+
+**Home Assistant already pages, end to end, today.** `live/phoenix_security.LIVE2.yaml:384-391` defines:
+
+```yaml
+rest_command.phoenix_security_page:
+  url: https://ai.abletelsolutions.com/webhook/ha/security-alert
+  method: POST
+  headers: x-ps-api-key: !secret secretary_security_api_key
+  payload: { event, detail, avs_level (default 3), snapshots }
+```
+
+called from `script.phoenix_intrusion_evidence_and_page` (`live/phoenix_intrusion_evidence.LIVE.yaml:312`), with a
+four-attempt retry loop after it (`:324-335`). The receiving end is live (`app/main.py:8505`) and sends SMS/MMS to the
+owner, his wife and his mother. It reaches a real Twilio send.
+
+**Therefore a Python pager in the company would be the second one** — the thing this estate's own rule forbids and the
+thing that would have produced two pages per intrusion. The architecture is already the one the owner described:
+**reflex and response in Home Assistant, judgement in the company.** The company's job is to *record and judge*, not to
+send.
+
+**What that means for the build list in §6 — the corrected order:**
+
+| # | work | where | why |
+|---|---|---|---|
+| 1 | **Make the evidence script finish.** A bare `for … done` inside `shell_command.phoenix_verify_evidence_files` is `exec`'d rather than shell'd (`[Errno 2] No such file or directory: 'for'`), so the chain aborts and **the picture has never travelled** | HA package file | without it, every page is text-only and the requirement "a picture of every person" fails at the first step |
+| 2 | **Stop the retry amplification.** `ok = all(recipients)` plus HA's 4-attempt loop = up to five copies for whoever succeeded, driven by one bad number | backend + HA | a page that repeats is a page that gets ignored |
+| 3 | **Exempt the security page from the owner's 20-a-day quota**, as the kill switch already is | `sms_service.py` | otherwise the owner is the one recipient who can be silently dropped |
+| 4 | **Make the response honest** — `paged` must not be hardcoded `true`; `ok` must mean "the owner got it or did not" | `main.py:8653-6663` | every downstream decision gates on it |
+| 5 | **Invent the page identifier** — the payload already carries `avs_level` and nothing carries an id | backend + HA | cancel, acknowledgement, dedupe and `security_action` all need it |
+| 6 | **Write `security_action` on every attempt** — nothing anywhere writes that table today, so `security-digest` reports "0 pages" forever and its one-line summary keeps saying nothing happened | backend | the record must say what was *done*, not only what was *decided* |
+| 7 | **The declared shop state**, so `R_DOOR` can reach level 3 at all | company | the judge cannot call an event level 3 while "empty" means "nobody anywhere in the basement" |
+
+**Two further measured facts to carry:** a level-3 decision is stored as `decision='ESCALATE'` and **never `'ALARM'`**
+(`security-sentinel.py:337`) — anything keyed on `ALARM` misses every level-3 event, and `avs_level` is a bare INTEGER
+with no CHECK constraint; and the payload field `avs_level` that HA already sends **is not documented in the handler's
+docstring and is not used**, so the priority hook exists in the wire format and is unwired.
+
+**One stale-tree warning.** The child that produced §1c read `harness-config@92d318047` on another node and reported
+that `security_evidence`, `02-evidence.sql` and `03-expected-state.sql` do not exist. That is true **of that commit** and
+false of the branch: all three were created on 2026-10-27 and are in `agent/security-q1-20261027`. A mesh child cannot
+see a local worktree, and its checkout was six weeks behind — so its schema claims are superseded, while its findings
+about the HA page path and the missing `security_action` writer are not.
+
 ## 2. The level → priority mapping, and why it is exactly one line each
 
 | security decision | page | why |
