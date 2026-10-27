@@ -317,37 +317,39 @@ The owner sent screenshots of `Setup → System → Date & Time`, `Storage → B
 I re-fetched two stills at **16:07:40 EDT** and read their burned-in times. The earlier diagnosis was wrong in a
 useful way, so it is recorded here rather than quietly edited.
 
-### 10.1 NTP was already on. The clock was not the setting — the timezone is.
+### 10.1 There were two faults, and the owner fixed the first one himself
 
-The Date & Time page shows **NTP enabled**, `pool.ntp.org`, port 123, interval 60 minutes — so "turn NTP on" was
-advice for a fault that did not exist. What the page also shows is the actual defect:
+> **CORRECTED by the owner, 2026-10-27: NTP was OFF, and he turned it on and pressed sync just before sending the
+> screenshots.** The first version of this section said "NTP was already on, so that advice was aimed at a fault that
+> did not exist". That was wrong, and the way it was wrong is worth keeping: **a screenshot shows the state *after*
+> someone touched the machine, and I read it as the state before.** The advice to switch NTP on was correct.
 
-| field | value | why it matters |
-|---|---|---|
-| Time Zone | `(UTC-05:00) Eastern Time (US & Canada)` | in October, Eastern is **EDT = UTC−04:00** |
-| DST | checked, but **Start Jan 1 00:00 → End Jan 2 00:00** | a one-day window in January, so DST is never applied in summer |
+So the recorder had **two independent faults**, and one is now fixed:
 
-Measured, twice, on the same camera:
-
-| when | camera OSD | host clock | offset |
+| # | fault | state | evidence |
 |---|---|---|---|
-| 12:21:25 EDT (this morning) | 11:30:01 | 12:21:25 | 51 m 24 s |
-| 16:07:40 EDT (after the UI visit) | **15:07:41** | 16:07:40 | **59 m 59 s** |
+| 1 | **No time source** — NTP off, so the clock free-ran and accumulated error | **FIXED by the owner** (NTP on, `pool.ntp.org`, port 123, interval 60 min, then synced) | the 8 m 35 s of drift in the morning reading is gone; what remains is a whole number |
+| 2 | **Timezone / DST** — `(UTC-05:00) Eastern` with a DST window of `Jan 1 00:00 → Jan 2 00:00`, i.e. a one-day window in January, so daylight saving is never applied in summer and the shop is shown **standard** time during EDT | **STILL OPEN** | what survives fault 1's repair is *exactly* one hour |
 
-The 8 m 35 s of drift that was in the first reading is **gone**, and what is left is **exactly one hour** — the
-signature of a timezone being one offset out, not of a slow clock. Reading: NTP succeeded at some point between the
-two measurements (or the owner pressed *Manual Update*), which corrected the base time to the right UTC second; the
-display is still one hour wrong because the device believes it is on standard time in October.
+| when | camera OSD | host clock | offset | what it means |
+|---|---|---|---|---|
+| 12:21:25 EDT (NTP off) | 11:30:01 | 12:21:25 | 51 m 24 s | one hour of timezone **plus** 8 m 35 s of accumulated drift |
+| 16:07:40 EDT (after his fix) | **15:07:41** | 16:07:40 | **59 m 59 s** | the drift is gone; the hour that is left is the timezone |
 
-**Fix, four fields, no NTP involved:** set `DST → Type = Week`, `Start = Mar, 2nd week, Sunday, 02:00`,
+That the remainder is a *round* hour is the whole diagnosis: a free-running clock does not land on exactly 3600
+seconds, a timezone offset does. Fixing fault 1 is what made fault 2 visible — the measurement only became decisive
+because he pressed sync before I looked again.
+
+**Fix for fault 2, four fields, no NTP involved:** `DST → Type = Week`, `Start = Mar, 2nd week, Sunday, 02:00`,
 `End = Nov, 1st week, Sunday, 02:00`. That is the US rule, so the display is right now *and* after the November
 change — which a manual "set the clock forward an hour" would not be.
 
-### 10.2 The doorbell is a different fault and is still wrong
+### 10.2 The doorbell has both faults too, and neither is fixed
 
-Same moment, 16:07:43 EDT: the Reolink burned **27/10/2026 15:00:06**, i.e. **1 h 07 m 37 s behind** — unchanged
-from this morning's 67 m 26–34 s. So the doorbell is not a timezone; it is its own unsynced clock, and nothing done
-to the NVR touches it. It needs NTP (or "sync with phone") in the Reolink app.
+Same moment, 16:07:43 EDT: the Reolink burned **27/10/2026 15:00:06**, i.e. **1 h 07 m 37 s behind** — and this
+morning it was 1 h 07 m 26 s. The extra 11 seconds across about 73 minutes is a free-running clock at roughly
+**0.25 % slow**, and the bulk of the 67 minutes is the same kind of one-hour offset as the NVR. So the doorbell
+needs the same two things, in its own app: **correct timezone/DST, and NTP on**. Nothing done to the NVR touches it.
 
 ### 10.3 The disk answers the retention question — and says video *is* being recorded
 
