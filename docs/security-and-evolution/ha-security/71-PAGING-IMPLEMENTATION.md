@@ -250,6 +250,38 @@ Then, after the restart: no key → **401**; a test event with the key →
 sending. The decision is proven; its wiring is proven to compile and serve; the branch itself waits for the first real
 page.
 
+
+### 10. The picture travels again — and it never needed Home Assistant's file system — DONE 2026-10-27 22:50Z
+
+The blocker was Home Assistant's evidence script, which aborts before attaching a snapshot (a bare `for … done` inside
+a `shell_command` that HA `exec`s rather than shells). Fixing *that* needs a file written into `/config`, which this
+machine has no route to.
+
+**It turns out the picture never needed it.** The API already holds an HA token and already rehosts and verifies the
+URL Twilio will fetch. Measured directly, without sending anything:
+
+```
+media_ok    : True
+media_url   : https://ai.abletelsolutions.com/webhook/ha/security-media/cEXB637A0SjhUOo08yJuJnStFTuGL-...jpg
+media_error : None
+attempt     : {'ok': True, 'bytes': 154779}
+```
+
+That is a 154,779-byte still pulled from `camera.cam_front_hallway_main` through Home Assistant's own API, stored under
+an unguessable token, and re-fetched **anonymously** the way Twilio would — the three steps that had to pass for an MMS
+to carry an image.
+
+So the handler now falls back to capturing the still itself when Home Assistant supplies nothing:
+`settings.security_default_camera` (or `camera.cam_front_hallway_main`), passed through the same
+`prepare_security_alert_media` chain. Verified after the restart: `py_compile` ok, bound in 8 s, `/health` 200, no key
+**401**, a test event still returns `"test event, skipped owner SMS"`, `security_action` rows 0.
+
+**What this changes about the earlier plan:** the "blocked on `/config`" item is no longer blocking. The HA-side fix is
+still worth making — it makes the reflex fast and local — but the page no longer depends on it.
+
+**Not proven:** that a real MMS carries the picture. The chain is proven up to "a verified public URL exists"; the
+delivery itself is the first real page.
+
 ## Remaining
 
 | # | fix | live location | note |
