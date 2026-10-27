@@ -90,6 +90,16 @@ DELETE FROM security_decision WHERE id='selftest-l3';
 `page_decision(avs_level, quiet_now)` in `app/security_page_audit.py` is pure and units-tested (7 cases), so the
 priority rule can be checked without touching the network.
 
+```bash
+# the priority rule, pure, 7 cases
+cd /opt/company && PYTHONPATH=/opt/company .venv/bin/python -c "from app.security_page_audit import page_decision as p; print(p(3, True), p(2, True), p(None, True))"
+# ok reports the OWNER'S send - stubs the transport, sends nothing, exits 0 on pass
+cd /opt/company && PYTHONPATH=/opt/company .venv/bin/python /root/test-security-page-ok.py
+```
+
+`PYTHONPATH` is not optional for the second: a script run by absolute path puts its own directory on `sys.path`, not
+the working directory.
+
 ## 6. When something looks wrong
 
 | symptom | first check |

@@ -320,3 +320,28 @@ In order, and the last one needs the owner's word on the exact body:
    sending**;
 2. a `security_action` row written for that attempt;
 3. **one real page**, body shown to the owner and approved first, then sent, and confirmed by him receiving it.
+
+### 11. The `ok` semantics are now proven by a re-runnable test, not asserted — 2026-10-27 22:53Z
+
+`scripts/test-security-page-ok.py`, deployed to `/root/test-security-page-ok.py`. It stubs the transport and varies
+**who fails**, so the behaviour is proven and nothing leaves the building:
+
+```
+owner OK, extra REFUSED    ok=True   per-recipient={'+1848…': True,  '+1999…': False}
+owner REFUSED, extra OK    ok=False  per-recipient={'+1848…': False, '+1999…': True}
+both OK                    ok=True   per-recipient={'+1848…': True,  '+1999…': True}
+RESULT: PASS - ok reports the OWNER'S send
+```
+
+The first case is the one that mattered: before the fix it returned `False`, Home Assistant treated that as a failed
+page, retried four more times, and re-sent the page to the owner every time — up to five copies driven by one bad
+family handset. Run it with:
+
+```bash
+cd /opt/company && PYTHONPATH=/opt/company .venv/bin/python /root/test-security-page-ok.py
+```
+
+`PYTHONPATH` is required: a script run by absolute path puts its own directory on `sys.path`, not the working
+directory, so without it the import fails with `ModuleNotFoundError: No module named 'app'` (measured — the heredoc
+form worked and the saved file did not, which is exactly the kind of difference that makes a test look broken).
+It exits 0 on pass and 1 on fail, so it can gate a deploy.
