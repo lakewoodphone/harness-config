@@ -26,9 +26,11 @@ USAGE
                  [--cooldown-seconds N] [--max-attempts N] [--json]
     wake.py claim --by NAME [--lease-seconds N] [--json]
     wake.py heartbeat ID --by NAME [--lease-seconds N]
-    wake.py finish ID --outcome TEXT [--cost-usd X]   |  finish ID --failed ...
+    wake.py finish ID --outcome TEXT [--cost-usd X]
+              |  finish ID --failed ...
+              |  finish ID --unverified ...      (see THREE OUTCOMES, below)
     wake.py reap [--json]
-    wake.py list [--state S] [--limit N] [--json]
+    wake.py list [--state S] [--limit N] [--include-selftest] [--json]
     wake.py stats [--json]
     wake.py pause | resume
     wake.py await PHONE --what W [--name N] [--until DATE] [--created-by X]
@@ -49,6 +51,29 @@ reported as `suppressed:*` - a silent suppression is a system that looks green
 while the queue stays empty and the dispatcher idles, which is the exact failure
 this design exists to prevent.
 
+THREE OUTCOMES, NOT TWO: done / failed / unverified. Until 2026-10-02 a row whose
+session ran and whose out-file could not be read back was closed `failed` with
+the words "the result is unverified" - so the store could not tell a broken
+session from broken transport, and the unreadable result consumed one of the
+row's `max_attempts` exactly like a crash. Measured on wake #498, 2026-10-02.
+Now `finish --unverified` closes such a row in its OWN state, refunds the attempt
+(the ambiguity is the transport's fault, not the session's) and, unlike `failed`,
+does not increment `wake_budget.failed`. The refund is bounded by the `unverified`
+column so an unreadable out-file can never become an unbounded retry loop: after
+`WAKE_MAX_UNVERIFIED` (3) unverified releases a re-flag answers
+`suppressed:unverified` instead of releasing again. A success clears the count.
+A session killed at its bound stays `failed` - that one is a real loss, and its
+outcome text says what was lost.
+
+A TEST ROW IS NOT A PRODUCTION FAILURE. The owner-guard test proves the filing
+path by writing a real row into the LIVE store and closing it `failed`; on
+2026-10-02 that was 139 of the store's 195 `failed` rows and every counter that
+read the store called them production failures. `stats`, `list` and the release
+path count REAL rows only, and report the test rows on their own line. The frozen
+marker is `kind='selftest'` (set at creation by the caller); rows filed before
+that marker existed are recognised by the guard test's own subject namespace
+(`SMselftest-`). Nothing is deleted or rewritten - the record is append-only.
+
 A WOKEN SESSION MUST NOT RAISE FLAGS. A headless session runs this same CLI, so
 a session that misunderstands its task could file a flag, which releases another
 session, which files another - unbounded recursion. Therefore: if `WAKE_SESSION`
@@ -59,22 +84,52 @@ dispatcher sets it in the environment of every session it launches. An explicit
 case. This lives in `file_wake()` rather than in the CLI so that every caller -
 `flag`, `add`, `_file_wake` in sms-responder.py - inherits it.
 
+THE PROJECT FAMILY. project-keepalive must be allowed more than one flag a day
+(`max_flags_per_day`), and it makes each extra flag unique with a `#<n>` suffix
+(`project:<id>:<day>`, then `#2`, `#3`, ...), because `subject` is UNIQUE.
+Evaluated on the exact string, guard 1, guard 2 and guard 9 can NEVER bind on
+the 2nd..Nth flag of a day: every one is a brand-new row with attempts=0 and no
+release to cool down from. They are therefore evaluated on the FAMILY
+`project:<id>:<day>` for PROJECT subjects only - one live row per family, the
+family's own filing/release clock for the cooldown, and the family's attempt
+ledger. A non-project subject has no family and is byte-for-byte unchanged.
+MEASURED 2026-10-14 as the defect this fixes: chumash
+`project:chumash:20261013#10` released 03:39:03Z and `#11` at 03:54:04Z, 15
+minutes apart against a 1800 s cooldown.
+
 ENVIRONMENT (all read AT CALL TIME, never at import, so tests can set them):
     SMS_INBOX_DB, SMS_INBOX_APP_DB, SMS_INBOX_ENV   - the store (sms-inbox.py)
     WAKE_COOLDOWN_SEC           (1800) guard 2
-    WAKE_MAX_PER_DAY          (500)    guard 3  (NOT the limiting guard - see
-                                        DEFAULT_MAX_PER_DAY: the real limit is the
-                                        70 USD/day spend cap, below)
+    WAKE_MAX_PER_DAY          (500)    guard 3  - RELEASE COUNT ceiling. The value in
+                                        force comes from the one budget file
+                                        (~/.sms-inbox/wake-budget.json) when it exists
     WAKE_MAX_PER_SOURCE_PER_HOUR(12)   guard 4 - raised 2026-09-30: one number, every reader
     WAKE_NIGHT_QUIET            (1)    guard 5
     WAKE_PAUSE_FILE             (~/.sms-inbox/WAKE_PAUSED) guard 6
     WAKE_LEASE_SEC              (1200) guard 7
     WAKE_MAX_ATTEMPTS           (2)    guard 9
-    WAKE_MAX_USD_PER_DAY        (25.0)  guard 10
+    WAKE_MAX_UNVERIFIED         (3)    how many `unverified` outcomes one subject may
+                                       collect before a re-flag stops releasing it;
+                                       0 disables the bound (see THREE OUTCOMES)
+    WAKE_NO_MIGRATE             - set 1 to make connect() READ-ONLY in effect: it
+                                       will not CREATE or ALTER anything, so `stats`
+                                       can read a store it must not write. Reads
+                                       only; a write against an un-migrated table
+                                       fails loudly.
+    WAKE_MAX_USD_PER_DAY        guard 10 - USD spend ceiling; the OWNER'S 70.00 is
+                                        written once, in DEFAULT_MAX_USD_PER_DAY, and
+                                        the daily value in force is read from the one
+                                        budget file, as wake-dispatch.sh does too
     WAKE_SESSION                - set inside a woken session; refuses every flag
                                   (guard 11, always on)
     WAKE_CLOCK_ISO      - test/ops override for "now" (ISO8601). A time gate
                           that cannot be exercised by a test is not a guard.
+    WAKE_ONLY_PROJECT   - aim a release at ONE project: only rows whose subject
+                          is `project:NAME:<date>[#n]` (the shape both keepalive
+                          sources file). Applied inside _candidates, so every
+                          frozen guard still applies.
+    WAKE_ONLY_ID        - aim at ONE wake row id (wins over WAKE_ONLY_PROJECT)
+    WAKE_ONLY_MATCH     - aim at a substring of subject/context/source/prompt
     WAKE_SMS_INBOX_PY   - path to sms-inbox.py if it is not found next to this
                           file or one directory up.
 
@@ -96,6 +151,7 @@ import argparse
 import contextlib
 import json
 import os
+import re
 import sqlite3
 import sys
 import traceback
@@ -183,7 +239,8 @@ CREATE TABLE IF NOT EXISTS wake (
     attempts     INTEGER NOT NULL DEFAULT 0,
     max_attempts INTEGER NOT NULL DEFAULT 2,
     claimed_by   TEXT, claimed_at TEXT, lease_until TEXT,
-    finished_at  TEXT, outcome TEXT, cost_usd REAL
+    finished_at  TEXT, outcome TEXT, cost_usd REAL,
+    unverified   INTEGER NOT NULL DEFAULT 0   -- how many `unverified` outcomes this row has had
 );
 
 CREATE TABLE IF NOT EXISTS wake_budget (
@@ -222,6 +279,7 @@ _WAKE_ADDED_COLUMNS = {
     "finished_at": "TEXT",
     "outcome": "TEXT",
     "cost_usd": "REAL",
+    "unverified": "INTEGER NOT NULL DEFAULT 0",
 }
 
 # The columns section 3 requires. Kept as a list so `stats`-style introspection
@@ -230,11 +288,12 @@ WAKE_COLUMNS = (
     "id", "subject", "kind", "source", "prompt", "context", "priority",
     "created_at", "not_before", "state", "attempts", "max_attempts",
     "claimed_by", "claimed_at", "lease_until", "finished_at", "outcome", "cost_usd",
+    "unverified",
 )
 
-STATES = ("new", "claimed", "done", "failed", "cancelled", "expired")
+STATES = ("new", "claimed", "done", "failed", "unverified", "cancelled", "expired")
 LIVE_STATES = ("new", "claimed")
-TERMINAL_STATES = ("done", "failed", "cancelled", "expired")
+TERMINAL_STATES = ("done", "failed", "unverified", "cancelled", "expired")
 
 MAX_NOT_BEFORE_REASONS = {
     "paused": "the kill switch is on",
@@ -243,10 +302,113 @@ MAX_NOT_BEFORE_REASONS = {
     "night-quiet": "low-priority releases are outside their window",
     "source-cap": "this source is at its hourly release cap",
     "attempts": "this subject has failed its maximum attempts",
+    "unverified": "this subject's result was unreadable too many times",
     "cooldown": "this subject was released recently",
     "usage": "the caller did not supply a subject and a prompt",
     "error": "an internal error was caught so the caller survives",
 }
+
+
+# --------------------------------------------------------------------------- #
+# a TEST ROW is not a production failure - the marker and its two predicates
+# --------------------------------------------------------------------------- #
+# WHY THIS EXISTS. `test-owner-guard.py` proves the filing path end to end by
+# writing a REAL row into the LIVE store and closing it `failed` ("the responder
+# commits the filing it reports"). Measured here 2026-10-02: 139 of the store's
+# 195 `failed` rows were that test's rows, so the headline failure number was
+# mostly the instrument auditing itself - the number said nothing about
+# production, and every reader of the store repeated it.
+#
+# THE FROZEN MARKER IS `kind='selftest'`, set at creation time by the caller.
+# Rows that already exist were filed before the marker existed, so they are ALSO
+# recognised by the guard test's own subject namespace: it builds the subject as
+# `owner-text:SMselftest-durable-<epoch>`. Both predicates exclude; neither ever
+# deletes or rewrites, because the record is append-only and the evidence that
+# the test ran is worth keeping.
+#
+# WHAT IS EXCLUDED FROM WHAT. `stats`, `list` and the RELEASE PATH read real rows
+# only. Excluding test rows from the release path is not tidiness: a selftest row
+# left in state `new` is claimable, and claiming one starts a real headless
+# session on the desktop to satisfy a test.
+SELFTEST_KIND = "selftest"
+SELFTEST_SUBJECT_TOKEN = "SMselftest-"
+# How many `unverified` outcomes a subject may collect before a re-flag stops
+# releasing it. 0 disables the bound (see cmd_finish / file_wake).
+DEFAULT_MAX_UNVERIFIED = 3
+
+
+def is_selftest_row(r) -> bool:
+    """True for a row that proves the harness works, not one the harness worked.
+
+    Accepts a sqlite3.Row or a dict. Never raises: when only one field can be
+    read the other predicate is simply unknown, and the row defaults to REAL - a
+    real row wrongly counted is visible in the number, a real row wrongly hidden
+    is not."""
+    def field(key):
+        try:
+            return r[key]
+        except Exception:
+            pass
+        try:
+            return (r or {}).get(key)
+        except Exception:
+            return None
+
+    if str(field("kind") or "").strip().lower() == SELFTEST_KIND:
+        return True
+    return SELFTEST_SUBJECT_TOKEN in str(field("subject") or "")
+
+
+def selftest_sql(alias: str = "") -> str:
+    """The same predicate in SQL. `alias` is a row qualifier such as `wake.`."""
+    return ("(%skind='%s' OR %ssubject LIKE '%%%s%%')"
+            % (alias, SELFTEST_KIND, alias, SELFTEST_SUBJECT_TOKEN))
+
+
+def selftest_reading(conn: sqlite3.Connection) -> dict:
+    """What the test rows are, so the excluded number is never a mystery.
+
+    `by_marker` and `by_subject_token` can overlap (a row filed with the marker
+    whose subject is also the guard test's); `both` says by how much, so the
+    three numbers always add up in the reader's head."""
+    by_state: dict[str, int] = {}
+    by_marker = by_subject = both = 0
+    for r in conn.execute(
+            "SELECT state, kind, subject FROM wake WHERE %s" % selftest_sql()).fetchall():
+        by_state[r["state"]] = by_state.get(r["state"], 0) + 1
+        marker = str(r["kind"] or "").strip().lower() == SELFTEST_KIND
+        subject = SELFTEST_SUBJECT_TOKEN in str(r["subject"] or "")
+        by_marker += 1 if marker else 0
+        by_subject += 1 if subject else 0
+        both += 1 if (marker and subject) else 0
+    return {
+        "rows": sum(by_state.values()),
+        "by_state": by_state,
+        "by_marker": by_marker,
+        "by_subject_token": by_subject,
+        "both": both,
+        "excluded_from": list(STATES),
+        "note": ("test rows are excluded from the counts and from the release path; "
+                 "they are NOT deleted - the record is append-only"),
+    }
+
+
+def store_reading(conn: sqlite3.Connection) -> dict:
+    """WHERE this reading came from and HOW OLD it is.
+
+    A count with no source and no age is not a reading (the provenance rule this
+    system learned the hard way). The newest row is the store's own evidence that
+    it is live; a store whose newest row is hours old is not a quiet store, it is
+    an unread one."""
+    path = str(getattr(inbox, "STORE", "") or os.environ.get("SMS_INBOX_DB", "") or "?")
+    row = conn.execute(
+        "SELECT id, created_at FROM wake ORDER BY created_at DESC, id DESC LIMIT 1").fetchone()
+    newest_at = row["created_at"] if row is not None else None
+    newest_id = row["id"] if row is not None else None
+    when = parse_dt(newest_at)
+    age = None if when is None else max(0, int((now_dt() - when).total_seconds()))
+    return {"path": path, "newest_row_id": newest_id, "newest_row_at": newest_at,
+            "newest_row_age_seconds": age, "now": now()}
 
 
 # --------------------------------------------------------------------------- #
@@ -259,14 +421,18 @@ def _env_str(name: str, default: str) -> str:
 
 DEFAULT_MAX_PER_DAY = 500
 
-# THE ACTUAL LIMIT: the owner's 70 USD/day of DeepSeek API spend.
-# He set the ceiling himself on 2026-09-28: "obviously we can't have overall more than $70 of
-# spending, let's say, on the deepseek API daily. But it's not like how many times."
-# At the MEASURED 0.068 USD per autonomous shift (38 priced releases, 2.5825 USD total in
-# ~/.sms-inbox/wake-cost.jsonl) that is roughly 1,029 shifts/day, so this binds only when
-# something is pathological - which is precisely what it is for. Volume is not the limit;
-# waste is.
-DEFAULT_MAX_USD_PER_DAY = 25.0
+# THE USD SPEND CEILING - the ONLY place the OWNER'S number is written: 70.00/day.
+# He set it himself on 2026-09-28 ("we can't have overall more than $70 ... on the
+# deepseek API daily"), and owner question #212 was answered on 2026-10-15 "keep
+# 70 USD/day ... ONE number in ONE file" - which filed ledger item 285. Item 232 had
+# held this constant down at 25.00 "until #212 is settled"; it is settled, so the hold
+# is over and 70.00 is restored as the single literal.
+#
+# THE DAILY VALUE IN FORCE IS NOT THIS CONSTANT. wake-balance.py measures it into
+# ~/.sms-inbox/wake-budget.json, clamped to the balance and to this maximum;
+# `cap_max_usd_per_day()` below reads that file back, and wake-dispatch.sh reads the
+# same file through `wake.py stats --json`. One file, two readers, one number.
+DEFAULT_MAX_USD_PER_DAY = 70.0
 
 def _env_int(name: str, default: int) -> int:
     try:
@@ -280,6 +446,46 @@ def _env_float(name: str, default: float) -> float:
         return float(str(_env_str(name, str(default))).strip())
     except (TypeError, ValueError):
         return default
+
+
+def _budget_caps():
+    """(max_per_day, max_usd_per_day) as the ONE budget file measures them, else (None, None).
+
+    item 285. THE OTHER READERS OF THIS NUMBER: `wake-dispatch.sh` derives its two gates from
+    `wake.py stats --json`; `wake-fanout.sh` and `wake-budget-env.sh` render the same file to
+    the environment; `autonomy-status.sh` and the owner digest read `stats`. Before this
+    function an UNWRAPPED `wake.py` - a shift, a source tick, a shell - reported this module's
+    constants while the wrapped dispatcher enforced the file's measured value: two ceilings
+    from two sources. Reading the file here is what makes every reader agree.
+
+    The import is lazy on purpose: `wake_budget.configured_max()` resolves its maximum from
+    `DEFAULT_MAX_USD_PER_DAY` in THIS module, so a top-level import would be circular.
+    """
+    try:
+        import wake_budget
+        doc = wake_budget.read_budget()
+        if not doc:
+            return (None, None)
+        cap = wake_budget.effective_cap(doc)
+        return (wake_budget.effective_max_per_day(doc, cap), cap)
+    except Exception:
+        return (None, None)
+
+
+def cap_max_per_day() -> int:
+    """Guard 3's ceiling: explicit env, else the one budget file, else the constant."""
+    if os.environ.get("WAKE_MAX_PER_DAY") not in (None, ""):
+        return _env_int("WAKE_MAX_PER_DAY", DEFAULT_MAX_PER_DAY)
+    per, _cap = _budget_caps()
+    return DEFAULT_MAX_PER_DAY if per is None else int(per)
+
+
+def cap_max_usd_per_day() -> float:
+    """Guard 10's ceiling, resolved the SAME way as guard 3 so they cannot disagree."""
+    if os.environ.get("WAKE_MAX_USD_PER_DAY") not in (None, ""):
+        return _env_float("WAKE_MAX_USD_PER_DAY", DEFAULT_MAX_USD_PER_DAY)
+    _per, cap = _budget_caps()
+    return DEFAULT_MAX_USD_PER_DAY if cap is None else float(cap)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -343,6 +549,12 @@ def paused() -> bool:
 
 def connect() -> sqlite3.Connection:
     conn = inbox.connect()
+    # MEASURED 2026-10-18: the default 5 s busy timeout turned a transient
+    # `database is locked` into a hard error, and a dispatcher heartbeat that cannot renew its
+    # lease kills the shift (three died at 04:17-04:21). The wake store has many writers
+    # (sources, fanout, mirror, responder, cost) and WAL cannot make writer-writer free.
+    # Waiting is always cheaper here than losing a shift.
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.isolation_level = None          # explicit transactions only
     _ensure(conn)
     return conn
@@ -356,14 +568,27 @@ def _ensure(conn: sqlite3.Connection) -> None:
     v0 `wake` table, where `CREATE TABLE IF NOT EXISTS` is a no-op, so this is
     the difference between working on the machine that matters and crashing
     with `no such column` there.
+
+    The check is against WAKE_COLUMNS, not against a hand-written probe SELECT.
+    The probe used to name an arbitrary subset of columns, so a column added to
+    WAKE_COLUMNS without also being added to the probe was never migrated on a
+    store that already had the table - the exact silent-drift the constant exists
+    to prevent (`unverified`, added 2026-10-02).
+
+    WAKE_NO_MIGRATE=1 skips all of this: a status read against a store it must not
+    write (another workstream's store, a `mode=ro` copy, the live authority while
+    a branch is still being reviewed) then needs no write access at all. It is for
+    READS ONLY - a write against a table the migration has not touched fails
+    loudly with `no such column`, which is the correct outcome.
     """
-    try:
-        conn.execute(
-            "SELECT id, source, not_before, attempts, max_attempts, lease_until, "
-            "cost_usd FROM wake LIMIT 1").fetchone()
+    if _env_bool("WAKE_NO_MIGRATE", False):
         return
+    try:
+        have = {r["name"] for r in conn.execute("PRAGMA table_info(wake)").fetchall()}
     except sqlite3.Error:
-        pass
+        have = set()
+    if have and set(WAKE_COLUMNS).issubset(have):
+        return
     conn.executescript(SCHEMA)
     _migrate(conn)
     conn.executescript(SCHEMA_INDEXES)
@@ -380,20 +605,66 @@ def _migrate(conn: sqlite3.Connection) -> None:
     conn.execute("UPDATE wake SET source='manual' WHERE source IS NULL OR source=''")
 
 
+# --- LEDGER #151: one writer for the wake store -----------------------------
+# Every wake.py write site funnels through _tx() (705, 826, 871, 917, 1007,
+# 1136), so a cross-process flock taken BEFORE BEGIN IMMEDIATE serialises all of
+# them and removes wake.py-vs-wake.py write contention - the measured source of
+# every 'database is locked' / SQLITE_PROTOCOL line in wake-dispatch.log.
+# Ordinary sqlite contention was falsified four independent ways (attempts
+# 538/548/550/554); the residual is a short SQLITE_BUSY_RECOVERY / SQLITE_PROTOCOL
+# window during release/claim bursts that the sqlite busy handler does not cover.
+# Readers never take this lock, and the kernel releases flock on process exit, so
+# a dead holder cannot wedge the store.
+try:
+    import fcntl as _fcntl
+except ImportError:                      # non-POSIX (dev box / tests)
+    _fcntl = None
+
+
+@contextlib.contextmanager
+def _store_lock():
+    """Advisory cross-process single-writer lock for the wake store."""
+    if _fcntl is None:
+        yield
+        return
+    store = Path(getattr(inbox, "STORE", Path.home() / ".sms-inbox" / "inbox.db"))
+    lock_path = store.parent / (store.name + ".waketx.lock")
+    try:
+        fh = open(lock_path, "a+")
+    except OSError:
+        yield                            # never block a heartbeat on lock setup
+        return
+    try:
+        _fcntl.flock(fh.fileno(), _fcntl.LOCK_EX)
+    except OSError:
+        fh.close()
+        yield
+        return
+    try:
+        yield
+    finally:
+        try:
+            _fcntl.flock(fh.fileno(), _fcntl.LOCK_UN)
+        finally:
+            fh.close()
+
+
 @contextlib.contextmanager
 def _tx(conn: sqlite3.Connection):
-    """BEGIN IMMEDIATE: the claim must be atomic against a second dispatcher."""
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        yield conn
-    except BaseException:
+    """BEGIN IMMEDIATE under the store's single-writer lock: the claim must be
+    atomic against a second dispatcher, including one in another process."""
+    with _store_lock():
+        conn.execute("BEGIN IMMEDIATE")
         try:
-            conn.execute("ROLLBACK")
-        except sqlite3.Error:
-            pass
-        raise
-    else:
-        conn.execute("COMMIT")
+            yield conn
+        except BaseException:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
+        else:
+            conn.execute("COMMIT")
 
 
 def _rows(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> list[dict]:
@@ -409,9 +680,9 @@ def row_dict(row) -> dict | None:
 # --------------------------------------------------------------------------- #
 def caps_now() -> dict:
     return {
-        "max_per_day": _env_int("WAKE_MAX_PER_DAY", DEFAULT_MAX_PER_DAY),
+        "max_per_day": cap_max_per_day(),
         "max_per_source_per_hour": _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 12),
-        "max_usd_per_day": _env_float("WAKE_MAX_USD_PER_DAY", DEFAULT_MAX_USD_PER_DAY),
+        "max_usd_per_day": cap_max_usd_per_day(),
         "cooldown_sec": _env_int("WAKE_COOLDOWN_SEC", 1800),
         "lease_sec": _env_int("WAKE_LEASE_SEC", 1200),
         "max_attempts": _env_int("WAKE_MAX_ATTEMPTS", 2),
@@ -523,7 +794,7 @@ def release_block(conn: sqlite3.Connection) -> str | None:
     """The whole-queue guards checked before anything may be released."""
     if paused():
         return "paused"
-    if released_today(conn) >= _env_int("WAKE_MAX_PER_DAY", DEFAULT_MAX_PER_DAY):
+    if released_today(conn) >= cap_max_per_day():
         return "daily-cap"
     spent = spend_today(conn)
     if spent is None:
@@ -531,7 +802,7 @@ def release_block(conn: sqlite3.Connection) -> str | None:
         # unreadable cost file cannot silently stop the operation either.
         if released_today(conn) > UNMEASURED_REFUSE_ABOVE:
             return "spend-unmeasured"
-    elif spent >= _env_float("WAKE_MAX_USD_PER_DAY", DEFAULT_MAX_USD_PER_DAY):
+    elif spent >= cap_max_usd_per_day():
         return "cost-cap"
     return None
 
@@ -554,7 +825,20 @@ def caps_in_force(conn: sqlite3.Connection) -> list[str]:
         out.append("session_recursion: WAKE_SESSION is set - every flag is refused")
     if rel >= cap["max_per_day"]:
         out.append(f"daily_cap: {rel}/{cap['max_per_day']} releases today")
-    if spend >= cap["max_usd_per_day"]:
+    if spend is None:
+        # NO MEASUREMENT IS NOT ZERO - the same rule release_block already
+        # applies. This branch used to be a plain `if spend >= cap[...]`, so an
+        # unreadable spend raised `TypeError: '>=' not supported between
+        # NoneType and float` and took the whole status reader down with it:
+        # measured 2026-10-02, with ~/.sms-inbox/wake-cost.jsonl absent,
+        # `wake.py stats` exited 1 - and because the dispatcher derives its two
+        # ceilings from `stats --json` and refuses to release when it cannot read
+        # them, ONE missing cost file stopped every release. A cap that cannot be
+        # evaluated is SAID, never crashed on.
+        out.append("spend_unmeasured: the day's spend cannot be read "
+                   "(no wake-cost.jsonl), so the USD cap cannot fire; "
+                   "the release-count cap is still enforced")
+    elif spend >= cap["max_usd_per_day"]:
         out.append(f"cost_cap: ${spend:.4f}/${cap['max_usd_per_day']:.2f} spent today")
     if cap["night_quiet"] and night_quiet_active():
         out.append(
@@ -597,14 +881,99 @@ def _last_release(row: dict) -> datetime | None:
     stamps = [s for s in stamps if s is not None]
     return max(stamps) if stamps else None
 
+# --------------------------------------------------------------------------- #
+# THE PROJECT SUBJECT FAMILY - one project, one day, one throttle
+# --------------------------------------------------------------------------- #
+# WHY THIS EXISTS. project-keepalive deliberately makes each extra flag of a day
+# a UNIQUE subject by appending `#<n>` (see its `subject = f"project:{pid}:{today}"`
+# plus `#(used + 1)`), because `subject` is UNIQUE and a project is allowed more
+# than one flag a day. The cost: guard 1 (dedup), guard 2 (cooldown) and guard 9
+# (the attempt ceiling) were all evaluated on the EXACT subject string, so for
+# the 2nd..Nth flag of a day no per-subject guard could ever bind - each family
+# member was a brand-new row with attempts=0 and no release to cool down from.
+# MEASURED 2026-10-14: chumash `project:chumash:20261013#10` released 03:39:03Z
+# and `#11` at 03:54:04Z - 15 minutes apart against a 1800 s cooldown - and
+# project-keepalive's per-project cooldown is consulted when it FILES, never by
+# the store when it RELEASES. The guards therefore key on the FAMILY for project
+# subjects only. A non-project subject has no family: `family_key` returns it
+# unchanged and every branch reduces to the exact-subject behaviour it had.
+_PROJECT_BASE_RE = re.compile(r"^project:[^:\s]+:\d{8}$")
+_PROJECT_MEMBER_RE = re.compile(r"^(project:[^:\s]+:\d{8})#\d+$")
+
+
+def project_family(subject: str) -> str | None:
+    """`project:<id>:<utc-day>` for the base subject and for any `#<n>` member,
+    else None. This is the trap the day-suffix must not escape."""
+    s = (subject or "").strip()
+    m = _PROJECT_MEMBER_RE.match(s)
+    if m:
+        return m.group(1)
+    return s if _PROJECT_BASE_RE.match(s) else None
+
+
+def family_key(subject: str) -> str:
+    """The throttle key for a subject: the project family when there is one,
+    otherwise the subject unchanged."""
+    s = (subject or "").strip()
+    return project_family(s) or s
+
+
+def family_rows_in(conn: sqlite3.Connection, family: str, project: bool) -> list[dict]:
+    """Every wake row that shares `family`'s throttle key, oldest first. A
+    non-project subject has a family of exactly one: itself."""
+    if not project:
+        row = row_dict(conn.execute("SELECT * FROM wake WHERE subject=?", (family,)).fetchone())
+        return [row] if row is not None else []
+    rows = conn.execute(
+        "SELECT * FROM wake WHERE subject=? OR subject LIKE ? ORDER BY id",
+        (family, family + "#%"),
+    ).fetchall()
+    out: list[dict] = []
+    for raw in rows:
+        r = row_dict(raw)
+        if r is not None and project_family(str(r["subject"] or "")) == family:
+            out.append(r)
+    return out
+
+
+def family_activity(row: dict) -> datetime | None:
+    """The family's clock. A FILING counts as well as a release, because the
+    whole point of the family key is that the project's own `cooldown_seconds`
+    binds between two flags of the same day - and a row sitting `new` (filed but
+    not yet claimed) is exactly the state the `#<n>` suffix used to step around."""
+    stamps = [_last_release(row), parse_dt(row.get("created_at"))]
+    stamps = [s for s in stamps if s is not None]
+    return max(stamps) if stamps else None
+
+
+def family_last_activity(rows: list[dict], project: bool) -> datetime | None:
+    """The newest activity in the family. A non-project family keeps the
+    release-only clock it always had (byte-for-byte unchanged behaviour)."""
+    stamps = []
+    for row in rows:
+        d = family_activity(row) if project else _last_release(row)
+        if d is not None:
+            stamps.append(d)
+    return max(stamps) if stamps else None
+
 
 def file_wake(conn: sqlite3.Connection, *, subject: str, prompt: str, context: str = "",
               kind: str = "task", source: str = "", priority: str = "normal",
               cooldown_seconds: int | None = None,
               max_attempts: int | None = None,
-              allow_from_session: bool = False) -> tuple[str, int | None]:
+              allow_from_session: bool = False,
+              defer_on_cooldown: bool = True,
+              detail: dict | None = None) -> tuple[str, int | None]:
     """File, dedupe, suppress or cap. Returns (result, row_id). Never raises on
-    a guard decision: every decision is one of the four frozen words."""
+    a guard decision: every decision is one of the four frozen words.
+
+    GUARD 1, GUARD 2 AND GUARD 9 KEY ON THE PROJECT FAMILY (see `family_key`),
+    not on the exact subject, so a project-keepalive `#<n>` day-suffix cannot
+    step around the dedup, the cooldown or the attempt ceiling. A non-project
+    subject has no family and every branch below reduces to the exact-subject
+    behaviour it had before. `detail`, when the caller passes a dict, is filled
+    with the family a suppression happened inside of - the frozen stdout word is
+    unchanged; the name is reported to the caller for stderr/--json."""
     # Guard 11, first and unconditional: a woken session must never raise a flag,
     # or one session becomes two becomes a fleet. This is in the store layer on
     # purpose so every caller inherits it.
@@ -632,11 +1001,46 @@ def file_wake(conn: sqlite3.Connection, *, subject: str, prompt: str, context: s
     stamp = now()
     existing = row_dict(conn.execute("SELECT * FROM wake WHERE subject=?", (subject,)).fetchone())
 
-    # guard 1 - dedup: one live row per issue.
-    if existing is not None and existing["state"] in LIVE_STATES:
-        return "deduped", existing["id"]
+    # THE FAMILY. For a project subject the guards below are evaluated against
+    # `project:<id>:<day>`, so the `#<n>` day-suffix cannot restart them. For any
+    # other subject `family == subject` and `family_rows` is the exact row only.
+    family = family_key(subject)
+    project = project_family(subject) is not None
+    family_rows = family_rows_in(conn, family, project)
+    # The governing member is the newest row of the family: its attempt ledger
+    # and unverified count are the family's, so a fresh `#<n>` cannot reset them.
+    governing = family_rows[-1] if family_rows else existing
 
-    if existing is None:
+    # guard 1 - dedup: one live row per issue, per FAMILY. A `#2` filed while the
+    # base subject (or any other member) is live is a no-op, not a second session.
+    for row in family_rows:
+        if row["state"] in LIVE_STATES:
+            # item 232: a live UNCLAIMED row that an earlier tick deferred is
+            # repaired here, for a source that opted out of deferral. Without
+            # this the fresh composition is never seen -- dedup returns before
+            # it -- and the row keeps its day-old prompt even though guard 2 can
+            # no longer set one. Never while `claimed`: a session is reading it.
+            if (not defer_on_cooldown and row["state"] == "new"
+                    and row["not_before"]):
+                conn.execute(
+                    """UPDATE wake SET kind=?, source=?, prompt=?, context=?, priority=?,
+                           created_at=?, not_before=NULL
+                       WHERE id=? AND state='new'""",
+                    (kind, source, prompt, context or "", priority, stamp, row["id"]),
+                )
+                if detail is not None:
+                    detail.update({
+                        "guard": "dedup",
+                        "refreshed": int(row["id"]),
+                        "was_not_before": row["not_before"],
+                        "note": ("live unclaimed row had not_before set by an earlier "
+                                 "tick; prompt refreshed and not_before cleared "
+                                 "(defer_on_cooldown=False source)"),
+                    })
+            return "deduped", row["id"]
+
+    if governing is None:
+        # No row in the family has ever existed: a plain new subject.
         cur = conn.execute(
             """INSERT INTO wake(subject,kind,source,prompt,context,priority,created_at,
                                 not_before,state,attempts,max_attempts)
@@ -646,42 +1050,86 @@ def file_wake(conn: sqlite3.Connection, *, subject: str, prompt: str, context: s
         row_id = int(cur.lastrowid)
         result = "filed"
     else:
-        # A terminal row: revive it. `subject` is UNIQUE, so this is the only
-        # way a re-flag can ever mean anything.
-        # guard 9 - a subject that has failed max_attempts times is never
-        # retried automatically.
-        carried = int(existing["attempts"] or 0)
-        if existing["state"] not in ("done", "expired"):
+        # guard 9 - the FAMILY's attempt ceiling: a family that has failed
+        # `max_att` times is never retried automatically. `done`/`expired` reset
+        # the ledger (a family that completed is not the family that kept failing).
+        carried = int(governing["attempts"] or 0)
+        # THE UNVERIFIED BOUND. An `unverified` outcome refunds its attempt (that
+        # is the point of the third outcome), so the attempt ceiling cannot bound
+        # it; the row's own unverified count can. `done`/`expired` reset the
+        # count: a subject that completed is not the subject that kept being
+        # unreadable. WAKE_MAX_UNVERIFIED=0 disables the bound.
+        unverified = int(governing.get("unverified") or 0)
+        if governing["state"] not in ("done", "expired"):
             if carried >= max_att:
-                return "suppressed:attempts", existing["id"]
+                return "suppressed:attempts", governing["id"]
+            unver_cap = _env_int("WAKE_MAX_UNVERIFIED", DEFAULT_MAX_UNVERIFIED)
+            if unver_cap > 0 and unverified >= unver_cap:
+                return "suppressed:unverified", governing["id"]
         else:
             carried = 0                      # success or abandonment is not a failure
+            unverified = 0
 
-        # guard 2 - cooldown after a release.
-        last = _last_release(existing)
+        # guard 2 - cooldown after a release, keyed on the FAMILY's newest
+        # activity so `#<n>` cannot step around the project's own cooldown.
+        last = family_last_activity(family_rows, project)
         if cooldown > 0 and last is not None and (now_dt() - last) < timedelta(seconds=cooldown):
             until = (now_dt() + timedelta(seconds=cooldown)).isoformat(timespec="seconds")
+            # item 232: a source that declared defer_on_cooldown=False is
+            # day-bucketed, so a deferred row is by construction a day-old prompt
+            # -- the staleness this option exists to prevent. Leave the terminal
+            # row terminal; the next day's subject is a NEW subject and becomes
+            # the replacement, composed and delivered inside the same tick.
+            if existing is not None and defer_on_cooldown:
+                conn.execute(
+                    """UPDATE wake SET kind=?, source=?, prompt=?, context=?, priority=?,
+                           created_at=?, not_before=?, state='new', attempts=?, max_attempts=?,
+                           unverified=?, claimed_by=NULL, claimed_at=NULL, lease_until=NULL,
+                           finished_at=NULL, outcome=NULL, cost_usd=NULL
+                       WHERE id=?""",
+                    (kind, source, prompt, context or "", priority, stamp, until, carried,
+                     max_att, unverified, existing["id"]),
+                )
+            if existing is not None and not defer_on_cooldown and detail is not None:
+                detail["deferred"] = False
+            if detail is not None:
+                age = int((now_dt() - last).total_seconds())
+                detail.update({
+                    "guard": "cooldown",
+                    "family": family,
+                    "family_row": int(governing["id"]),
+                    "last_activity": last.isoformat(timespec="seconds"),
+                    "note": (f"suppressed:cooldown inside the project family {family}: "
+                             f"wake #{governing['id']} was active "
+                             f"{last.isoformat(timespec='seconds')} ({age}s of {cooldown}s ago)"),
+                })
+            return "suppressed:cooldown", int(existing["id"] if existing is not None else governing["id"])
+
+        if existing is not None:
+            # A terminal row for the EXACT subject: revive it (unchanged path).
+            # `subject` is UNIQUE, so this is the only way a re-flag can mean
+            # anything for that subject.
             conn.execute(
                 """UPDATE wake SET kind=?, source=?, prompt=?, context=?, priority=?,
-                       created_at=?, not_before=?, state='new', attempts=?, max_attempts=?,
-                       claimed_by=NULL, claimed_at=NULL, lease_until=NULL,
+                       created_at=?, not_before=NULL, state='new', attempts=?, max_attempts=?,
+                       unverified=?, claimed_by=NULL, claimed_at=NULL, lease_until=NULL,
                        finished_at=NULL, outcome=NULL, cost_usd=NULL
                    WHERE id=?""",
-                (kind, source, prompt, context or "", priority, stamp, until, carried,
-                 max_att, existing["id"]),
+                (kind, source, prompt, context or "", priority, stamp, carried, max_att,
+                 unverified, existing["id"]),
             )
-            return "suppressed:cooldown", existing["id"]
-
-        conn.execute(
-            """UPDATE wake SET kind=?, source=?, prompt=?, context=?, priority=?,
-                   created_at=?, not_before=NULL, state='new', attempts=?, max_attempts=?,
-                   claimed_by=NULL, claimed_at=NULL, lease_until=NULL,
-                   finished_at=NULL, outcome=NULL, cost_usd=NULL
-               WHERE id=?""",
-            (kind, source, prompt, context or "", priority, stamp, carried, max_att,
-             existing["id"]),
-        )
-        row_id = existing["id"]
+            row_id = existing["id"]
+        else:
+            # A NEW member of the family. It CARRIES the family's attempt ledger,
+            # so `max_flags_per_day` cannot multiply the attempt ceiling.
+            cur = conn.execute(
+                """INSERT INTO wake(subject,kind,source,prompt,context,priority,created_at,
+                                    not_before,state,attempts,max_attempts,unverified)
+                   VALUES(?,?,?,?,?,?,?,NULL,'new',?,?,?)""",
+                (subject, kind, source, prompt, context or "", priority, stamp,
+                 carried, max_att, unverified),
+            )
+            row_id = int(cur.lastrowid)
         result = "filed"
 
     # guards 3 and 10 reported at file time: the row is filed either way (the
@@ -699,6 +1147,7 @@ def _one_line(text, limit: int = 400) -> str:
 
 def cmd_flag(args) -> int:
     allow = bool(getattr(args, "allow_from_session", False))
+    detail: dict = {}
     try:
         conn = connect()
         with _tx(conn):
@@ -713,6 +1162,8 @@ def cmd_flag(args) -> int:
                 cooldown_seconds=getattr(args, "cooldown_seconds", None),
                 max_attempts=getattr(args, "max_attempts", None),
                 allow_from_session=allow,
+                defer_on_cooldown=not bool(getattr(args, "no_defer", False)),
+                detail=detail,
             )
         ok = True
     except Exception as exc:                                  # noqa: BLE001
@@ -723,8 +1174,17 @@ def cmd_flag(args) -> int:
         print(f"wake: flag caught {type(exc).__name__}: {exc}", file=sys.stderr)
         result = f"error:{type(exc).__name__}: {_one_line(exc)}"
         row_id, ok = None, False
+    # A family-cooldown suppression has to NAME the family release it
+    # is inside of, or the caller sees only `suppressed:cooldown` and
+    # cannot tell which flag of the day it collided with. stdout keeps
+    # the frozen word; the name goes to stderr and into --json.
+    if detail.get("note"):
+        print(f"wake: {detail['note']}", file=sys.stderr)
+    payload = {"ok": ok, "result": result, "id": row_id}
+    if detail:
+        payload["detail"] = detail
     if getattr(args, "json", False):
-        sys.stdout.write(json.dumps({"ok": ok, "result": result, "id": row_id}) + "\n")
+        sys.stdout.write(json.dumps(payload) + "\n")
     else:
         sys.stdout.write(_one_line(result) + "\n")
     return 0
@@ -757,12 +1217,68 @@ def _file_wake(conn: sqlite3.Connection, *, subject: str, prompt: str, context: 
 # --------------------------------------------------------------------------- #
 # claim / heartbeat - the release path
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# LEDGER #203: aim a release at one project (or one row) - the selector
+# --------------------------------------------------------------------------- #
+# WHY HERE AND NOT IN THE DISPATCHER. `_candidates` is the only place a row is
+# allowed to become claimable, so a filter that lives here inherits every frozen
+# guard - not_before, night quiet, the per-source hourly cap, the attempt cap and
+# release_block's daily/cost ceilings - instead of sitting beside them. A
+# dispatcher that claimed first and filtered afterwards would take the wrong row
+# and then refuse it, which is the row luck this item exists to remove.
+#
+# INTERFACE (env, read at call time like every other knob here):
+#   WAKE_ONLY_PROJECT=NAME  only rows whose subject is `project:NAME:<date>[#n]`
+#   WAKE_ONLY_ID=N          only row N
+#   WAKE_ONLY_MATCH=TEXT    substring anywhere in subject/context/source/prompt
+# Precedence ID, then PROJECT, then MATCH; none set means no selector, i.e. the
+# previous behaviour byte for byte.
+def _subject_project(subject) -> str:
+    s = str(subject or "")
+    if not s.startswith("project:"):
+        return ""
+    return s[len("project:"):].split(":", 1)[0]
+
+
+def selector() -> tuple[str, str]:
+    only_id = _env_str("WAKE_ONLY_ID", "")
+    if only_id:
+        return ("id", only_id)
+    only_project = _env_str("WAKE_ONLY_PROJECT", "")
+    if only_project:
+        return ("project", only_project)
+    only_match = _env_str("WAKE_ONLY_MATCH", "")
+    if only_match:
+        return ("match", only_match)
+    return ("", "")
+
+
+def row_matches_selector(r, kind: str, value: str) -> bool:
+    if not kind:
+        return True
+    if kind == "id":
+        try:
+            return int(r["id"]) == int(value)
+        except (TypeError, ValueError):
+            return False
+    if kind == "project":
+        return _subject_project(r["subject"]) == value
+    hay = " ".join(str(r[k] or "") for k in ("subject", "context", "source", "prompt"))
+    return value in hay
+
+
+def selector_reading() -> dict:
+    kind, value = selector()
+    return {"kind": kind, "value": value} if kind else {}
+
+
 def _candidates(conn: sqlite3.Connection):
     """New rows that are past their not_before and inside every per-row gate."""
     quiet = night_quiet_active()
     per_source = _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 12)
     when = now_dt()
     seen: dict[str, int] = {}
+    sel_kind, sel_val = selector()
     out = []
     for r in conn.execute(
         """SELECT * FROM wake WHERE state='new' AND attempts < max_attempts
@@ -770,6 +1286,14 @@ def _candidates(conn: sqlite3.Connection):
     ).fetchall():
         nb = parse_dt(r["not_before"])
         if nb is not None and nb > when:
+            continue
+        if not row_matches_selector(r, sel_kind, sel_val):
+            continue
+        # NEVER RELEASE A TEST ROW. A selftest row left in state `new` is
+        # otherwise claimable, and claiming it spends a real headless session on
+        # the desktop to satisfy a test - which is also how a test row would turn
+        # into a production failure record.
+        if is_selftest_row(r):
             continue
         if r["priority"] == "low" and quiet:
             continue
@@ -792,14 +1316,28 @@ def _candidates_gated(conn: sqlite3.Connection) -> dict:
     quiet = night_quiet_active()
     per_source = _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 12)
     when = now_dt()
+    sel_kind, sel_val = selector()
     out = {"not_before": 0, "night_quiet": 0, "source_hourly_cap": 0,
-           "by_source": {}, "new_rows": 0}
+           "by_source": {}, "new_rows": 0, "selector": selector_reading(),
+           "selector_excluded": 0, "selftest_rows": 0}
     try:
         rows = conn.execute(
             "SELECT * FROM wake WHERE state='new' AND attempts < max_attempts").fetchall()
-        out["new_rows"] = len(rows)
+        real_new = 0
         seen: dict[str, int] = {}
         for r in rows:
+            # The selector is counted FIRST: with an aim in force, "why did
+            # nothing match" must be answered by whether the aim excluded the
+            # row, not by a cooldown the row might also have been under.
+            if not row_matches_selector(r, sel_kind, sel_val):
+                out["selector_excluded"] += 1
+                continue
+            # A test row is not work waiting. Counting it as "new" is exactly how
+            # a store holding nothing but test rows reads as a busy queue.
+            if is_selftest_row(r):
+                out["selftest_rows"] += 1
+                continue
+            real_new += 1
             nb = parse_dt(r["not_before"])
             if nb is not None and nb > when:
                 out["not_before"] += 1
@@ -815,6 +1353,9 @@ def _candidates_gated(conn: sqlite3.Connection) -> dict:
                     out["source_hourly_cap"] += 1
                     out["by_source"][src] = out["by_source"].get(src, 0) + 1
                     continue
+        # `new_rows` is REAL new rows: a store whose only new rows are test rows is
+        # an empty queue, and `selftest_rows` says so separately.
+        out["new_rows"] = real_new
     except Exception as exc:
         out["error"] = "%s: %s" % (type(exc).__name__, exc)
     return out
@@ -836,12 +1377,22 @@ def cmd_claim(args) -> int:
             # not-before cooldown. A caller that cannot tell those two states apart either burns
             # context investigating or concludes the system is idle.
             gated = _candidates_gated(conn)
+            sel_kind, sel_val = selector()
+            if sel_kind and gated.get("selector_excluded"):
+                # An aimed release that matched nothing must say so: "no work"
+                # and "no work for the project you aimed at" are different
+                # readings, and only the second is this item's subject.
+                blocked_by = "selector"
+            elif sel_kind and not gated.get("new_rows"):
+                blocked_by = None
+            else:
+                blocked_by = "night-quiet" if (gated.get("new_rows") and night_quiet_active()
+                                               and not gated.get("source_hourly_cap")) \
+                             else ("row-gates" if gated.get("new_rows") else None)
             payload = {
                 "ok": True,
                 "row": None,
-                "blocked_by": "night-quiet" if (gated.get("new_rows") and night_quiet_active()
-                                                and not gated.get("source_hourly_cap"))
-                             else ("row-gates" if gated.get("new_rows") else None),
+                "blocked_by": blocked_by,
                 "gated": gated,
             }
             sys.stdout.write(json.dumps(payload) + "\n")
@@ -871,11 +1422,15 @@ def cmd_heartbeat(args) -> int:
         row = conn.execute("SELECT * FROM wake WHERE id=?", (args.id,)).fetchone()
         if row is None:
             sys.stdout.write(json.dumps({"ok": False, "id": args.id, "error": "no-such-row"}) + "\n")
-            return 2
+            # 1, not 2: wake-dispatch.sh's contract is "1 = the store itself says we do not hold
+            # this row; 2 = transient". A known state must not be reported as a transient fault
+            # and left to a string match.
+            return 1
         if row["state"] != "claimed":
             sys.stdout.write(json.dumps(
                 {"ok": False, "id": args.id, "error": "not-claimed", "state": row["state"]}) + "\n")
-            return 2
+            # See above: a known state is 1, not a transient error.
+            return 1
         if row["claimed_by"] and args.by and row["claimed_by"] != args.by:
             print(f"wake: row #{args.id} is claimed by {row['claimed_by']!r}, "
                   f"heartbeat from {args.by!r}", file=sys.stderr)
@@ -893,15 +1448,86 @@ def cmd_heartbeat(args) -> int:
 # work silently lost. Measured 2026-09-30: five releases in one twelve-second burst died in about 21 seconds
 # with "dsh: QUOTA: Insufficient Balance" while the account answered is_available true, balance 48.94.
 _RETRY_AFTER_SEC = 600
+# A BOOT REFUSAL IS NOT A TRANSPORT FLAKE - it is the whole fleet failing at once, so it backs off
+# harder. Measured 2026-10-21: the desktop's model resolver timed out twice inside one second, and
+# both releases were recorded as a lost hop. At the 600 s transport backoff a six-flag queue facing
+# a three-hour outage would retry each subject about eighteen times; at 1800 s it is about two an
+# hour, the attempts are still refunded, and nothing is permanently spent.
+_RETRY_AFTER_SEC_BOOT = 1800
+
+
+def _retry_delay(reason: str) -> int:
+    """Seconds before a retryable row is offered again, by the shape of its refusal."""
+    return (_RETRY_AFTER_SEC_BOOT if (reason or "").strip().startswith("the session never started")
+            else _RETRY_AFTER_SEC)
+
 _RETRYABLE_SIGNATURES = (
     "quota", "insufficient balance", "rate_limit", "rate limit", "too many requests",
     "429", "502", "503", "service unavailable", "overloaded",
     "timeout", "timed out", "transport", "connection reset", "broken pipe", "connection refused",
 )
 
+# THE ONLY SHAPES THAT RETRY: the dispatcher's own failure lines. See the module comment above
+# for the measurement (32 of 487 stored outcomes contain a signature inside a SUCCESSFUL
+# session's report). These phrases are written by wake-dispatch.sh and by nothing else.
+_RETRY_PREFIX_SIGNATURES = (
+    "timed out after ",            # the outer bound killed the hop
+    "the desktop runner hit its own ",  # the runner's inner bound killed a live session
+    "ssh hop failed (rc=",         # the transport died; session's own verdict unknown
+    "prompt transfer to ",         # the prompt never arrived; see the carve-out in _retryable_reason
+    # A SESSION THAT NEVER STARTED (added 2026-10-21). The dispatcher writes exactly this prefix
+    # when the runner refuses to boot - a model resolver with no model, which took two releases
+    # down in one second and spent both items' attempts while attempting no work. It is a fleet
+    # fault, not the item's, so the attempt is refunded (see _retry_delay for the longer backoff).
+    "the session never started",   # the runner refused to boot; nothing was attempted
+
+)
+# A line that already says the session finished is a RECOVERED hop, never a retry.
+_RETRY_PREFIX_EXCLUDES = ("but the session completed", "no session was started",
+                          "out-file was recovered")
+
 
 def _retryable_reason(outcome: str):
-    """The matched transient signature, or None when this looks like a genuine failure."""
+    """The matched dispatcher failure shape, or None when this is not a transport loss.
+
+    Reads only the FIRST LINE, because that is the dispatcher's verdict line when there is one;
+    everything after it is the session's own report and must never decide a retry.
+    """
+    text = (outcome or "").strip()
+    if not text:
+        return None
+    first = text.splitlines()[0].lower()
+    # A TRANSPORT LOSS BEFORE ANY SESSION EXISTED IS NOT A CONSUMED ATTEMPT.
+    # Measured 2026-10-18: the prompt-transfer failure line carries the words "no session was
+    # started", and the exclusion below turns that into "never retry" -- so a hop that died
+    # before a session was launched still spent the item's attempt. Twenty rows failed this way
+    # in one day and ten reached attempts=2 of 2, which is the cap: they are permanently dead,
+    # and each one was a work item the owner asked for. The exclusion is correct for a shape that
+    # reports on a session which DID run; it is wrong for a copy that never got there, because
+    # nothing ran and nothing was spent.
+    if first.startswith("prompt transfer to "):
+        return "prompt transfer to "
+    # The exclusions are searched across the whole text on purpose: a failure line can wrap
+    # onto a second line, and "recovered" is checked before any prefix match so a line that
+    # already says the session finished can never be retried.
+    low = text.lower()
+    if any(x in low for x in _RETRY_PREFIX_EXCLUDES):
+        return None
+    for sig in _RETRY_PREFIX_SIGNATURES:
+        if first.startswith(sig) or ("; " + sig) in first:
+            return sig.strip()
+    return None
+
+
+def _retryable_reason_loose(outcome: str):
+    """UNUSED and deliberately so: the old whole-text search, kept for one reason only.
+
+    It is the record of a rule that was measured wrong, so the next person reading this file
+    does not reintroduce it. Do not wire it into finish. If a provider refusal (a quota answer,
+    a 503 from the model gateway) should become retryable again, the fix belongs in
+    wake-dispatch.sh: have it write a recognisable failure line and add that shape to
+    _RETRY_PREFIX_SIGNATURES above, so the decision is made by the code that observed it.
+    """
     low = (outcome or "").lower()
     for sig in _RETRYABLE_SIGNATURES:
         if sig in low:
@@ -909,9 +1535,56 @@ def _retryable_reason(outcome: str):
     return None
 
 
+def _selftest_retryable() -> int:
+    """Assert the retry rule on the real shapes. Added 2026-10-07 with the dispatcher-vocabulary rule."""
+    cases = [
+        # retries: dispatcher failure lines
+        ("timed out after 2160s (session killed at the OUTER bound; runner self-bound 2100s) after 2100s - LOST: ...", True),
+        ("ssh hop failed (rc=1) after 916s, but the session's out-file was recovered (runner exit 0): ...", False),
+        ("the desktop runner hit its own 1800s bound and killed the session (exit 124) after 1830s - that is a bound cutting live work", True),
+        ("ssh hop failed (rc=255) after 531s; desktop output: ** WARNING: connection is not using a post-quantum key exchange algorithm.", True),
+        # never retries: recovered hops
+        ("the ssh hop returned rc=1 after 400s, but the session completed (runner exit 0) and its out-file was recovered: ...", False),
+        ("the output file could not be copied back (scp rc=1) after 300s, but the session completed (runner exit 0) and its out-file was recovered: ...", False),
+        # REVERSED 2026-10-18, and the reversal is the point of the case. This asserted False:
+        # a prompt that never arrived was treated as a spent attempt "because no session was
+        # started". Measured cost of that reading: 20 rows failed this way in one day and ten
+        # reached attempts=2 of 2 -- permanently dead work items -- for a transport error that
+        # consumed nothing and produced nothing. Nothing ran, so nothing was spent.
+        ("prompt transfer to zabz-tech-ts failed after 2 attempts (scp rc=1): scp: Connection closed ; no session was started", True),
+        ("prompt transfer to zabz-tech-ts failed (scp rc=1); no session was started", True),
+        # never retries: the agent's own prose, which is what the corpus showed
+        ("I ran the guard with a 30 second timeout and it refused as documented. " + "x" * 400, False),
+        ("The old port answered connection refused, so the broker was down. " + "y" * 300, False),
+        ("The provider returned a 503 twice, so I retried and finished the item. " + "z" * 300, False),
+    ]
+    fails = 0
+    for text, want in cases:
+        got = _retryable_reason(text)
+        if (got is not None) != want:
+            fails += 1
+            print("FAIL retry-classifier: %r -> %r (wanted retry=%s)" % (text[:64], got, want))
+    print("wake retry-classifier selfcheck: %d cases, %d failed" % (len(cases), fails))
+    return 1 if fails else 0
+
+
 def cmd_finish(args) -> int:
     conn = connect()
-    state = "failed" if args.failed else "done"
+    # THREE OUTCOMES. `--failed` wins if both are passed (a caller that says both
+    # has said "failed"; the third outcome must never be a quieter way to record a
+    # loss). An `unverified` row:
+    #   * gets its own state, so the store can tell it from a broken session;
+    #   * REFUNDS the attempt (attempts-1, floored at 0) - the ambiguity is the
+    #     transport's fault, and the claim already spent the attempt;
+    #   * does NOT increment wake_budget.failed, because it is not a failure;
+    #   * increments `unverified`, the bound file_wake applies to re-flags, so a
+    #     result nobody can read can never retry forever.
+    if getattr(args, "failed", False):
+        state = "failed"
+    elif getattr(args, "unverified", False):
+        state = "unverified"
+    else:
+        state = "done"
     cost = getattr(args, "cost_usd", None)
     with _tx(conn):
         row = row_dict(conn.execute("SELECT * FROM wake WHERE id=?", (args.id,)).fetchone())
@@ -920,28 +1593,48 @@ def cmd_finish(args) -> int:
             return 2
         why = _retryable_reason(args.outcome or "") if state == "failed" else None
         if why:
-            retry_at = (now_dt() + timedelta(seconds=_RETRY_AFTER_SEC)).isoformat(timespec="seconds")
+            delay = _retry_delay(why)
+            retry_at = (now_dt() + timedelta(seconds=delay)).isoformat(timespec="seconds")
             conn.execute(
                 """UPDATE wake SET state='new', claimed_by=NULL, claimed_at=NULL, lease_until=NULL,
                        attempts=MAX(0, attempts-1), not_before=?, outcome=?
                    WHERE id=?""",
                 (retry_at, "retryable: %s - attempt refunded, retrying after %ss" %
-                 (why, _RETRY_AFTER_SEC), args.id),
+                 (why, delay), args.id),
             )
             state = "retry"
             sys.stderr.write("wake: #%s transient (%s) - back to new, attempt refunded, retry after %ss\n"
                              % (args.id, why, _RETRY_AFTER_SEC))
+        elif state == "unverified":
+            conn.execute(
+                """UPDATE wake SET state='unverified', finished_at=?, outcome=?,
+                       unverified=unverified+1, attempts=MAX(0, attempts-1),
+                       cost_usd=COALESCE(?, cost_usd), lease_until=NULL WHERE id=?""",
+                (now(), args.outcome or "", cost, args.id),
+            )
         else:
             conn.execute(
                 """UPDATE wake SET state=?, finished_at=?, outcome=?,
+                       unverified=CASE WHEN ?='done' THEN 0 ELSE unverified END,
                        cost_usd=COALESCE(?, cost_usd), lease_until=NULL WHERE id=?""",
-                (state, now(), args.outcome or "", cost, args.id),
+                (state, now(), args.outcome or "", state, cost, args.id),
             )
             if state == "failed" and row["state"] != "failed":
                 _bump_budget(conn, failed=1)
+        fresh = row_dict(conn.execute(
+            "SELECT attempts, max_attempts, unverified FROM wake WHERE id=?",
+            (args.id,)).fetchone()) or {}
     if getattr(args, "json", False):
         sys.stdout.write(json.dumps(
-            {"ok": True, "id": args.id, "state": state, "cost_usd": cost}) + "\n")
+            {"ok": True, "id": args.id, "state": state, "cost_usd": cost,
+             "attempts": fresh.get("attempts"), "max_attempts": fresh.get("max_attempts"),
+             "unverified": fresh.get("unverified")}) + "\n")
+    elif state == "unverified":
+        sys.stdout.write(
+            f"#{args.id} -> unverified (attempt refunded: {fresh.get('attempts')}"
+            f"/{fresh.get('max_attempts')}; unverified outcome {fresh.get('unverified')}"
+            f"/{_env_int('WAKE_MAX_UNVERIFIED', DEFAULT_MAX_UNVERIFIED)}); "
+            "not counted as a failure\n")
     else:
         sys.stdout.write(f"#{args.id} -> {state}\n")
     return 0
@@ -1019,41 +1712,104 @@ def cmd_reap(args) -> int:
 # --------------------------------------------------------------------------- #
 def cmd_list(args) -> int:
     conn = connect()
-    sql = "SELECT * FROM wake"
+    sel_kind, sel_val = selector()
+    include_selftest = bool(getattr(args, "include_selftest", False))
+    # A TEST ROW IS NEITHER WORK NOR A FAILURE, so it is not in this listing - the
+    # failure list above all - unless --include-selftest asks for it. The exclusion
+    # is in SQL, so the LIMIT applies AFTER it: otherwise a few test rows could
+    # push real rows out of `--state failed` and the listing would hide exactly
+    # what it was asked for. The rows are never deleted; the count of what was
+    # hidden is printed, so "no failures" can be read as a fact about production.
+    where: list[str] = []
     params: list = []
     if args.state:
-        sql += " WHERE state=?"
+        where.append("state=?")
         params.append(args.state)
+    if not include_selftest:
+        where.append("NOT " + selftest_sql())
+    sql = "SELECT * FROM wake"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     sql += (" ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, id")
     limit = getattr(args, "limit", None)
-    if limit is not None and limit > 0:
+    # The selector is applied in the store's own read path so the dry run and the
+    # real claim read the same rows through the same filter. The LIMIT is applied
+    # AFTER the filter, or an aim would starve on rows it excluded further down.
+    if limit is not None and limit > 0 and not sel_kind:
         sql += " LIMIT ?"
         params.append(limit)
-    rows = _rows(conn, sql, tuple(params))
+    rows = [r for r in _rows(conn, sql, tuple(params))
+            if row_matches_selector(r, sel_kind, sel_val)]
+    if sel_kind and limit is not None and limit > 0:
+        rows = rows[:limit]
+    selftest_hidden = 0
+    if not include_selftest:
+        count_sql = "SELECT COUNT(*) n FROM wake WHERE " + selftest_sql()
+        count_params: list = []
+        if args.state:
+            count_sql += " AND state=?"
+            count_params.append(args.state)
+        selftest_hidden = int(
+            conn.execute(count_sql, tuple(count_params)).fetchone()["n"])
     if getattr(args, "json", False):
-        sys.stdout.write(json.dumps({"ok": True, "count": len(rows), "rows": rows}) + "\n")
+        payload = {"ok": True, "count": len(rows), "rows": rows,
+                   "selftest_hidden": selftest_hidden}
+        if sel_kind:
+            payload["selector"] = {"kind": sel_kind, "value": sel_val}
+        sys.stdout.write(json.dumps(payload) + "\n")
         return 0
+    if sel_kind:
+        sys.stdout.write(f"selector: {sel_kind}={sel_val}\n")
     sys.stdout.write(f"{len(rows)} wake row(s)\n")
     for r in rows:
         sys.stdout.write(
             f"  #{r['id']:<3} {r['state']:<9} {r['priority']:<6} {str(r['source'])[:14]:<14}"
             f" a={r['attempts']}/{r['max_attempts']} {str(r['subject'])[:56]}\n")
-        if r["state"] in ("done", "failed", "expired") and r["outcome"]:
+        if r["state"] in ("done", "failed", "expired", "unverified") and r["outcome"]:
             sys.stdout.write(f"        -> {str(r['outcome'])[:90]}\n")
         if r["not_before"] and r["state"] == "new":
             sys.stdout.write(f"        not before {r['not_before']}\n")
+    if selftest_hidden:
+        sys.stdout.write(
+            f"selftest rows: {selftest_hidden} hidden (kind='{SELFTEST_KIND}' or subject "
+            f"containing '{SELFTEST_SUBJECT_TOKEN}') - excluded from this list, never "
+            "deleted; pass --include-selftest to see them\n")
     return 0
 
 
+def _age_human(seconds) -> str:
+    if seconds is None:
+        return "age unknown"
+    s = int(seconds)
+    if s < 90:
+        return f"{s}s"
+    if s < 5400:
+        return f"{s // 60}m"
+    if s < 172800:
+        return f"{s // 3600}h"
+    return f"{s // 86400}d"
+
+
 def stats_payload(conn: sqlite3.Connection) -> dict:
+    # REAL ROWS ONLY. The counts come from the store's own rows, with the test
+    # rows subtracted - a headline failure number that includes the instrument's
+    # own selftest rows is a number about the instrument, not about production
+    # (measured 2026-10-02: 139 of 195 `failed` rows were the guard test's).
     counts = {s: 0 for s in STATES}
-    for r in conn.execute("SELECT state, COUNT(*) n FROM wake GROUP BY state").fetchall():
+    for r in conn.execute(
+            "SELECT state, COUNT(*) n FROM wake WHERE NOT %s GROUP BY state"
+            % selftest_sql()).fetchall():
         counts[r["state"]] = int(r["n"])
     caps = caps_now()
     return {
         "ok": True,
         "day": today_utc(),
         "states": counts,
+        "counts_basis": (
+            "real rows only: kind='selftest' and subject containing '%s' are excluded "
+            "from `states` and reported separately in `selftest`" % SELFTEST_SUBJECT_TOKEN),
+        "selftest": selftest_reading(conn),
+        "store": store_reading(conn),
         "released_today": released_today(conn),
         # A caller that reads only this key must not be able to turn it into throughput.
         "released_today_means": (
@@ -1079,12 +1835,26 @@ def cmd_stats(args) -> int:
         return 0
     counts = payload["states"]
     caps = payload["caps"]
-    sys.stdout.write("wake rows: " + " ".join(f"{s}={counts[s]}" for s in STATES) + "\n")
+    sys.stdout.write("wake rows: " + " ".join(f"{s}={counts.get(s, 0)}" for s in STATES) + "\n")
+    st = payload["selftest"]
+    if st["rows"]:
+        by_state = ", ".join(f"{k} {v}" for k, v in sorted(st["by_state"].items()))
+        sys.stdout.write(
+            f"selftest rows: {st['rows']} ({by_state}) - excluded from every count above"
+            f" and from the release path, never deleted"
+            f" [kind='{SELFTEST_KIND}' {st['by_marker']}, subject~'{SELFTEST_SUBJECT_TOKEN}'"
+            f" {st['by_subject_token']}]\n")
+    else:
+        sys.stdout.write("selftest rows: 0 (none in this store)\n")
+    # An unreadable spend prints as UNMEASURED: `f"{None:.4f}"` raises, and the
+    # one line the money guard exists for must not be the line that crashes.
+    spend = payload["spend_today_usd"]
+    spend_txt = "UNMEASURED" if spend is None else f"${spend:.4f}"
     sys.stdout.write(
         f"released today: {payload['released_today']}/{caps['max_per_day']}"
         f" [SESSIONS started, not work done - one row can be released many times]"
         f"   failed today: {payload['failed_today']}"
-        f"   spend today: ${payload['spend_today_usd']:.4f}/${caps['max_usd_per_day']:.2f}\n")
+        f"   spend today: {spend_txt}/${caps['max_usd_per_day']:.2f}\n")
     per_source = payload["source_releases_last_hour"]
     sys.stdout.write(
         "per-source last hour: "
@@ -1094,6 +1864,11 @@ def cmd_stats(args) -> int:
         f"   max attempts: {caps['max_attempts']}   night quiet: "
         f"{'on' if caps['night_quiet'] else 'off'}\n")
     sys.stdout.write("caps in force: " + ("; ".join(payload["caps_in_force"]) or "none") + "\n")
+    sr = payload["store"]
+    # PROVENANCE. A count with no source and no age is not a reading.
+    sys.stdout.write(
+        f"store: {sr['path']}   newest row: #{sr['newest_row_id']} {sr['newest_row_at']} "
+        f"({_age_human(sr['newest_row_age_seconds'])} old, read {sr['now']})\n")
     return 0
 
 
@@ -1188,6 +1963,10 @@ def _add_flag_args(parser) -> None:
     parser.add_argument("--max-attempts", type=int, default=None)
     parser.add_argument("--allow-from-session", action="store_true",
                         help="override the woken-session refusal (guard 11)")
+    parser.add_argument("--no-defer", action="store_true",
+                        help="item 232: this source is day-bucketed -- never let the "
+                             "cooldown DEFER its row (refresh a live unclaimed row "
+                             "instead, and do not re-arm a terminal one)")
     parser.add_argument("--json", action="store_true")
 
 
@@ -1217,6 +1996,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--outcome", default="")
     s.add_argument("--cost-usd", type=float, default=None)
     s.add_argument("--failed", action="store_true")
+    s.add_argument("--unverified", action="store_true",
+                   help="the session ran but its result could not be read back: the third "
+                        "outcome, distinct from failed - the attempt is refunded and the "
+                        "row does not count as a failure (see cmd_finish)")
     s.add_argument("--json", action="store_true")
     s.set_defaults(func=cmd_finish)
 
@@ -1226,6 +2009,9 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("list")
     s.add_argument("--state")
     s.add_argument("--limit", type=int, default=50)
+    s.add_argument("--include-selftest", action="store_true",
+                   help="include kind='selftest' rows (and the guard test's "
+                        "SMselftest- rows); they are excluded from the listing by default")
     s.add_argument("--json", action="store_true")
     s.set_defaults(func=cmd_list)
 
