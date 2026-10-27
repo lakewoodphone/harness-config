@@ -27,7 +27,15 @@ never copies. On this laptop `C:\Program Files` (30 GiB, 20 folders) takes ~10 s
 profile with 1.17 M files takes minutes — **run that one in the background**, never in a
 foreground call that dies at 120 s.
 
-## 2. The four traps
+**For a whole volume, use the parallel harness instead** (`scripts/windows/measure-parallel.ps1`,
+added 2026-10-27): same robocopy method, but it takes a list of roots, expands each into its child
+directories, de-duplicates and measures N at a time. A 951 GiB volume with 23 M files took **~12
+minutes**, where the single-threaded tool was projected at 35+. Watch for two things it does not do
+for you: a **bare drive root** must be written `C:\` in the roots file (`C:` is the current
+directory — measured failure, journal `L12392`), and the numbers are **logical** bytes, which on a
+machine with `pnpm` overstates worktrees by 3–5× (journal `L12391`, and §3 below).
+
+## 2. The five traps
 
 **Junctions are not space.** `C:\Users\<user>\AppData\Local\Application Data` is a legacy NTFS
 junction pointing back at `AppData\Local` (verified: attributes `Hidden, System, Directory,
@@ -49,6 +57,15 @@ report shows almost nothing. `measure-space.ps1` prints both tables for this rea
 **Reported-vs-actual delete.** Deleting 121.24 GiB of logical files returned 110.67 GiB of actual
 free space, because part of the tree was NTFS-compressed. Logically-deleted bytes are an upper
 bound on what you get back; always re-read `Get-PSDrive` free space afterwards and quote that.
+
+**Hardlinks are not space either — and they are the biggest silent error.** Measured on `ZABZ-TECH`
+2026-10-27: 141 agent working copies measured **309.5 GiB logical / 14.6 M files**, and deleting
+every one of them freed **~55 GiB**. `pnpm` hardlinks each package from its store into every
+checkout: `node_modules/react/package.json` was one inode with **132 links**, and one checkout of
+1.58 GiB was 1.20 GiB of `node_modules` and 0.39 GiB of anything real. The whole volume reconciled
+exactly once this was applied: 1,024.2 GiB of files − ~131 GiB of hardlink overhang = 893.2 GiB
+against 893.55 GiB used. **Before quoting a reclaim figure, measure one representative directory's
+`node_modules` share.** Nothing in `measure-space.ps1` or robocopy can see this (journal `L12391`).
 
 ## 3. Ranked offenders — where space actually goes on these machines
 
@@ -97,3 +114,10 @@ models, and pip/npm caches.
    A folder existing never means the job worked.
 5. **What does the owner lose?** If the answer is not "nothing that exists nowhere else", it is
    his decision, asked as one question with a recommendation — not an engineering call.
+6. **Is it customer data?** Then an agent does not delete it, at any age, in any location — full
+   stop. Read the production order it belongs to first: **open vs completed** is the only fact that
+   turns a copy into debris, and age is not expiry. Measured 2026-10-27: 24.1 GiB that was 97 days
+   old, duplicated (tar.gz beside an extracted copy) and outside the approved folder was the
+   salvage of an **open** work order whose device was still checked in (journal `P9995`). Name the
+   folder, the age and the command; the owner runs it.
+

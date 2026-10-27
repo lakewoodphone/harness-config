@@ -1,0 +1,12 @@
+C:\
+C:\Users
+C:\Users\ezabz
+C:\Users\ezabz\Code
+C:\Users\ezabz\AppData
+C:\Users\ezabz\AppData\Local
+C:\Users\ezabz\AppData\Roaming
+C:\Users\ezabz\Downloads
+C:\Program Files
+C:\Program Files (x86)
+C:\ProgramData
+C:\Windows

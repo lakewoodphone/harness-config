@@ -1,0 +1,1058 @@
+[
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\AppData\\Roaming\\Wondershare\\MobileTransPro\\log\\SocialAppDump\\20260705153135\\msgstore.db.crypt15",
+  "bytes": 130682042,
+  "mtime": "2026-07-05"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Application Data\\Wondershare\\MobileTransPro\\log\\SocialAppDump\\20260705153135\\msgstore.db.crypt15",
+  "bytes": 130682042,
+  "mtime": "2026-07-05"
+ },
+ {
+  "kind": "backup-archive",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup-S24Ultra-ZeviBraun-2026-07-22-135242.tar.gz",
+  "bytes": 7154616320,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\backup_settings.json.crypt14",
+  "bytes": 534,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\msgstore-2026-07-15.1.db.crypt14",
+  "bytes": 1460791710,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\msgstore-current.db.crypt14",
+  "bytes": 1470795425,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\wa.db.crypt14",
+  "bytes": 44955,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "android-backup",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\whatsapp.ab",
+  "bytes": 47,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\avatar-password.bkup.crypt14",
+  "bytes": 302,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\backup_settings.json.crypt14",
+  "bytes": 534,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\chatsettingsbackup.db.crypt14",
+  "bytes": 23502,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\commerce_backup.db.crypt14",
+  "bytes": 1132,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\offloaded-media.db.crypt14",
+  "bytes": 1743,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\status_backup.db.crypt14",
+  "bytes": 5514511,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\stickers_db.bak.crypt14",
+  "bytes": 108823,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\wa.db.crypt14",
+  "bytes": 44955,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\wallpaper.bkup.crypt14",
+  "bytes": 163325,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\avatar-password.bkup.crypt14",
+  "bytes": 302,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\backup_settings.json.crypt14",
+  "bytes": 534,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\chatsettingsbackup.db.crypt14",
+  "bytes": 23502,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\commerce_backup.db.crypt14",
+  "bytes": 1132,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\offloaded-media.db.crypt14",
+  "bytes": 1743,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\status_backup.db.crypt14",
+  "bytes": 5514511,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\stickers_db.bak.crypt14",
+  "bytes": 108823,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\wa.db.crypt14",
+  "bytes": 44955,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\wallpaper.bkup.crypt14",
+  "bytes": 163325,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\+TA4ps+uw1sLGIolAK6T80OSR4WjLxEkQzbS2l3UZWA=.webp.crypt14",
+  "bytes": 11790,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\-fdChqphuGjtSi0WTLBgWWFwtl4PUhdmgpxFkdQnUYI=.was.crypt14",
+  "bytes": 6603,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\-G-AlLyJzuun9qluEj1aa1H8uJHub19+bWbnTs+9zJY=.webp.crypt14",
+  "bytes": 171398,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\-xP7XAZ-rbEGLgLKJVzmL3qGZe8Yerh6a-cTBQQ-Bok=.webp.crypt14",
+  "bytes": 7329,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\1RgjeZcCQQjyzYnvcvInvzes-n9ThHJ4Ndr3dzGUeP0=.webp.crypt14",
+  "bytes": 12700,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\1tVJy555vd0O3nLHzVg-9ot6BNSUHtwZRr4lR33Ctas=.was.crypt14",
+  "bytes": 23340,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\2C6G8YKNUPEkisw6At3-ESN+6lfI1JxCx3FYhCG7G5c=.was.crypt14",
+  "bytes": 40707,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\2DNSQv6OWj5HljD1WmTOSDY6XbIe6ns5cWAfyazS4gU=.was.crypt14",
+  "bytes": 36313,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\3IGekGm6hGxaoSbZyi0IThTxUTigZYBg4SBNBXNI3Og=.was.crypt14",
+  "bytes": 36492,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\4A7LJfNzkyYK0GAWxqD4jTakZ3y-zmeD+6m3xN1e92g=.was.crypt14",
+  "bytes": 21402,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\4rQB8S64lv3q8aqe1kNaqwACiU1cUvFaMLLHsjtdiE0=.was.crypt14",
+  "bytes": 32003,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\53Jr5Nou5rNGPiwnf8ZM-n+P2SnhrDhrcW7TVAIRHJE=.webp.crypt14",
+  "bytes": 11458,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\5Zn5PZWDG0ihoswefSvLCKtYxPeY+J1Gphyf0vb0muo=.was.crypt14",
+  "bytes": 24583,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\6Qdgt1+4vVJD+hSlPLiRGW-LD4XSyTLFJZUjjt2oVF0=.was.crypt14",
+  "bytes": 60269,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\8dNJTRvBLV4SpgtVZ-eJqaE87aC7B9FTW+RNuvyTWKM=.was.crypt14",
+  "bytes": 24698,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\9cXhxEwJixfeV3K3ZBj5roOUZuCWEjgYLwEhd1R9v+o=.was.crypt14",
+  "bytes": 41965,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\9Z07Bt+E3RVDtjTgBaFtMHXKiEjWGNT2-bBvY52uLJc=.was.crypt14",
+  "bytes": 7537,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\a80J-z3v9D9cMTxgqWJwq0RwKfsunvcuCaPiE8Aesx8=.was.crypt14",
+  "bytes": 32139,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\AGPB7Vnhnd3RtkCmidNcpfWityDQTiyMNW95o1QAkWg=.webp.crypt14",
+  "bytes": 13052,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\ahmCleINO+3YrsLN-dKBYRNbMhGcsdzoqVzR2+nm-nY=.was.crypt14",
+  "bytes": 40145,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\ApryKL+iinH9X7eUeV7+TsUb9x6uUhDQpIMN4chxa+Y=.was.crypt14",
+  "bytes": 103545,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\aVJ66QUFc5dfhAzCLLXXmvP9eCcMrpYERJHtxFSV5cc=.was.crypt14",
+  "bytes": 26792,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\BcZjBFvyeqn+gK4AgQIGCckhn2uRsqQLBCgwwfocBXA=.webp.crypt14",
+  "bytes": 10322,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\bQnhs6M-bT3O3uc0VNTZGxTBfXN3vi2kZfTAJ5d61jk=.webp.crypt14",
+  "bytes": 14495,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\COeMxQu-MJzUO9L4ANRclD93oFEprpAhV1d7JaECyko=.was.crypt14",
+  "bytes": 10322,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\cRlsZTkVGSSPxcK3Q+hrXq6zJSbqFdsMYEBQzl4k7Jg=.was.crypt14",
+  "bytes": 8286,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\cyVBc2Hwne4lTGZAgPTZMQane+PhbmA0suotCYTiGNs=.webp.crypt14",
+  "bytes": 12740,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\ddQA4ZqUH-BAL4VNWhDiGBVrV3pr-N+sLaYPBMqXOro=.webp.crypt14",
+  "bytes": 38608,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\eftZaqMDts9Ml3ilM9gC2nbqzFJm8gX6fq3u6yNMI7s=.was.crypt14",
+  "bytes": 24507,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\fwG3zatWUaZmPkCLamwL+IUtv3Bs8h2CZjCfT1G-Fec=.was.crypt14",
+  "bytes": 16138,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\gCognx4uHW7o8sfEIC7JyQBU88cG95Dq11I8dz4OtlY=.webp.crypt14",
+  "bytes": 10926,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\GzsAbW2Zh0RgwoTh6uY6speyq+NmIGZE4kUCwoCktIg=.was.crypt14",
+  "bytes": 103540,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\H8z9L4aNPIPFL7qzz+83iARv3LXHRB4bKA6giwJ0k0E=.webp.crypt14",
+  "bytes": 11634,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\hb4eCn1dG1mvrZQlw2sh+0YWuhKjE4V2do741uqsOPk=.was.crypt14",
+  "bytes": 18944,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\HTyNiDK3fNV13T5yO-AJhc9MTtXX1-274kMsFjYrqKk=.was.crypt14",
+  "bytes": 44182,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\iiwcJvm-awpaxIhlstx+q+C0XTK8raDA-Vjkl4Wsaho=.webp.crypt14",
+  "bytes": 12471,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\IuG6dk1m8sSt9INiGJ01N2ZeC901cZ-ud9Hcrz8QIZE=.webp.crypt14",
+  "bytes": 16510,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\joHRNcLJXTFnaKdlNvejBoAo5fbhzriORMWg68+FPHE=.was.crypt14",
+  "bytes": 34801,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\Kksten7ZXo17t7ivYqnGYrgpe-SUVFIq0ISNQqRxz0Q=.was.crypt14",
+  "bytes": 13150,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\KSAuNk1Tt5ERVm5IyZTUeBkVyaXbPacfVeSgkDAMgz0=.webp.crypt14",
+  "bytes": 11470,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\ksxZnWO4SLWV0qyUROuZSH+tzCqFgiX0RVfIsD0gnB0=.was.crypt14",
+  "bytes": 32476,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\MBAFhsc9BzMl3TR5jOXJt30SsnRurhQJCN8e-T45MH8=.was.crypt14",
+  "bytes": 23878,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\mCZ-7a6sZ6TMa14YokRCSfultjY6aQEVE5Z11TpjsP8=.webp.crypt14",
+  "bytes": 8325,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\MmuPZh2rCrolVfPp3kM86doRnW9G6eF73Vta+ANcWPI=.was.crypt14",
+  "bytes": 88107,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\mX5t9bT2sdOLVD5jgjdaxj8r10Xa8oHK2NgejQ6fIUE=.webp.crypt14",
+  "bytes": 18983,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\MZJY31iCZGteCNG9UYx+8xQn1ttUpK2wCpSyMejYq3o=.was.crypt14",
+  "bytes": 216024,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\mzuiabBElpqmfH48L2kC54E7VceUWpJDw-Bc9ZMdaTU=.was.crypt14",
+  "bytes": 77347,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\NEJBIau700dHEl3Ao4qHCrzfWhBBb57wvsGz378ggoQ=.was.crypt14",
+  "bytes": 18488,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\NHnEQSx1Lbeb4Dn4udbKcuelt1T9IlIIBrILnE4terw=.was.crypt14",
+  "bytes": 154594,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\nkQ59OKsvaLdSoTRegOKYsBwYfvitQp9CDPow4eh-F4=.webp.crypt14",
+  "bytes": 10416,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\OEA8n-Dt2xtCqTtU3-IIi3IzqLFhblE2ZD5wZfE1vNg=.webp.crypt14",
+  "bytes": 15434,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\OEGxWiqaSVHm0Zs0YOaV2FpkcHuX5tqeZSUBL31GYv0=.webp.crypt14",
+  "bytes": 12088,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\PG-shQqwRdhuYSoQEhWCIz+XijMjUOM85mXPZzFsudY=.webp.crypt14",
+  "bytes": 91314,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\Rn+cv73kMY9qsFB19Sm828vN-bJ06tsqTp4qjmnnVtA=.was.crypt14",
+  "bytes": 63889,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\rNXSXW1CrsamawvjJEjl2od2BM7-pYTd2MevFlP2aMI=.was.crypt14",
+  "bytes": 8849,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\rt8qjiK0afdcFfq6xaCwiUSjoQpPvQvikt8P5kDTe1w=.webp.crypt14",
+  "bytes": 11807,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\rV2RL0pFjMzLWZ6u4PPBMNhp723CeR32XHT0XaJxNdw=.was.crypt14",
+  "bytes": 10189,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\RZEEl5HVWT4S6C0PoOgjYCQVDWs5esIMJsjcDYI80ZE=.webp.crypt14",
+  "bytes": 9939,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\SoTOoUN0eQTinsZIBRz+i3vMOTeOAXr2priCyu8Lri8=.was.crypt14",
+  "bytes": 23441,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\sVINEB0Qnh5LlHx6eV9fQmiS2V3ojO8OjipbC8dWNFA=.was.crypt14",
+  "bytes": 116640,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\tn7yEyczPI7-4qJj5TeSa7Cw9e8+cH0JOtUuhLKjW3Y=.webp.crypt14",
+  "bytes": 10066,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\uRis4dTkqERqgIB62FYVa2eDk0+EAJV3PiwoQoEHTPc=.webp.crypt14",
+  "bytes": 14044,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\uS1Dgzu5d4LNEtd-sW19m5wtk-qsV7H7Y7u43lujeGU=.webp.crypt14",
+  "bytes": 9088,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\UuPRjU3K2awgLXGals4rEdsWvxS+PPIy18uWxJOO-JA=.webp.crypt14",
+  "bytes": 11208,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\Vxayqu1yLaQye+rP2BTPKQk2SGr4iBpxEHhZ9FxJb0M=.was.crypt14",
+  "bytes": 7509,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\whatsappcuppy.png.crypt14",
+  "bytes": 3947,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\wJggp7z+m8EEB4UKz0jQ6M4FNiHyCxo1dmtP9nEnS2g=.webp.crypt14",
+  "bytes": 13688,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\YCzzgrO-3g8zGOBTUGKF25OF-UTLyRvhxO4WgNaTj64=.was.crypt14",
+  "bytes": 23596,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\z4eka4aXp7ksZ3Gh-VsDcPYE3+DrJccbA9KeCz0pNy8=.webp.crypt14",
+  "bytes": 11555,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\Zt7f+jxhMBKSabS8hFAJ0vChFW8gKOiJQer0-7yycoI=.was.crypt14",
+  "bytes": 57935,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Backups\\Stickers\\zWIntfn-2OA3Rbhe4nMS9xnK7a8M9WpasYBjDjiy4K8=.webp.crypt14",
+  "bytes": 12996,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\+TA4ps+uw1sLGIolAK6T80OSR4WjLxEkQzbS2l3UZWA=.webp.crypt14",
+  "bytes": 11790,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\-fdChqphuGjtSi0WTLBgWWFwtl4PUhdmgpxFkdQnUYI=.was.crypt14",
+  "bytes": 6603,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\-G-AlLyJzuun9qluEj1aa1H8uJHub19+bWbnTs+9zJY=.webp.crypt14",
+  "bytes": 171398,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\-xP7XAZ-rbEGLgLKJVzmL3qGZe8Yerh6a-cTBQQ-Bok=.webp.crypt14",
+  "bytes": 7329,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\1RgjeZcCQQjyzYnvcvInvzes-n9ThHJ4Ndr3dzGUeP0=.webp.crypt14",
+  "bytes": 12700,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\1tVJy555vd0O3nLHzVg-9ot6BNSUHtwZRr4lR33Ctas=.was.crypt14",
+  "bytes": 23340,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\2C6G8YKNUPEkisw6At3-ESN+6lfI1JxCx3FYhCG7G5c=.was.crypt14",
+  "bytes": 40707,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\2DNSQv6OWj5HljD1WmTOSDY6XbIe6ns5cWAfyazS4gU=.was.crypt14",
+  "bytes": 36313,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\3IGekGm6hGxaoSbZyi0IThTxUTigZYBg4SBNBXNI3Og=.was.crypt14",
+  "bytes": 36492,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\4A7LJfNzkyYK0GAWxqD4jTakZ3y-zmeD+6m3xN1e92g=.was.crypt14",
+  "bytes": 21402,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\4rQB8S64lv3q8aqe1kNaqwACiU1cUvFaMLLHsjtdiE0=.was.crypt14",
+  "bytes": 32003,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\53Jr5Nou5rNGPiwnf8ZM-n+P2SnhrDhrcW7TVAIRHJE=.webp.crypt14",
+  "bytes": 11458,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\5Zn5PZWDG0ihoswefSvLCKtYxPeY+J1Gphyf0vb0muo=.was.crypt14",
+  "bytes": 24583,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\6Qdgt1+4vVJD+hSlPLiRGW-LD4XSyTLFJZUjjt2oVF0=.was.crypt14",
+  "bytes": 60269,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\8dNJTRvBLV4SpgtVZ-eJqaE87aC7B9FTW+RNuvyTWKM=.was.crypt14",
+  "bytes": 24698,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\9cXhxEwJixfeV3K3ZBj5roOUZuCWEjgYLwEhd1R9v+o=.was.crypt14",
+  "bytes": 41965,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\9Z07Bt+E3RVDtjTgBaFtMHXKiEjWGNT2-bBvY52uLJc=.was.crypt14",
+  "bytes": 7537,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\a80J-z3v9D9cMTxgqWJwq0RwKfsunvcuCaPiE8Aesx8=.was.crypt14",
+  "bytes": 32139,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\AGPB7Vnhnd3RtkCmidNcpfWityDQTiyMNW95o1QAkWg=.webp.crypt14",
+  "bytes": 13052,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\ahmCleINO+3YrsLN-dKBYRNbMhGcsdzoqVzR2+nm-nY=.was.crypt14",
+  "bytes": 40145,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\ApryKL+iinH9X7eUeV7+TsUb9x6uUhDQpIMN4chxa+Y=.was.crypt14",
+  "bytes": 103545,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\aVJ66QUFc5dfhAzCLLXXmvP9eCcMrpYERJHtxFSV5cc=.was.crypt14",
+  "bytes": 26792,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\BcZjBFvyeqn+gK4AgQIGCckhn2uRsqQLBCgwwfocBXA=.webp.crypt14",
+  "bytes": 10322,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\bQnhs6M-bT3O3uc0VNTZGxTBfXN3vi2kZfTAJ5d61jk=.webp.crypt14",
+  "bytes": 14495,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\COeMxQu-MJzUO9L4ANRclD93oFEprpAhV1d7JaECyko=.was.crypt14",
+  "bytes": 10322,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\cRlsZTkVGSSPxcK3Q+hrXq6zJSbqFdsMYEBQzl4k7Jg=.was.crypt14",
+  "bytes": 8286,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\cyVBc2Hwne4lTGZAgPTZMQane+PhbmA0suotCYTiGNs=.webp.crypt14",
+  "bytes": 12740,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\ddQA4ZqUH-BAL4VNWhDiGBVrV3pr-N+sLaYPBMqXOro=.webp.crypt14",
+  "bytes": 38608,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\eftZaqMDts9Ml3ilM9gC2nbqzFJm8gX6fq3u6yNMI7s=.was.crypt14",
+  "bytes": 24507,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\fwG3zatWUaZmPkCLamwL+IUtv3Bs8h2CZjCfT1G-Fec=.was.crypt14",
+  "bytes": 16138,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\gCognx4uHW7o8sfEIC7JyQBU88cG95Dq11I8dz4OtlY=.webp.crypt14",
+  "bytes": 10926,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\GzsAbW2Zh0RgwoTh6uY6speyq+NmIGZE4kUCwoCktIg=.was.crypt14",
+  "bytes": 103540,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\H8z9L4aNPIPFL7qzz+83iARv3LXHRB4bKA6giwJ0k0E=.webp.crypt14",
+  "bytes": 11634,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\hb4eCn1dG1mvrZQlw2sh+0YWuhKjE4V2do741uqsOPk=.was.crypt14",
+  "bytes": 18944,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\HTyNiDK3fNV13T5yO-AJhc9MTtXX1-274kMsFjYrqKk=.was.crypt14",
+  "bytes": 44182,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\iiwcJvm-awpaxIhlstx+q+C0XTK8raDA-Vjkl4Wsaho=.webp.crypt14",
+  "bytes": 12471,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\IuG6dk1m8sSt9INiGJ01N2ZeC901cZ-ud9Hcrz8QIZE=.webp.crypt14",
+  "bytes": 16510,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\joHRNcLJXTFnaKdlNvejBoAo5fbhzriORMWg68+FPHE=.was.crypt14",
+  "bytes": 34801,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\Kksten7ZXo17t7ivYqnGYrgpe-SUVFIq0ISNQqRxz0Q=.was.crypt14",
+  "bytes": 13150,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\KSAuNk1Tt5ERVm5IyZTUeBkVyaXbPacfVeSgkDAMgz0=.webp.crypt14",
+  "bytes": 11470,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\ksxZnWO4SLWV0qyUROuZSH+tzCqFgiX0RVfIsD0gnB0=.was.crypt14",
+  "bytes": 32476,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\MBAFhsc9BzMl3TR5jOXJt30SsnRurhQJCN8e-T45MH8=.was.crypt14",
+  "bytes": 23878,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\mCZ-7a6sZ6TMa14YokRCSfultjY6aQEVE5Z11TpjsP8=.webp.crypt14",
+  "bytes": 8325,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\MmuPZh2rCrolVfPp3kM86doRnW9G6eF73Vta+ANcWPI=.was.crypt14",
+  "bytes": 88107,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\mX5t9bT2sdOLVD5jgjdaxj8r10Xa8oHK2NgejQ6fIUE=.webp.crypt14",
+  "bytes": 18983,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\MZJY31iCZGteCNG9UYx+8xQn1ttUpK2wCpSyMejYq3o=.was.crypt14",
+  "bytes": 216024,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\mzuiabBElpqmfH48L2kC54E7VceUWpJDw-Bc9ZMdaTU=.was.crypt14",
+  "bytes": 77347,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\NEJBIau700dHEl3Ao4qHCrzfWhBBb57wvsGz378ggoQ=.was.crypt14",
+  "bytes": 18488,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\NHnEQSx1Lbeb4Dn4udbKcuelt1T9IlIIBrILnE4terw=.was.crypt14",
+  "bytes": 154594,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\nkQ59OKsvaLdSoTRegOKYsBwYfvitQp9CDPow4eh-F4=.webp.crypt14",
+  "bytes": 10416,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\OEA8n-Dt2xtCqTtU3-IIi3IzqLFhblE2ZD5wZfE1vNg=.webp.crypt14",
+  "bytes": 15434,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\OEGxWiqaSVHm0Zs0YOaV2FpkcHuX5tqeZSUBL31GYv0=.webp.crypt14",
+  "bytes": 12088,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\PG-shQqwRdhuYSoQEhWCIz+XijMjUOM85mXPZzFsudY=.webp.crypt14",
+  "bytes": 91314,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\Rn+cv73kMY9qsFB19Sm828vN-bJ06tsqTp4qjmnnVtA=.was.crypt14",
+  "bytes": 63889,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\rNXSXW1CrsamawvjJEjl2od2BM7-pYTd2MevFlP2aMI=.was.crypt14",
+  "bytes": 8849,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\rt8qjiK0afdcFfq6xaCwiUSjoQpPvQvikt8P5kDTe1w=.webp.crypt14",
+  "bytes": 11807,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\rV2RL0pFjMzLWZ6u4PPBMNhp723CeR32XHT0XaJxNdw=.was.crypt14",
+  "bytes": 10189,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\RZEEl5HVWT4S6C0PoOgjYCQVDWs5esIMJsjcDYI80ZE=.webp.crypt14",
+  "bytes": 9939,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\SoTOoUN0eQTinsZIBRz+i3vMOTeOAXr2priCyu8Lri8=.was.crypt14",
+  "bytes": 23441,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\sVINEB0Qnh5LlHx6eV9fQmiS2V3ojO8OjipbC8dWNFA=.was.crypt14",
+  "bytes": 116640,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\tn7yEyczPI7-4qJj5TeSa7Cw9e8+cH0JOtUuhLKjW3Y=.webp.crypt14",
+  "bytes": 10066,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\uRis4dTkqERqgIB62FYVa2eDk0+EAJV3PiwoQoEHTPc=.webp.crypt14",
+  "bytes": 14044,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\uS1Dgzu5d4LNEtd-sW19m5wtk-qsV7H7Y7u43lujeGU=.webp.crypt14",
+  "bytes": 9088,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\UuPRjU3K2awgLXGals4rEdsWvxS+PPIy18uWxJOO-JA=.webp.crypt14",
+  "bytes": 11208,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\Vxayqu1yLaQye+rP2BTPKQk2SGr4iBpxEHhZ9FxJb0M=.was.crypt14",
+  "bytes": 7509,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\whatsappcuppy.png.crypt14",
+  "bytes": 3947,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\wJggp7z+m8EEB4UKz0jQ6M4FNiHyCxo1dmtP9nEnS2g=.webp.crypt14",
+  "bytes": 13688,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\YCzzgrO-3g8zGOBTUGKF25OF-UTLyRvhxO4WgNaTj64=.was.crypt14",
+  "bytes": 23596,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\z4eka4aXp7ksZ3Gh-VsDcPYE3+DrJccbA9KeCz0pNy8=.webp.crypt14",
+  "bytes": 11555,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\Zt7f+jxhMBKSabS8hFAJ0vChFW8gKOiJQer0-7yycoI=.was.crypt14",
+  "bytes": 57935,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Backups\\Stickers\\zWIntfn-2OA3Rbhe4nMS9xnK7a8M9WpasYBjDjiy4K8=.webp.crypt14",
+  "bytes": 12996,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore-2026-07-15.1.db.crypt14",
+  "bytes": 1460791710,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore-2026-07-16.1.db.crypt14",
+  "bytes": 1463609534,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore-2026-07-17.1.db.crypt14",
+  "bytes": 1465543131,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore-2026-07-19.1.db.crypt14",
+  "bytes": 1467248565,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore-2026-07-20.1.db.crypt14",
+  "bytes": 1470795425,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore-2026-07-21.1.db.crypt14",
+  "bytes": 1472530960,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore-2026-07-22.1.db.crypt14",
+  "bytes": 1473948663,
+  "mtime": "2026-07-22"
+ },
+ {
+  "kind": "whatsapp-store",
+  "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\_scratch\\whatsapp-backup\\Databases\\msgstore.db.crypt14",
+  "bytes": 1476110973,
+  "mtime": "2026-07-22"
+ }
+]

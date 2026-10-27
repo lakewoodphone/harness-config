@@ -1,0 +1,11 @@
+C:\Users\ezabz\Code\personal-secretary-mvp
+C:\Users\ezabz\Code\lpt-hub
+C:\Users\ezabz\Code\_pbp
+C:\Users\ezabz\Code\_customer-plane-build
+C:\Users\ezabz\.platformio
+C:\Users\ezabz\car_chat_hits
+C:\Users\ezabz\Downloads\customer data
+C:\Users\ezabz\AppData\Local\Temp
+C:\Windows\Installer
+C:\ProgramData\Microsoft\Windows
+C:\Users\ezabz\.usearch

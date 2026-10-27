@@ -1,0 +1,12 @@
+C:\
+C:\ProgramData\Microsoft
+C:\ProgramData\Apple
+C:\ProgramData\Apple Computer
+C:\Users\ezabz\Backups
+C:\Users\ezabz\.fsearch
+C:\Users\ezabz\_scratch
+C:\Users\ezabz\Code\_fleet
+C:\Users\ezabz\Code\_worktrees
+C:\Users\ezabz\AppData\Local\Packages
+C:\Users\ezabz\.dsh
+C:\Users\ezabz\.android
