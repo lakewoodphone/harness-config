@@ -95,6 +95,29 @@ on this, and right now it is built on nothing.
 
 **What I need:** open hours, the closed day, and whether the hours are the same every week.
 
+> **ANSWERED 2026-10-27.** In his words: *"we're open to the public for walk-ins … on Sunday 12 to 4, on Tuesday
+> 10:30 to 5:30 and on Thursday 10:30 to 5:30. Though throughout the week I could be there, including Friday.
+> Sometimes I'm there, but usually not. Customers walk into the hallway that's always open to travel and pick up,
+> even during closed hours."*
+>
+> Three facts, and the third is the one that changes the alarm:
+>
+> 1. **Public walk-in hours are Sunday 12:00–16:00 and Tuesday/Thursday 10:30–17:30** — a three-half-day week.
+> 2. **Outside those hours he may be there, "usually not"**, so presence outside the published hours is possible but
+>    not expected. That is another thing a schedule cannot carry and a declared state can.
+> 3. **The hallway is open around the clock for travel and pickup, including closed hours.** So **the hallway is
+>    never part of the perimeter** — motion there is always expected and can never be an alarm. The perimeter is two
+>    doors: the shop door and the apartment door. Treating the hallway as a zone would have produced a false alarm
+>    every night somebody collected a device.
+>
+> **These hours already exist in the estate and must not be copied a third time.** The shop's own auto-reply text in
+> `lpt-hub` reads *"Our walk-in hours are Sunday 12-4, and Tuesday and Thursday 10:30-5:30"*, which matches him
+> exactly — so the security design should **read** the hours from the business side rather than hold its own copy.
+> Related defect, already documented there and not mine to fix here:
+> `lpt-hub/docs/customer-operations/sops/CUSTOMER-TEXT-RESPONSE-FLOW.md` records that the website advertises a
+> *different* week (Monday/Tuesday/Thursday 10:30–5:30 and Friday 10:30–13:00). Two customer-facing surfaces
+> disagree; the security record should not become a third.
+
 ## Q5. Who legitimately enters when nobody is watching?
 
 Cleaner at 6am, a delivery left inside, a staff member opening up, the tenant, a family member. Each one is a
