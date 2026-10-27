@@ -338,6 +338,21 @@ RFID rather than restore it — a tag has no revocation story and the readers ar
 
 **Decision:** yes or no.
 
+> **DEFERRED 2026-10-27, and my recommendation was wrong.** He asked the question I should have asked myself: *"what
+> does sending me a silent alarm help if I'm being the one forced to open it."* It does not. A silent alert delivered
+> to the only person who cannot act is theatre, and building it would have produced a feature that feels like safety
+> and is not.
+>
+> The code earns its place in three cases only, and just one is about rescue: (1) **somebody else** is compelled to
+> enter it — a family member or a worker — and it reaches him while they are still at the keypad; (2) it alerts a
+> **second human** who is not in the room and could physically come; (3) it **flags the episode as evidence**, keeping
+> those frames permanently instead of letting the ring buffer overwrite them in about eight days.
+>
+> So the honest form of D12 is not "a silent alarm for him" but "duress pages a second named person and preserves the
+> footage". Without a second person who would be awake at 2am and able to come, only the retention job is left, and
+> that does not need a secret code at all. **Deferred pending exactly that fact** — whether such a person exists —
+> because the answer changes what is built rather than how it is configured.
+
 ## D13. What the siren does after fifteen minutes
 
 **Read:** it now clears the flag and logs it. After that, silence.
