@@ -175,6 +175,45 @@ Everything planted for the test was deleted by exact id: `actions=0  acks=0`.
 possible — a `PAGE` with no ack inside the window is the trigger), a quiet-hours policy for the security path, the
 picture that has never travelled (blocked on a file route into `/config`), and the first real page.
 
+
+### 8. Escalation exists and is scheduled — DONE 2026-10-27 22:48Z
+
+`POST /webhook/ha/security-page/escalate`, run by `security-page-escalate.timer` every two minutes. When a delivered
+page has **no acknowledgement** and is **older than 300 s**, it makes a **voice call** through the estate's existing
+voice path (`notification_manager._attempt_voice_alert`) and records a `security_action` row of `action='CALL'`.
+
+**Why a call and not another text.** A second identical text arrives on the same phone that just ignored the first one,
+so it is not escalation. The ladder in D4 is page → voice call → the second person; this is the middle rung.
+
+**Every refusal gate proven, and nothing dialled:**
+
+| input | answer |
+|---|---|
+| no `x-ps-api-key` | **401** |
+| no delivered page at all | `{"ok":false,"reason":"no delivered page to escalate"}` |
+| a page that **was** answered | `{"escalated":false,"reason":"answered","who":"owner-pin","noted_at":"…22:48:07Z"}` |
+| unanswered but age 0 < 300 s | `{"escalated":false,"reason":"too early","age_s":0,"after_s":300}` |
+| the same page escalated twice | `{"escalated":false,"reason":"already escalated by voice"}` (guarded by a `CALL` row keyed to the page) |
+
+The answered-gate matters more than it looks: `security_page_ack` exists so a cancel stops escalation, and a cancelled
+page that still got called would teach the owner that cancelling does not work.
+
+First scheduled run: `{"ok":false,"reason":"no delivered page to escalate","escalated":false}` — correct, because no
+page has ever been sent. Test rows deleted by exact id (`actions=0  acks=0`).
+
+**Not proven:** the voice call itself. Reaching it requires a delivered page older than five minutes with no
+acknowledgement, i.e. a real page first.
+
+## What the objective still needs
+
+1. **A quiet-hours policy for the security path.** `OWNER_QUIET_HOURS_ENABLED=false` live, and it is not enforced on
+   the alert path at all. My recommendation, to be implemented rather than asked: **a level-3/4 page ignores quiet
+   hours** (that is what a security page is for), while **level 2 respects them** and goes to the digest. Quiet hours
+   should change the channel of a note, never whether an alarm is delivered.
+2. **The picture** — still blocked on a file route into `/config`.
+3. **The first real page**, body shown to the owner first. That single event also proves the voice escalation and the
+   `COVERED` dedupe branch with real data instead of synthetic rows.
+
 ## Remaining
 
 | # | fix | live location | note |
