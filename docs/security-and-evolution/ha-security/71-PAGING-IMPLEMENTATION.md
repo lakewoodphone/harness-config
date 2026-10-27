@@ -345,3 +345,17 @@ cd /opt/company && PYTHONPATH=/opt/company .venv/bin/python /root/test-security-
 directory, so without it the import fails with `ModuleNotFoundError: No module named 'app'` (measured — the heredoc
 form worked and the saved file did not, which is exactly the kind of difference that makes a test look broken).
 It exits 0 on pass and 1 on fail, so it can gate a deploy.
+
+### 12. The transport itself is live — read-only check, 2026-10-27 22:54Z
+
+The one thing never verified was whether the channel can reach Twilio at all. A read-only account fetch answers it
+without sending anything:
+
+```
+account sid set: True | auth token set: True | sender set: True
+TWILIO READ OK  status=active  type=Full  friendly=Lakewood Phone & Tech
+```
+
+So the credentials are valid, the account is **active** and a **Full** account (not trial, so no unverified-number
+restriction), and a sender is configured. What remains unproven is delivery to a handset, which no API on this estate
+can observe (`sms_log` records the attempt; Twilio statuses sit at `queued`) and which only a real page can settle.
