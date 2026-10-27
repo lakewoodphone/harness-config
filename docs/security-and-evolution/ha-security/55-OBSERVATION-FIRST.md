@@ -92,3 +92,40 @@ know either.
   premises with employees.
 - **The record is not a substitute for the alarm.** A record tells him after; the alarm is what a customer behind
   a counter needs in the ten seconds that matter. Both are wanted, in this order of *build*, not of *running*.
+
+---
+
+## 7. Measured 2026-10-27 on the live system — the clock, and the picture
+
+Read from ZABZ-TECH through `homeassistant.local`: HA **2025.10.3**, tz `America/New_York`, `GET /api/` **200 in
+116 ms**, `GET /api/states` **1,040 entities**, of which **368 are unavailable or unknown (35.4 %)** and **25 are
+camera entities** (21 `idle`, 4 `unavailable`). Every still below was fetched with
+`GET /api/camera_proxy/<entity>` and its burned-in timestamp read off the image itself.
+
+| what | burned into the picture | host clock at fetch | offset |
+|---|---|---|---|
+| `camera.cam_front_hallway_main` — Dahua, "Main Entrance" | 2026-10-27 11:30:01 | 12:21:25 | **51 m 24 s behind** |
+| the same camera, 23 s later | 2026-10-27 11:30:22 | 12:21:48 | 51 m 26 s behind |
+| `camera.cam_larry_s_exit_main_2` — Dahua | 2026-10-27 11:30:03 | 12:21:25 | 51 m 22 s behind |
+| `camera.reolink_video_doorbell_poe_clear` — Reolink doorbell | 27/10/2026 11:13:51 | 12:21:25 | **67 m 34 s behind** |
+
+Three things follow. The first **corrects** the prior audit, and correcting it changes the size of the job.
+
+1. **The two Dahua cameras agree with each other to two seconds.** The "sixteen minutes apart" recorded on
+   2026-10-26 is real, but it is not scatter between four cameras: the Dahua group shares **one** wrong clock
+   (51 m 25 s behind) and the Reolink doorbell has **another** (67 m 34 s behind). 67:34 − 51:25 = **16 m 09 s**,
+   which is exactly the audit's figure. So this is **two clock corrections, not five** — and one of the two is the
+   doorbell, the camera that sees a face at the entrance at all.
+2. **The stills are live, not cached.** The same camera's OSD advanced 21 s across 23 s of real time. The 51-minute
+   error is in the camera, so every picture taken today is filed under the wrong minute by an hour.
+3. **A picture does come back today, with nothing built.** 166 KB in 2,273 ms (hallway), 317 KB in 2,766 ms
+   (Larry's exit), 1.09 MB in 277 ms (doorbell). So `05-LIVE-FINDINGS.md` L5's "no picture has ever been stored" is
+   exact only about the **storage path**: the API produces the frame and nothing ever wrote it down. The capture
+   step is therefore a *save plus a row*, not a new imaging system — which is a much smaller job than the audit
+   implied.
+
+**The shape of the defect this exposes.** The edge rows come from Home Assistant's clock, which agrees with the
+host to the second; the pictures come from the cameras, which are 51 and 67 minutes behind. So the record would
+say a person arrived at 12:21 and their photograph would say 11:30. Every episode query would be right and every
+image would contradict it. That is a record that looks complete and is wrong — the failure this document exists to
+prevent, and the reason the clock is step 1 rather than housekeeping.
