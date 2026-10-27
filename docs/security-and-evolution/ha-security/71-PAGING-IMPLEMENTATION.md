@@ -77,6 +77,47 @@ Evidence: called once with `actor='selftest-20261027'` → returned `True`, and 
 page. What is proven is that the writer writes a correct row and that the handler compiles and serves with the call in
 place. The end-to-end proof is the first real page, which needs the owner's approval on the exact body.
 
+
+### 5. The declared shop state exists, and the judge reads it — DONE 2026-10-27 22:45Z
+
+Without this, level 3 was structurally unreachable: `expected_empty_at_open` meant "no presence anywhere in the
+basement for 600 s", and the basement contains the dwelling where his family sleeps (journal `D9385`).
+
+- **`security_shop_state`** table on the authority — `state` constrained to `shop_closed | apartment_occupied |
+  nobody_here`, plus `declared_by`, `declared_at`, `note`. Latest row wins.
+- **`/root/security-state.py`** — `show`, or `shop_closed|apartment_occupied|nobody_here [note]`. It refuses any other
+  value with exit 2.
+- **`/root/security-sentinel.py`** — a `_declared_state()` helper and the mapping, deliberately conservative so a
+  declaration can never *invent* a page: the **shop door** is expected-empty only when the shop is declared `closed`
+  (or `nobody_here`); the **apartment door** only when `nobody_here`. With no declaration ever made, the old 600-second
+  latch still decides — so the change is inert until someone declares.
+
+Verified: backup `/root/security-sentinel.py.bak-declared-state-20261027T224507Z`; `py_compile` ok; sentinel
+**active** after restart (`seed: 4 presence entities read … sentinel shadow running (rule v0-shadow)`); declared
+`shop_closed` (honest at 22:45 local); the table holds
+`(1, shop_closed, owner-delegated, 2026-10-27T22:45:20Z)`; and the mapping computes
+`shop_door → expected_empty=True`, `apartment_door → expected_empty=False` for that value.
+
+**Not proven:** no credential-free door event has happened since, so no level-3 row has been produced. The wiring is
+proven by the sentinel loading and the value being readable; the firing needs a real door event.
+
+## The decision this exposes: the judge records, HA pages, and the judge is the fallback
+
+The objective says *"every security decision at level 3 or above reaches the owner"*. Today two independent things
+exist: Home Assistant **pages** on its own automation (works, reaches Twilio), and the Python judge **records**
+level-3 decisions (shadow, sends nothing). They do not know about each other.
+
+Building a page into the judge would be the second sender — forbidden, and it would double every intrusion. Doing
+nothing leaves the gap the fleet found: **if HA's page never leaves** (its evidence script aborts, the API refuses, the
+network is down), the judge holds a level-3 decision and nobody gets told.
+
+**So the judge's page is a fallback, not a sender:** for every level-3 decision, look for a `security_action` row with
+`action='PAGE'` inside the episode window. If there is one, the record is complete and nothing else happens. If there
+is none, page — using the same webhook, the same transport and the same audit, never a second path.
+
+That is exactly the check `security-health` is already shaped to carry (it counts `security_action` and exits non-zero),
+and it is why the audit writer had to exist before this could be safe.
+
 ## Remaining
 
 | # | fix | live location | note |
