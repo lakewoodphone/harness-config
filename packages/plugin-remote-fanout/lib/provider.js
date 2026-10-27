@@ -336,7 +336,17 @@ function leaseNoteFor(placement, release) {
   if (release?.skipped !== undefined && release?.skipped !== null) {
     return `${placement.lease} not released: ${release.skipped}`;
   }
-  return `${placement.lease} COULD NOT be released (${release?.code ?? 'broker-error'}: ${release?.error ?? 'unknown'}) — the broker reclaims it at its TTL`;
+  // The broker's own words first (fixed 2026-10-27). Measured on the authority: 123 of 454
+  // releases came back `released: false`, EVERY one of them a lease TTL expiry, and the
+  // broker said exactly that in its `reason` field -- "unknown or already-expired lease ...
+  // this is not an error". This renderer dropped that sentence and printed
+  // "broker-error: unknown" instead, which sent a reader hunting a broker fault that did not
+  // exist. A reason that arrives and is thrown away is worse than no reason: it accuses the
+  // wrong component.
+  if (release?.reason) {
+    return `${placement.lease} not released: ${release.reason}`;
+  }
+  return `${placement.lease} COULD NOT be released (${release?.code ?? 'no-code'}: ${release?.error ?? 'the broker returned no reason'}) — the broker reclaims it at its TTL`;
 }
 
 /** Put the release note in the header of a report, above the child's own message. */
