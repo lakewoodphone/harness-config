@@ -1,0 +1,18 @@
+--- a/app/sms_service.py	2026-10-27 05:29:42 +0000
++++ b/app/sms_service.py	2026-10-27 22:41:14 +0000
+@@ -1864,7 +1864,14 @@
+                 _count = _row[0] if _row else 0
+             finally:
+                 _quota_conn.close()
+-            if not _is_direct_send and _daily_quota >= 0 and _count >= _daily_quota:
++            # A SECURITY PAGE IS NOT AN AUTONOMOUS OWNER TEXT (2026-10-27).
++            # bypass_owner_kill_switch is set by exactly one caller - the security-alert
++            # path - and it already means "an intrusion must page even while routine
++            # owner SMS are switched off". The daily quota was still dropping the
++            # owner's own page while his family received theirs: measured 2026-10-27,
++            # OWNER_SMS_DAILY_QUOTA=20 and this branch did not test the flag.
++            if (not _is_direct_send and not bypass_owner_kill_switch
++                    and _daily_quota >= 0 and _count >= _daily_quota):
+                 log.warning(
+                     "Owner SMS daily quota reached: %d distinct sent today "
+                     "(limit %d), blocking autonomous send to %s",
