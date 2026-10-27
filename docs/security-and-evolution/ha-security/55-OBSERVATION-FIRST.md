@@ -129,3 +129,73 @@ host to the second; the pictures come from the cameras, which are 51 and 67 minu
 say a person arrived at 12:21 and their photograph would say 11:30. Every episode query would be right and every
 image would contradict it. That is a record that looks complete and is wrong — the failure this document exists to
 prevent, and the reason the clock is step 1 rather than housekeeping.
+
+---
+
+## 8. Scope A, and the coverage it demands (decided 2026-10-27)
+
+He chose **A** of A/B/C: every entrance and every shop/public area; the apartment interior is **not** covered, only
+its door from the hallway side; stills and their rows are kept **forever**; video **thirty days**; **no audio** —
+New Jersey is one-party for audio and this is a premises with a tenant and employees; the tenant is a named
+subject whose entries are *expected*, not suspicious. Journal `D9375`.
+
+### What each camera actually sees — read off the pictures, not the names
+
+Every row below was established by fetching `GET /api/camera_proxy/<entity>` at 2026-10-27 12:21–12:54 local and
+reading the frame and the burned-in OSD label.
+
+| entity | OSD label | what the frame shows | the door it can answer for |
+|---|---|---|---|
+| `camera.cam_front_hallway_main` | "Main Entrance" | a hallway with three white doors, wide angle from high above | the internal hall doors, side-on |
+| `camera.cam_larry_s_exit_main_2` | "Deserted House Exit" | the control room from one corner: dark double door, desk, bins | the control-room exterior door |
+| `camera.cam_deserted_exit_main` | "Deserted House Exit" | **the same room** from the opposite corner, including a white door | same room, complementary angle |
+| `camera.cam_deserted_interior_main` | "Deserted House inwards" | the repair bench with two staff, the back-room doorway, white double doors | the work area — no exterior door |
+| `camera.cam_waiting_room_main` | "IPC" | the public **drop-off / pick-up** door with the LPT sign, from inside and very close | the door every customer uses |
+| `camera.reolink_video_doorbell_poe_snapshots_clear` | "Reolink Video Doorbell PoE" | the exterior stairwell, railing and street — the camera faces **away** from the building | the approach, **not** the doorway |
+| `camera.cam_larry_s_interior_main` | — | **no still at all: HTTP 500** while the entity reports `idle` | unknown |
+
+### The three gaps this exposes
+
+1. **The doorway itself is the blind spot, and it is the door that matters.** The doorbell looks outward down the
+   stairwell; the drop-off door is seen from inside at close range. Between a person arriving at the top of the
+   stairs and the door opening, **no camera shows that person's face**. Under O1 and O2 this is the single most
+   important missing view in the building, because it is the door every customer walks through — and it is a
+   camera-aiming problem, not a new system.
+2. **The maglock door has a view and no contact** (`D17`). The record could see a person and still be unable to say
+   a door opened for them. A contact is the cheap half and the camera is already there.
+3. **`cam_larry_s_interior_main` fails silently** — `idle` in the state machine, HTTP 500 on the still. So
+   liveness must be established by *the bytes arriving*, never by an entity's state. This is the same shape as
+   the estate's most expensive recurring defect: a failure that reports success.
+
+### The entity trap that decides whether a picture is evidence
+
+The same physical doorbell, at the same instant, produced two different timestamps: the high-resolution
+`snapshots_clear` entity burned **11:47:03** while the 640×480 `fluent` substream burned **11:42:04** — five
+minutes apart, because the substream serves a lagging frame while the snapshot entity is current. So *which entity
+inside Home Assistant you capture from* is part of the evidence chain, not an implementation detail: capture from
+the snapshot/clear entity, and keep the OSD time beside the file.
+
+### The record cannot hold a picture yet
+
+`grep -E 'image|file|path|snapshot|photo|jpeg|media'` over `schema/01-security-record.sql` returns **nothing**: the
+nine tables have no column that can reference an image. So O2 needs a tenth table before it can pass — an evidence
+row keyed to the event, carrying the file's path, its sha256, the camera, the host capture time **and** the OSD time.
+
+### What today's record already proves, and cannot answer
+
+The record is live: `security_event` holds **2,800 rows** from 2026-10-26T21:53:20Z to 2026-10-27T16:53:30Z,
+`security_decision` 9, `subject` 5, `credential` 5, and `entry_event` 3 — of which the newest is a real keypad
+press at **`shop_door`, 2026-10-27T14:33:15Z, with no subject and confidence 0.0**. A person entered the shop
+today, the record knows the door and the minute, and it cannot say who and has no picture. That is precisely the
+gap scope A exists to close, in one row.
+
+### The clock state, as of this measurement
+
+- **Dahua group** (5 working streams): **51 m 25 s behind**, agreeing with each other to 2 s → **one** correction.
+- **Reolink doorbell**: **67 m 26–34 s behind**, stable across 33 minutes → **one** correction.
+- Home Assistant's own edge timestamps are right to the second, so today the record's times and its pictures
+  disagree by up to an hour.
+
+Both corrections live in the devices' own web interfaces, and this box has no shell on the Home Assistant host
+(port 22 and port 445 both closed from ZABZ-TECH; only 8123 answers), and no camera credential exists in any
+`.env` on this machine. That is the one thing standing between the record and a correct timestamp.
