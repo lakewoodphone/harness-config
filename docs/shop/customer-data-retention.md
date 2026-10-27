@@ -1,9 +1,29 @@
 # Shop customer device data — retention and sweep
 
+## THE STANDING RULE — an agent never deletes customer data. Ever.
+
+Stated 2026-10-27, verbatim, after an audit offered to remove two expired sets:
+
+> *"nope, i delete them, you don't ever"*
+
+This is not a per-action approval rule that can be satisfied by a yes, and it is not scoped to the
+30-day window. **An agent does not delete, move or overwrite a customer's device data, at any age, in
+any location, under any instruction short of one naming the exact folder in that same conversation.**
+The 30-day window below decides *when a copy has expired*; it never authorises an agent to act on
+that. An agent's job ends at naming the folder, its age and the exact command.
+
+The rule exists in this form because of a real near-miss the same day: 24.1 GiB of one customer's
+WhatsApp store (msgstore.db.crypt14 ×4, plus a 6.66 GiB tar.gz of the same backup, 97 days old) was
+found inside `personal-secretary-mvp\_scratch\` — outside the one approved home, past the window,
+and offered up for deletion as if it were debris. It was left in place for the owner.
+
 Owner policy, stated 2026-09-30: **we are not responsible for a customer's data more than 30 days after the job.**
 Asked to clear three leftover WhatsApp-transfer folders, he answered: *"delete all 3, we aren't responsible for data
 more than 30 days."* So the 30-day window is the shop's own rule, it is not a judgement call for a session to reopen,
 and a transfer job's staging copy is not an asset to be preserved — it is a liability with an expiry date.
+
+The three rules together, in order: **an agent never deletes it** (above), **the window is 30 days**
+(2026-09-30), and **the one approved home is `Downloads\customer data`** (2026-10-27, below).
 
 ## What a phone transfer leaves behind, and where
 
