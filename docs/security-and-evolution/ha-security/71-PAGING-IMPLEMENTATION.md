@@ -29,6 +29,54 @@ Patch and rationale: `patches/2026-10-27-quota-exemption/`. Rollback: copy the b
 **What it does not prove:** no page was sent, and the branch was never exercised *while over quota*. It proves the
 condition tests the flag, the module compiles, the service serves, and auth still refuses.
 
+
+### 2. One bad number no longer re-pages everyone — DONE 2026-10-27 22:43Z
+
+`/opt/company/app/sms_service.py`, `send_security_alert_mms`. `ok = all(recipients)` became:
+
+```python
+if owner_phone:
+    ok = bool(results.get(owner_phone, {}).get("ok"))
+else:
+    ok = any(bool(v.get("ok")) for v in results.values())
+```
+
+Because Home Assistant treats `ok == false` as a failed page and retries **four more times, twelve seconds apart** —
+so a pessimistic `ok` does not mislabel, it **re-sends to everyone who already received the page**. One quota-blocked
+or opted-out family handset produced up to five copies for the others. `ok` now means "the owner got it"; the
+per-recipient detail stays in `results`.
+
+Evidence: backup `app/sms_service.py.bak-ok-semantics-20261027T224301Z`; `py_compile` ok; service bound in **8 s**;
+`GET /health` **200**; webhook **401**; file mtime `22:43:01` before process start `22:43:02`.
+
+### 3. `paged` no longer lies — DONE 2026-10-27 22:43Z
+
+`/opt/company/app/main.py`, the handler's response. `"paged": True` (a constant) became
+`"paged": bool(result.get("ok"))`. A response carrying `ok:false` — no recipients configured, Twilio missing, every
+send refused — used to report that the owner had been paged.
+
+Evidence: backup `app/main.py.bak-paged-honest-20261027T224325Z`; `py_compile` ok; bound in 8 s; health 200;
+mtime `22:43:25` before start `22:43:26`.
+
+### 4. Every page attempt is now written to the record — DONE 2026-10-27 22:44Z
+
+New module `/opt/company/app/security_page_audit.py`, called from the webhook handler before it responds. It inserts one
+`security_action` row per attempt — `action` `PAGE` or `PAGE_FAILED`, `result` `ok`/`failed`, the first recipient, and
+the refusal text. It is **fail-soft by design**: it catches everything and logs, because a page is the product and the
+row is the evidence; an audit failure must never turn a delivered page into an error.
+
+Why it existed at all: **nothing anywhere wrote `security_action`**, so `security-digest` counted pages from an empty
+table and reported *"0 pages"* forever, and its one-line summary kept telling the owner nothing had happened.
+
+Evidence: called once with `actor='selftest-20261027'` → returned `True`, and the row read
+`(1, 'PAGE', 'selftest-20261027', 'ok', '+10000000000', '2026-10-27T22:44:06.324363+00:00')`; the table went
+0 → 1 → 0 after that single test row was deleted by its exact id, so the digest is not inflated by my test.
+`app/main.py` and the new module both `py_compile`; service bound in 8 s; health 200; start `22:43:50`.
+
+**Honest limit:** the *handler-level* write has not been exercised end to end, because reaching it means sending a real
+page. What is proven is that the writer writes a correct row and that the handler compiles and serves with the call in
+place. The end-to-end proof is the first real page, which needs the owner's approval on the exact body.
+
 ## Remaining
 
 | # | fix | live location | note |
