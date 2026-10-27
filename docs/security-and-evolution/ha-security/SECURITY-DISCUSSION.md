@@ -222,6 +222,19 @@ reason. Level 0/1 never page; level 2 goes to a digest.
 > the exact body was approved before it went. Nothing here bypasses the outbound rule: the rule says nothing leaves
 > without his word on that message, and this is his word for the class — the first real page is still shown to him
 > first.
+>
+> **Measured constraint that reshapes the ladder, 2026-10-27 21:5xZ.** Read from `security_decision` on the authority:
+> the pipeline has produced **nine decisions and not one of them is level 3**. The highest is **2** — `R_DOOR_OCCUPIED`
+> returns `ESCALATE` at `avs_level 2` with confidence 0.3 for "shop_door opened with no credential", and the model lane
+> returns `NO_ALARM` at level 2 with 0.55. So a paging rule written as "level 3 and above" would **never fire**, and it
+> would look correct in every test that mocks a level-3 row.
+>
+> Which means the ladder is not a wiring job, it is a **mapping decision**: either a door opening with no credential in
+> a building that should be empty is genuinely a level 3 — it is the exact case this whole system exists for — and the
+> deployed rule is under-calling it, or the page threshold belongs at `ESCALATE` rather than at a level. Both are
+> arguable and they are not the same design. The build must settle it against the code's own level enumeration and the
+> AVS-01 definitions in `20-OPERATIONS.md`, and then prove it with a row that actually reaches the threshold, because a
+> threshold nothing can reach is a pager that never rings.
 
 ## D2. Who gets woken up
 
