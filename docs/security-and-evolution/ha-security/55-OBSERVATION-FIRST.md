@@ -263,16 +263,48 @@ Reolink is the honest oracle and the Dahua is the dangerous one, and the order o
 reverse of the order of value. Test on the device that cannot lock you out, or that tells you the truth, and stop
 after one failure on the one that can.
 
+### Why the API login cannot be completed from a script — read out of the device's own web client
+
+After a dedicated account (`zabz`, group `admin`) was created in the NVR's UI, the login still failed with the same
+`Component error: login challenge!`. So I read the recorder's own web application instead of guessing further:
+`https://192.168.50.170/static/js/vendors~project.08638de9.chunk.js` (4.4 MB) contains the login code, and it settles
+the question.
+
+**The digest algorithm was right.** Their `Default` branch is:
+
+```js
+var u = hex_md5(`${userName}:${realm}:${password}`);   // HA1
+return { pwd: hex_md5(`${userName}:${random}:${u}`) }; // user:random:HA1
+```
+
+which is exactly what I computed, three different ways, with the correct field name (`pwd`) as well as `password`.
+So the failure is **not** a wrong password, a wrong username or a wrong hash.
+
+**What the client does that a script does not:** every RPC payload is wrapped by `encryptInfo()` before it leaves the
+browser — an RSA public key (`f.setPublic(N, E)`) encrypts a random AES key, and the body is AES-encrypted with that
+key (`randLen:32, mode:"CBC"`, `iv:"0000000000000000"`, `pad:ZeroPadding`), sent as
+`{cipher, salt, key, content}`, with `decryptKeyToCrx` in later calls. The RPC transport also defaults to the path
+**`/RPC2`**, not `/RPC2_Login`. A plaintext JSON client is therefore refused by the server, and the refusal is
+deliberately uninformative.
+
+**The conclusion, and the decision:** speaking this API from a script means reimplementing the vendor's encryption
+envelope, which is a day of work and will break on the next firmware — to set a clock that the owner can set in the
+page he already has open. That is the wrong trade. **The clock gets fixed from the UI; the script work goes into the
+record, where it has lasting value.**
+
 ### What is needed to finish it
 
 One of these, and the clock work is a five-minute job:
 
-1. **A dedicated account on the NVR** (e.g. `zabz`, same password, "admin" rights) — removes the lockout risk from
-   the account the shop uses, and can be revoked afterwards; or
-2. **the exact username/password pair the NVR's own login screen accepts** — note that Dahua installers routinely
-   rename the built-in `admin` account, so "admin" may simply not be the name on this box; or
-3. **NTP switched on at the NVR by hand** — `Setup → Network → TCP/IP → NTP`, pointing at `pool.ntp.org`, and the
-   same on the Reolink doorbell — after which I verify from the burned-in timestamps alone.
+1. **NTP switched on in the NVR's own UI** — `Setup → System → Date & Time`, enable NTP against `pool.ntp.org`,
+   and do the same in the Reolink app for the doorbell. Nothing else is required; I verify from the burned-in
+   timestamps and the offsets in §7 must fall to zero; or
+2. **an API client with the vendor's encryption envelope implemented**, only if a future need is continuous
+   unattended reads rather than a one-time fix — not worth it for this.
+
+For the retention number in §5 I need, from the same UI: **Storage → HDD**, the disk capacity and the number of days
+it currently holds. That plus the camera count gives bytes per hour per camera, and `D19` stops being a guess.
 
 The password that was supplied is now in a session transcript that this estate archives permanently
-(`AGENTS.md` §1). That is a reason to prefer option 1 over option 2, and a reason to rotate it afterwards.
+(`AGENTS.md` §1), so the `zabz` account should be deleted once the clock is fixed, and the shop's admin password
+rotated.
