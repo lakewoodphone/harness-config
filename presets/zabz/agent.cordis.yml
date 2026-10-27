@@ -383,8 +383,26 @@
       # (retainTokens = 0) -- a wasted full-price request plus a summary. 0.7 puts the
       # trigger at 700k, comfortably under the ceiling, so the band cannot be entered.
       # Nothing about what the agent can do changes; it now respects a limit it already had.
+      #
+      # LOWERED TO 0.25 ON 2026-10-27 — a cost experiment on this preset only, and the
+      # reversal is one number. Measured by the second audit: cache-read is ~95% of the
+      # bill and the marginal cost of a step rises 4.5x (low) to 8.2x (high) from the
+      # first decile of a session to the last, because context grows and every step
+      # re-sends it. Average context in the long sessions was ~430k. At 250k the average
+      # falls by roughly 58%, which is 1,085-8,700 a month at the measured volume.
+      #
+      # The engine clamps this itself -- `thresholdTokens = min(contextWindow * ratio,
+      # contextWindow - reserved - headroom)` (dsh-compaction-basic/lib/index.js:132) --
+      # so a lower ratio is strictly safer against the ceiling, never riskier.
+      #
+      # WHAT IT COSTS, and what decides whether it stays: less context per step means more
+      # re-reads and possibly worse answers, and each compaction is itself a full-price
+      # request plus a summary. It is kept only if the work does not get worse. Judge it
+      # by steps-to-done and by how often the same file is read twice in one session, not
+      # by how full the window looks -- `context_status` answers that in one call and has
+      # been right every time it was actually read.
       config:
-        thresholdRatio: 0.7
+        thresholdRatio: 0.25
 
     - id: command-compact
       name: '@deepseek-ai/dsh-command-compact'
