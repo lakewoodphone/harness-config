@@ -118,6 +118,36 @@ is none, page — using the same webhook, the same transport and the same audit,
 That is exactly the check `security-health` is already shaped to carry (it counts `security_action` and exits non-zero),
 and it is why the audit writer had to exist before this could be safe.
 
+
+### 6. The fallback exists, is proven in both branches, and runs every two minutes — DONE 2026-10-27 22:46Z
+
+`scripts/security-page-fallback.py`, deployed to `/root/security-page-fallback.py` and run by
+`security-page-fallback.timer` (every 2 min, `OnBootSec=3min`, enabled). It looks at level-3 `ESCALATE` decisions in the
+last 30 minutes, asks the record whether a page was already recorded within ±300 s of the episode, and only acts when
+the answer is no. When it acts it posts to the **same** local webhook Home Assistant posts to — one transport, one
+audit path, one set of guards. On failure it writes a `PAGE_FAILED` row so the health check sees it.
+
+**Both branches proven with the dry-run harness, which sends nothing:**
+
+```
+1. real record          -> level-3 decisions in the last 30 min: 0   would act on 0
+2. synthetic level 3    -> WOULD PAGE: 'shop door opened with no key code while the shop was closed'
+3. synthetic level 3 +
+   a recorded PAGE row  -> COVERED (a page is recorded at 22:46:26Z); fallback silent
+```
+
+Every synthetic row was deleted by its exact id afterwards: `decisions=9  actions=0`, which is where the record
+started. The timer's own first run read `level-3 decisions in the last 30 min: 0 / acted on 0`.
+
+**What this is not:** it is not a second sender. It runs only when the record shows nothing paged, and it uses Home
+Assistant's own endpoint. The dedupe is a **time window**, not an identifier — HA pages within seconds of a door edge
+and the judge settles about 125 s later, so ±300 s around the decision covers HA's page. A page identifier in the
+payload would be better and HA is the only thing that can supply it, which is the one change blocked on `/config`.
+
+**Two honest limits.** The `COVERED` path was proven with a synthetic `security_action` row, not with a page that HA
+actually sent. And nothing has yet exercised `page()` against the live endpoint with a real key — that is the first
+real page, which needs the body shown to the owner first.
+
 ## Remaining
 
 | # | fix | live location | note |
