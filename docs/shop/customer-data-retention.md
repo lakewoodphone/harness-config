@@ -51,9 +51,12 @@ so move it there fully"*.
    honest date: a moved folder keeps the phone's own file timestamps (2026-10-06/07 on the Shande job), so an
    age check based on mtimes calls fresh data a month old. **A folder with no marker is not swept** — an
    undated copy is unread, and unread is never expired.
-4. **Deleting is still an act, not a schedule.** The sweep reports; it deletes only with
-   `-DeleteCustomerData`, and the per-folder yes is the owner's. Check the job succeeded first — see point 3 of
-   **The rule** above, which is about the transfer tools and applies here unchanged:
+4. **THE OWNER DELETES. A SESSION DOES NOT.** Stated 2026-10-27, verbatim: *"no, i do deletions not you"*.
+   The sweep accordingly has **no delete path at all** — no `-Delete`, no `-DeleteCustomerData`, nothing a later
+   session can reach for by accident. It prints, per folder past the window, the exact `rd /s /q` line he can run
+   himself, and there is no other way to delete from it. **Check the job succeeded before handing him that line** —
+   see point 3 of **The rule** above, which is about the transfer tools and applies here unchanged: a
+   folder is eligible when the job is finished and the money is captured, not when it is merely old.
    measured 2026-10-27, `sarah levi` was 33 days old *and* her order WO2609030001 was completed 2026-09-08
    with 159.94 CAPTURED, which is what makes her folder eligible rather than merely old.
 
@@ -63,17 +66,16 @@ deleted only after the job is proved done. Same clock, different act.
 
 ## Sweep
 
-`harness-config/scripts/windows/sweep-transfer-staging.ps1` reports these folders with age and size, and deletes only
-the ones past the window when given `-Delete` (staging) or `-DeleteCustomerData` (the customer-data folder):
+`harness-config/scripts/windows/sweep-transfer-staging.ps1` reports these folders with age and size and **deletes
+nothing** — it prints the command for each folder past the window:
 
 ```powershell
-pwsh -File scripts/windows/sweep-transfer-staging.ps1                 # report only
-pwsh -File scripts/windows/sweep-transfer-staging.ps1 -Delete -Days 30 # delete transfer staging past 30 days
-pwsh -File scripts/windows/sweep-transfer-staging.ps1 -DeleteCustomerData -Days 30  # the owner's per-folder yes
+pwsh -File scripts/windows/sweep-transfer-staging.ps1                  # report + the lines to run by hand
+pwsh -File scripts/windows/sweep-transfer-staging.ps1 -Days 60
 ```
 
-It is report-only by default on purpose: the deletion of a customer's data is an act, not a cron side effect, and the
-owner's policy fixes the window, not the moment.
+It had `-Delete` and `-DeleteCustomerData` until 2026-10-27. Both are gone by the owner's instruction above; a
+script with a delete switch is a delete waiting to happen, and the deletion is his act, not a cron side effect.
 
 `scripts/windows/run-customer-data-sweep.ps1` is the scheduled wrapper: it runs the report, writes
 `%USERPROFILE%\.customer-data-sweep\report-<date>.txt` and `last-report.txt`, and writes a `DUE.txt` naming every

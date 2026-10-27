@@ -6,19 +6,16 @@
   folders while the drive had 78 GB free (ZABZ-YOGA, measured 2026-09-30).
 
   Owner policy, stated 2026-09-30: we are not responsible for a customer's data more than 30 days after the job.
-  Owner rule, stated 2026-10-27: a FULL copy of a customer's data is kept only in `Downloads\customer data`,
-  one subfolder per customer, findable, and deleted after a month. That folder is scanned here too - report
-  only unless -DeleteCustomerData is passed, because deleting a customer's data is an act, not a side effect.
-
-  This script therefore REPORTS by default and deletes only when asked with -Delete, and only folders older than
-  -Days (default 30). Deleting a customer's data is an act, not a cron side effect.
+  Owner rule, stated 2026-10-27: "i do deletions not you". This script REPORTS and nothing else - it has no
+  delete path in it. It prints, per folder that is past the -Days window (default 30), the exact command the
+  owner can run himself. Deleting a customer's data is his act; a session or a schedule must never do it.
+  (Before 2026-10-27 this script could delete with -Delete. That switch is gone, deliberately.)
 
   See docs/shop/customer-data-retention.md.
 
   Examples
     pwsh -File sweep-transfer-staging.ps1
-    pwsh -File sweep-transfer-staging.ps1 -Delete -Days 30
-    pwsh -File sweep-transfer-staging.ps1 -DeleteCustomerData -Days 30
+    pwsh -File sweep-transfer-staging.ps1 -Days 60
     pwsh -File sweep-transfer-staging.ps1 -Roots C:\D:\ -Json
 #>
 [CmdletBinding()]
@@ -29,15 +26,12 @@ param(
                         'Backuptrans_WhatsApp_Backup', 'iMobie_WhatsApp_Backup'),
   [string[]] $CustomerDataRoots = @((Join-Path $env:USERPROFILE 'Downloads\customer data')),
   [int]      $Days = 30,
-  [switch]   $Delete,
-  [switch]   $DeleteCustomerData,
   [switch]   $Json
 )
 
 $ErrorActionPreference = 'Stop'
 $cutoff = (Get-Date).AddDays(-$Days)
 $rows = @()
-
 foreach ($root in $Roots) {
   if (-not (Test-Path -LiteralPath $root)) { continue }
   foreach ($name in $Names) {
@@ -113,18 +107,20 @@ if ($Json) {
   "total GB: $([math]::Round((($rows | Measure-Object GB -Sum).Sum),2))   past the ${Days}-day window: $(@($rows | Where-Object PastWindow).Count)"
 }
 
-# Staging folders are deleted with -Delete. Customer-data folders need their OWN switch on top: the owner's rule
-# is that this data is deleted after a month, but each deletion is still an act he authorises, per folder.
-# `-Json` must emit JSON and nothing else, so every human-facing line below is suppressed in that mode.
-if ($Delete -or $DeleteCustomerData) {
-  $doomed = @($rows | Where-Object {
-    $_.PastWindow -and (($_.PSObject.Properties.Name -contains 'Kind' -and $_.Kind -eq 'customer-data') -eq [bool]$DeleteCustomerData)
-  })
-  if ($doomed.Count -eq 0) { if (-not $Json) { "nothing past the ${Days}-day window to delete with the switches given." } }
-  foreach ($r in $doomed) {
-    # rd /s /q is far faster than Remove-Item on folders with tens of thousands of files
-    cmd /c "rd /s /q `"$($r.Path)`""
-    if (Test-Path -LiteralPath $r.Path) { "FAILED to delete: $($r.Path)" }
-    else { "deleted $($r.Path)  ($($r.GB) GB, $($r.Files) files, $($r.AgeDays) days old)" }
+# --- REPORT ONLY. THIS SCRIPT NEVER DELETES ANYTHING. ------------------------------------------------------
+# Owner rule, stated 2026-10-27: "i do deletions not you". Deletions of customer data are HIS act, so there is
+# no delete path here at all - not a switch, not a flag, nothing a future session can reach for by accident.
+# What this prints instead is the exact command he can run himself, one line per folder that is past the window.
+$due = @($rows | Where-Object { $_.PastWindow })
+if ($due.Count -gt 0) {
+  if (-not $Json) { ""; "PAST THE ${Days}-DAY WINDOW - the owner deletes these, not this script:" }
+  foreach ($r in $due) {
+    $line = '  rd /s /q "{0}"    ({1} GB, {2} files, {3} days)' -f $r.Path, $r.GB, $r.Files, $r.AgeDays
+    if ($Json) { continue } else { $line }
+  }
+  if (-not $Json) {
+    ""
+    "Before running any line above: confirm the job is finished (completed status AND money CAPTURED) and that"
+    "the copy is not the only source of something the customer still has to receive."
   }
 }
