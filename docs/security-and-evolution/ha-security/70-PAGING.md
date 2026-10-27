@@ -134,6 +134,35 @@ The carrier already exists and is unused: Home Assistant's `rest_command` sends 
 priority hook is in the wire format today and only needs the receiving end to honour it — the cleanest possible seam,
 and one that needs no new Home Assistant file.
 
+## 1e. **The live tree is not the repo.** Read this before editing anything.
+
+Measured 2026-10-27 on the authority. This is the single most important operational fact for anyone continuing this work,
+and **all three research children were wrong about it in the same direction** because each read a checkout that is not
+the deployment.
+
+| file | repo checkout on ZABZ-TECH | live on `secratary-cloud:/opt/company` |
+|---|---|---|
+| `app/sms_service.py` | 79,373 B, `5297e857…` | **122,498 B**, `fbc6bbb8…` |
+| `app/main.py` | 771,454 B, `f6955c96…` | **804,096 B**, `d0338adc…` |
+| `app/tool_factory.py` | 83,607 B, `d7ff27d5…` | 87,610 B, `905fa1f2…` |
+
+`/opt/company` is a git checkout on branch **`keepalive/323-pickup-live-restore-20261021`** at commit **`7673b21f9`**
+with **364 modified paths** — the deployment is *what is on disk*, not what is in git. The service is
+**`company-api.service`**. Two consequences:
+
+1. **Every line number in this folder's research reports is wrong for the live tree.** The children cited
+   `send_security_alert_mms` at 1903/2210; live it is at **2967**. The quota check is at **1849** live.
+2. **Two of their findings are already false on the live code**, and both in the pager's favour:
+   `send_security_alert_mms` on the live tree **does** use `owner_notify_target(settings)` — *"An intrusion page must
+   ring the phone he actually looks at"* — so `OWNER_NOTIFY_NUMBER` is honoured after all; and the live quota block is
+   already guarded by **`_is_direct_send`**, so an exemption mechanism exists and only needs to be extended to the
+   security path rather than invented.
+
+**The rule for the next session:** before editing a file that runs on the authority, `sha256sum` it on both sides and
+read the live copy. A repo reading is a reading of *some* code, not of *the* code.
+
+## 2. The level → priority mapping, and why it is exactly one line each
+
 ## 2. The level → priority mapping, and why it is exactly one line each
 
 | security decision | page | why |
