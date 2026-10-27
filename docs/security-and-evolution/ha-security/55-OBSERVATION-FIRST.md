@@ -351,6 +351,30 @@ morning it was 1 h 07 m 26 s. The extra 11 seconds across about 73 minutes is a 
 **0.25 % slow**, and the bulk of the 67 minutes is the same kind of one-hour offset as the NVR. So the doorbell
 needs the same two things, in its own app: **correct timezone/DST, and NTP on**. Nothing done to the NVR touches it.
 
+**Then the owner opened the Reolink app's own Date & Time panel, and it named the fault outright.** Its DST line
+reads:
+
+```
+DST : 1 hour
+Mar. 2nd Week Sun. 02:00:00  -  Oct. The last Week Sun. 02:00:00
+```
+
+That is the **pre-2007 United States rule**. Since 2007 the US ends daylight saving on the **first Sunday of
+November**, not the last Sunday of October. On 2026-10-27 — two days after the last Sunday of October — the camera
+has already decided daylight saving ended, so it displays standard time while the shop is still on EDT. That is where
+its missing hour comes from, and it is the same class of fault as the NVR's `Jan 1 → Jan 2` window: **a DST rule that
+does not match the United States.**
+
+The panel also shows the two times side by side — `Current Time 15:11:35` and `Modified Time 16:11:35` — i.e. the owner
+had typed the correct local time and was one **Confirm** from applying it.
+
+**The trap in the order of operations, stated so it is not walked into:** if the camera's clock is set by hand to the
+right local time while its DST rule still believes daylight saving is over, the *internal* time ends up an hour ahead
+of true UTC — and the next **Synchronize** (NTP) will faithfully set it back from real UTC and restore the one-hour
+error for as long as that rule says "standard time". So the DST window must be corrected **before** the time is
+trusted from NTP, not after. Where the two dates are read-only in that panel, the working sequence is to set the time
+by hand and leave Synchronize alone until 1 November, after which the rule is right by accident.
+
 ### 10.3 The disk answers the retention question — and says video *is* being recorded
 
 From `Storage`:
