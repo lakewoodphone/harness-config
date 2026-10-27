@@ -223,18 +223,31 @@ reason. Level 0/1 never page; level 2 goes to a digest.
 > without his word on that message, and this is his word for the class — the first real page is still shown to him
 > first.
 >
-> **Measured constraint that reshapes the ladder, 2026-10-27 21:5xZ.** Read from `security_decision` on the authority:
-> the pipeline has produced **nine decisions and not one of them is level 3**. The highest is **2** — `R_DOOR_OCCUPIED`
-> returns `ESCALATE` at `avs_level 2` with confidence 0.3 for "shop_door opened with no credential", and the model lane
-> returns `NO_ALARM` at level 2 with 0.55. So a paging rule written as "level 3 and above" would **never fire**, and it
-> would look correct in every test that mocks a level-3 row.
+> **Measured constraint that reshapes the ladder, 2026-10-27 21:5xZ — and a correction to my own first reading.**
+> Read from `security_decision` on the authority: nine decisions, and **not one of them is level 3**. My first
+> explanation was that the deployed rule under-calls it. **That was wrong**, and the code says so plainly —
+> `scripts/security-sentinel.py:336-348` has **four** doors of its own:
 >
-> Which means the ladder is not a wiring job, it is a **mapping decision**: either a door opening with no credential in
-> a building that should be empty is genuinely a level 3 — it is the exact case this whole system exists for — and the
-> deployed rule is under-calling it, or the page threshold belongs at `ESCALATE` rather than at a level. Both are
-> arguable and they are not the same design. The build must settle it against the code's own level enumeration and the
-> AVS-01 definitions in `20-OPERATIONS.md`, and then prove it with a row that actually reaches the threshold, because a
-> threshold nothing can reach is a pager that never rings.
+> | rule | condition | decision | level |
+> |---|---|---|---|
+> | `R_DOOR+CRED/{door}` | a credential inside the window | NO_ALARM | 0 |
+> | `R_DOOR/{door}` | no credential **and the building is expected empty** | ESCALATE | **3** — *"a real deploy would page at level 3"* |
+> | `R_DOOR_OCCUPIED/{door}` | no credential, but the building was occupied | ESCALATE | 2 — *"a note, not a page"* |
+> | `R_GAP/{door}` | the record has a gap | ESCALATE | 2 |
+>
+> **So the level-3 rule exists and is correct — and it is structurally unreachable in this building.** The reason is
+> line 260: `expected_empty_at_open = not occupancy.is_inside(when)`, where `is_inside` is a **600-second latch over the
+> basement's presence sensors** (line 91-101). "Expected empty" therefore means *no presence anywhere in the basement
+> for ten minutes* — and the basement contains a dwelling where his family sleeps (Q3). **Any family member at home
+> makes the building "occupied", makes a credential-free door a level-2 note, and silences the page.** This morning is
+> the proof: at 14:33Z both `shop_door` and `apartment_door` produced `R_DOOR_OCCUPIED` at level 2 — a note, not a
+> page — for the exact event this system exists to catch.
+>
+> **The decision that follows, and it is mine:** the page trigger must key on the **declared shop state**, not on
+> building-wide emptiness. `R_DOOR/shop_door` while the shop is declared closed is level 3 *even if the apartment is
+> occupied*, because those are different facts and Q3/D8 already said so. The 600-second latch stops being the
+> definition of "empty" and becomes a confidence signal. Without this, the pager is silent by design for as long as
+> anybody lives downstairs, which is always.
 
 ## D2. Who gets woken up
 
