@@ -2735,6 +2735,14 @@ def cmd_questions(args) -> int:
     if isinstance(rows, dict):
         rows = rows.get("questions") or rows.get("rows") or []
     pending = [r for r in rows if (r.get("status") or "") == "pending"]
+    # The owner's instruction of 2026-10-25: customer-operations questions are
+    # still his, but they live in their own section and are never texted. The
+    # mirror therefore prints them separately, and says so, rather than mixing
+    # them into the phone queue.
+    owner_pending = [r for r in pending
+                     if (r.get("section") or "owner") != "customer_ops"]
+    customer_pending = [r for r in pending
+                        if (r.get("section") or "owner") == "customer_ops"]
     out = [
         "# OWNER QUESTIONS — open only",
         "",
@@ -2744,17 +2752,36 @@ def cmd_questions(args) -> int:
         "That table is the single source of truth for what is waiting on the owner; this is a mirror,",
         "so a session with no route to the authority still reads the truth instead of re-asking.",
         "Do not add a question here: add it there.",
-        "Provenance: %d row(s) read, %d pending, generated %s on %s."
-        % (len(rows), len(pending), now_utc(), host_tag()),
+        "Two sections: the phone queue, and CUSTOMER OPERATIONS (computer review only — never texted).",
+        "Provenance: %d row(s) read, %d pending (%d phone, %d customer-ops), generated %s on %s."
+        % (len(rows), len(pending), len(owner_pending), len(customer_pending),
+           now_utc(), host_tag()),
         "",
         "| # | Asked | Sev | Question | My recommendation |",
         "|---|---|---|---|---|",
     ]
-    for r in pending:
+    for r in owner_pending:
         q = redact(re.sub(r"\s+", " ", (r.get("question") or "")))[:400].replace("|", "/")
         rec = redact(re.sub(r"\s+", " ", (r.get("recommendation") or "")))[:220].replace("|", "/")
         out.append("| %s | %s | %s | %s | %s |" % (r.get("id"), (r.get("asked_at") or "")[:10],
                                                    r.get("severity"), q, rec))
+    if customer_pending:
+        out += [
+            "",
+            "## CUSTOMER OPERATIONS — computer review only, never texted",
+            "",
+            "Owner instruction, 2026-10-25: these are his, but they stay off SMS. Work this",
+            "section only when he chooses to sit down with it; `owner-queue.py knock --section",
+            "customer-ops` is the walk. Senders exclude this section.",
+            "",
+            "| # | Asked | Sev | Question | My recommendation |",
+            "|---|---|---|---|---|",
+        ]
+        for r in customer_pending:
+            q = redact(re.sub(r"\s+", " ", (r.get("question") or "")))[:400].replace("|", "/")
+            rec = redact(re.sub(r"\s+", " ", (r.get("recommendation") or "")))[:220].replace("|", "/")
+            out.append("| %s | %s | %s | %s | %s |" % (r.get("id"), (r.get("asked_at") or "")[:10],
+                                                       r.get("severity"), q, rec))
     closed = [r for r in rows if (r.get("status") or "") != "pending"]
     out += ["", "Closed since the queue opened: %d. Answered questions move to `entries/decisions/` "
                 "with the owner's own words." % len(closed)]
@@ -2797,13 +2824,13 @@ def _queue_from_authority() -> str:
     direct = os.path.expanduser("~/bin/owner-queue.py")
     tries = []
     if os.path.exists(direct):
-        tries.append(["python3", direct, "list", "--all", "--json"])
+        tries.append(["python3", direct, "list", "--all", "--json", "--section", "all"])
     # The authority first. This is the only source whose answer is current.
     tries.append(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "secratary-cloud",
-                  "python3 ~/bin/owner-queue.py list --all --json"])
+                  "python3 ~/bin/owner-queue.py list --all --json --section all"])
     # Then the frozen office box, which is where this used to go first and alone.
     tries.append(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "secratary-ts",
-                  "python3 ~/bin/owner-queue.py list --all --json"])
+                  "python3 ~/bin/owner-queue.py list --all --json --section all"])
     for cmd in tries:
         try:
             out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
