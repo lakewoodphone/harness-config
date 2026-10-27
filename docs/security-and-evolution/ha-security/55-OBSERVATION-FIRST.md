@@ -515,6 +515,47 @@ another machine and re-hashed here are the same value:
 That is the first end-to-end proof of the whole design: **a person's entry can be answered with a picture, taken at a
 time the record can defend, and a camera that failed to deliver says so in the record instead of leaving a hole.**
 
+---
+
+## 12. Recording and alarming are two axes, and the owner has now said so explicitly
+
+> *"even though the hallway is not the perimeter and people are allowed to be there, I want to see let's say a picture
+> or video of every single person who came and what they did. That's very important to see who picked up what and how
+> and all that."* — 2026-10-27
+
+**The correction this makes to §8 and to the Q4 note.** Saying "the hallway is never part of the perimeter" was right
+about **alarming** and wrong if it is read as being about **recording**. The two must never be conflated again:
+
+| | recorded | alarms |
+|---|---|---|
+| public hallway | **everything, always** | never |
+| shop door | everything, always | when the state says the shop should be empty |
+| apartment door | everything, always | when the state says nobody is here |
+| shop interior, counter, pickup shelf | **everything, always** | never |
+
+So the perimeter is a property of the *alarm*, not of the *record*. A smaller perimeter buys fewer false alarms; it
+buys no reduction in coverage whatsoever.
+
+**And "what they did" is a requirement the design does not yet meet.** A single still answers *who*; it cannot answer
+*who took what off the shelf, and how*. That needs three things the current work does not have:
+
+1. **Visits, not snapshots.** A person's presence in the basement is an **episode** with a series of frames from first
+   appearance to departure — not one picture per door edge. The evidence table already allows any number of rows per
+   event, so the schema is not the blocker; the capture rule is.
+2. **The pickup area in frame.** The transaction — hand on the shelf, device into a bag — has to be inside a camera's
+   field of view at a usable angle. Measured 2026-10-27: the only camera looking at the drop-off/pickup door is
+   `cam_waiting_room_main`, burns the factory-default `IPC`, and its extreme fisheye puts a person at the **frame
+   edge with the shelving dominating** — marginal for a face and worse for hands. This is the weakest link for the
+   requirement he has just stated, and it is a camera-position problem, not a software one.
+3. **A join to the work order.** "Who picked up what" is answerable only if the visit is tied to the ticket that
+   released the device. The production system already knows which work order went out and to whom; the record needs
+   to carry that link (`evidence_id` ↔ work order id) so the question is a query and not an afternoon of watching
+   footage.
+
+**What stays decided:** the alarm perimeter is two doors, and the hallway never raises one. **What changes:** every
+square metre that a person can walk through is in scope for the record, and the pickup shelf is the most
+business-relevant camera in the building — it is the one that answers a customer dispute about a device.
+
 ### 10.3 The disk answers the retention question — and says video *is* being recorded
 
 From `Storage`:
