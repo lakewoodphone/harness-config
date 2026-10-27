@@ -319,6 +319,17 @@ RFID rather than restore it — a tag has no revocation story and the readers ar
 
 **Decision:** confirm, and say whether any *shared* code may stay.
 
+> **DECIDED 2026-10-27, and the live lock already implements it — confirmed by readback, not by reading the file.**
+> `sensor.apartment_deadbolt_user_slots` reports exactly three enabled slots: **1** (Eliyahu), **4** (parents, one
+> shared code by his explicit instruction of 2026-10-25) and **5** (Yocheved). Every other slot including 6 (master
+> temp) and 11 (Tenant) reads `available`.
+>
+> So: **one shared code may stay, and it is the parents' slot** — a deliberate identity, not an oversight. Everyone
+> else has their own. RFID is not restored: it has no revocation story, the readers are dark, and the four tag helpers
+> were retired in the 2026-10-26 fix. For the record's purposes the rule that follows is that **a shared code proves a
+> role, never a person**, and the record must render it as "a parent", never as a guessed name — which is the same
+> rule that made this morning's unattributed keypad press honest rather than wrong.
+
 ## D12. A duress code
 
 **Read:** none exists. The design has a place for one — a silent alarm with a different payload.
