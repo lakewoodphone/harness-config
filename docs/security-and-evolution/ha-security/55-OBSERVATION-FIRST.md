@@ -216,3 +216,63 @@ within seconds, so this is a property of the devices and not of the reader.
 Both corrections live in the devices' own web interfaces, and this box has no shell on the Home Assistant host
 (port 22 and port 445 both closed from ZABZ-TECH; only 8123 answers), and no camera credential exists in any
 `.env` on this machine. That is the one thing standing between the record and a correct timestamp.
+
+---
+
+## 9. The recording hardware, and why the clock is still wrong (2026-10-27)
+
+### What the devices are — read from Home Assistant's device registry, not guessed
+
+| device | address | identity | notes |
+|---|---|---|---|
+| **Recorder / NVR** | **`192.168.50.170`** | `DHI-NVR4108-8P-4KS2-L`, serial `8C03EA3PAZC4C2D`, firmware `4.003.0000000.1.R` build 2024-05-15 | **every camera channel is a channel on this one box** (`_1`, `_2`, `_4`, `_5`, `_6`); it holds the disk, the retention, and the clock the cameras follow |
+| Reolink doorbell | `192.168.50.231` | `Reolink Video Doorbell PoE`, firmware `v3.0.0.4662_2508071283`, serial `952700096CU6ET56` | its own clock, 67 m behind, independent of the NVR |
+| Two "Generic RTSP" entries | `192.168.50.170` | sw `1.0` | `Cam Larry's Exit` and `Cam Waiting Room` are RTSP pulls, not integration channels — which is why they behave differently |
+
+Two Dahua web UIs answer on the LAN (`192.168.50.170` and `192.168.50.95`), both 2021-generation HTML with a
+`logonInfo`/`g_Lan` block; the NVR serves **HTTPS on 443 with a self-signed certificate** and redirects plain HTTP to
+it. A 254-host sweep of 80 and 8000 found only four web devices on the whole network: the router (`.1`), a Shelly
+(`.103`), the Reolink (`.231`) and those two Dahua hosts. **The cameras themselves are not individually addressable
+from this LAN** — they sit behind the NVR's own 8-port PoE switch, which is why fixing the NVR fixes all channels at
+once and why there is no per-camera web UI to log into.
+
+### What the credential did, exactly
+
+The owner supplied `admin` with a password on 2026-10-27. Result, stated plainly:
+
+- **Reolink (`.231`): rejected, in its own words — `{"cmd":"Login","code":1,"error":{"detail":"password wrong",
+  "rspCode":-502,"auth_warning_info":{"remain_times":10}}}`.** One attempt consumed; ten reported remaining.
+- **NVR (`.170`): the endpoint is alive and issues a proper digest challenge** —
+  `POST /RPC2_Login` returns `realm: "Login to 39b7c619…"`, a fresh `random`, `qop: auth` and an `opaque`. The
+  challenge-response (`md5(user:random:md5(user:realm:pass))`, `loginType: Direct`, with the cookie jar carried
+  across both calls) **did not complete**: the NVR answered
+  `{"error":{"code":268632079,"message":"Component error: login challenge!"},"result":false}`, which is the same
+  generic error it gives for any login it will not accept — **it does not distinguish a wrong password from a wrong
+  handshake**, which is exactly what makes it unsafe to keep guessing at.
+
+**Why I stopped rather than trying again.** A Dahua NVR locks an account after a handful of failures. The recorder
+holds the only copy of the video evidence, and the owner is in the shop working right now; locking the admin account
+on it to save a few minutes would be a self-inflicted outage on the one device that records. Two attempts on the NVR
+and one on the Reolink is where this stops without a human.
+
+### The rule this pays for
+
+**Verify a device credential against the device whose error names the fault, first.** The Reolink says
+"password wrong" and shows a remaining-attempts counter; the Dahua says "login challenge" for everything. So the
+Reolink is the honest oracle and the Dahua is the dangerous one, and the order of testing should have been the
+reverse of the order of value. Test on the device that cannot lock you out, or that tells you the truth, and stop
+after one failure on the one that can.
+
+### What is needed to finish it
+
+One of these, and the clock work is a five-minute job:
+
+1. **A dedicated account on the NVR** (e.g. `zabz`, same password, "admin" rights) — removes the lockout risk from
+   the account the shop uses, and can be revoked afterwards; or
+2. **the exact username/password pair the NVR's own login screen accepts** — note that Dahua installers routinely
+   rename the built-in `admin` account, so "admin" may simply not be the name on this box; or
+3. **NTP switched on at the NVR by hand** — `Setup → Network → TCP/IP → NTP`, pointing at `pool.ntp.org`, and the
+   same on the Reolink doorbell — after which I verify from the burned-in timestamps alone.
+
+The password that was supplied is now in a session transcript that this estate archives permanently
+(`AGENTS.md` §1). That is a reason to prefer option 1 over option 2, and a reason to rotate it afterwards.
