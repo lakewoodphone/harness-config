@@ -23,9 +23,14 @@
          is data, not syntax.
 
     The dsh CLI is resolved at runtime rather than hardcoded (a version-pinned
-    _npx path is a time bomb): $env:WAKE_DSH_BIN, else the newest
+    _npx path is a time bomb): $env:WAKE_DSH_BIN, else the INSTALLED ENGINE at
+    `$DSH_ENGINE` / `$HOME\.dsh\engine`, else the newest
     `_npx\*\node_modules\@deepseek-ai\dsh\lib\bin.js` in the npm cache, else the
-    npx CLI entry - and every one of those is still launched through node.exe.
+    npx CLI entry (asking for the `@deepseek-ai/dsh` package, never the bare name
+    `dsh`) - and every one of those is still launched through node.exe.
+    2026-10-27: the engine step was added after BOTH _npx roots came up absent on
+    ZABZ-TECH and every release for hours died on "npm error could not determine
+    executable to run" while the dispatcher reported only `failed`.
 
 .PARAMETER PromptFile
     File holding the task text. Written by the dispatcher from the wake row.
@@ -57,6 +62,13 @@ param(
     [Parameter(Mandatory = $true)][string]$OutFile,
     [int]$TimeoutSec = 840,
     [Alias('DshProfile')][string]$Profile = 'headless',
+    # THE CHEAP LANE, SCALED WITH THE BALANCE (2026-10-14). The dispatcher passes the lane the
+    # budget control resolved (`wake-dispatch.sh`, from ~/.sms-inbox/wake-budget.json); empty
+    # means "do not pin", which is the healthy case. This is applied to $env:WAKE_AGENT_MODEL
+    # BEFORE wake-model.ps1 runs, because that variable is the resolver's own authoritative
+    # candidate chain (wake-model.ps1:143) - so no code change to the resolver was needed to make
+    # a low balance select a cheaper model, only a value to give it.
+    [string]$Model = '',
     [string]$DshBin = $env:WAKE_DSH_BIN,
     # Resolution check only: report which node/dsh this would launch and exit 0
     # without starting anything. Lets the hop be audited without a live session.
@@ -134,6 +146,29 @@ function Resolve-DshLaunch {
         return @{ Node = $node; Args = @($DshBin, '--profile', $Profile); Cwd = (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $DshBin))); Via = 'WAKE_DSH_BIN' }
     }
 
+    # THE INSTALLED ENGINE, before the npx cache (2026-10-27). The _npx cache is not a
+    # fixture: `npm cache clean`, a node upgrade, or nothing at all empties it. MEASURED on
+    # ZABZ-TECH 2026-10-27T23:4x Z: BOTH _npx roots were ABSENT, so this function fell
+    # through to the npx-cli.js last resort, which asks npm for the package `dsh` - a
+    # DIFFERENT package that is not an executable - and npm exited 1 with "could not
+    # determine executable to run". Every release in that window died in 3-24 s with an
+    # empty answer: the dispatcher logged `failed`, the ledger advanced by nothing, and the
+    # only symptom was a green-looking autonomy-status that said the dispatcher was alive.
+    # The engine DSH installs at $HOME\.dsh\engine IS the durable checkout and it resolves
+    # its own node_modules from that directory, so prefer it over any cache.
+    $engineRoots = @()
+    if ($env:DSH_ENGINE) { $engineRoots += $env:DSH_ENGINE }
+    if ($env:DSH_HOME) { $engineRoots += (Join-Path $env:DSH_HOME 'engine') }
+    if ($env:USERPROFILE) { $engineRoots += (Join-Path $env:USERPROFILE '.dsh\engine') }
+    if ($env:HOME) { $engineRoots += (Join-Path $env:HOME '.dsh\engine') }
+    if ($env:LOCALAPPDATA) { $engineRoots += (Join-Path $env:LOCALAPPDATA 'dsh\engine') }
+    foreach ($root in ($engineRoots | Where-Object { $_ -and (Test-Path -LiteralPath $_) })) {
+        $bin = Join-Path $root 'node_modules\@deepseek-ai\dsh\lib\bin.js'
+        if (Test-Path -LiteralPath $bin) {
+            return @{ Node = $node; Args = @($bin, '--profile', $Profile); Cwd = $root; Via = "installed engine $bin" }
+        }
+    }
+
     foreach ($root in Get-NpxCacheRoots) {
         # Newest checkout wins: the _npx hash directory is what the proven hop cd'd
         # into, and dsh resolves its profile plugins from the cwd's node_modules.
@@ -160,10 +195,15 @@ function Resolve-DshLaunch {
                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
             if ($candidate) { $cwd = $candidate.FullName; break }
         }
-        return @{ Node = $node; Args = @($npxCli, 'dsh', '--profile', $Profile); Cwd = $cwd; Via = 'npx-cli.js fallback' }
+        # `npx dsh` is NOT the command this estate needs: npm's package `dsh` is a different
+        # project (or nothing at all), so npx exits 1 with "could not determine executable to
+        # run" and the hop looks like a session that failed instead of a runner that never
+        # started one. `--package @deepseek-ai/dsh dsh` asks for the bin from OUR package, and
+        # `--yes` means a headless hop can never stop on an install prompt.
+        return @{ Node = $node; Args = @($npxCli, '--yes', '--package', '@deepseek-ai/dsh', 'dsh', '--profile', $Profile); Cwd = $cwd; Via = 'npx-cli.js fallback (@deepseek-ai/dsh)' }
     }
 
-    return @{ Error = 'no node.exe and no dsh entry point found; set WAKE_DSH_BIN or install node' }
+    return @{ Error = 'no node.exe and no dsh entry point found; set WAKE_DSH_BIN or DSH_ENGINE, or install the DSH engine at $HOME\.dsh\engine' }
 }
 
 # Kill the whole tree: dsh can leave child processes behind, and a leaked session
@@ -231,6 +271,78 @@ if (-not $launch -or $launch.Error) {
     Write-Out "WAKE_EXIT_CODE=127"
     Write-Out "WAKE_COST_USD=none"
     exit 127
+}
+
+# ---------------------------------------------------------------------------
+# MODEL RESOLUTION (audit D8 / journal D177, L1606). The seat's model is never a
+# literal in this path: bin/wake-model.ps1 reads a LIVE catalog, validates the
+# candidate, and writes a --patch overlay that is passed to dsh here. Fail soft
+# and SAY SO - an unresolved model must be visible in the run record, never silent.
+# ---------------------------------------------------------------------------
+$modelInfo = $null
+# The lane the balance control asked for, if any. Set BEFORE the resolver runs so the resolver
+# treats it as its authoritative env candidate chain (wake-model.ps1:143). Recorded in the out-file
+# so a run's model provenance says WHY that lane was used, not only which one it was.
+if ($Model) {
+    $env:WAKE_AGENT_MODEL = $Model
+    Write-Out "model lane: PINNED by the balance control -> $Model (WAKE_AGENT_MODEL)"
+}
+try {
+    $resolver = Join-Path (Split-Path -Parent $PSCommandPath) 'wake-model.ps1'
+    if (Test-Path -LiteralPath $resolver) {
+        $psExe = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+        if (-not $psExe) { $psExe = (Get-Command powershell -ErrorAction SilentlyContinue).Source }
+        if ($psExe) {
+            $json = & $psExe -NoProfile -ExecutionPolicy Bypass -File $resolver 2>$null | Select-Object -Last 1
+            if ($json) { $modelInfo = $json | ConvertFrom-Json }
+        }
+    }
+} catch { $modelInfo = $null }
+
+$modelReady = $false
+$modelProblem = $null
+if ($modelInfo -and $modelInfo.model) {
+    # DSH_HOME is NOT set in the ssh/spawned wake environment (MEASURED 2026-09-30):
+    # `Join-Path $env:DSH_HOME ...` returned a relative path, the patch was never
+    # passed, and the literal seat model silently served every wake. Resolve the
+    # same conventional home wake-model.ps1 does.
+    $dshHome = $env:DSH_HOME
+    if (-not $dshHome -and $env:USERPROFILE) { $dshHome = Join-Path $env:USERPROFILE '.dsh' }
+    if (-not $dshHome -and $env:HOME) { $dshHome = Join-Path $env:HOME '.dsh' }
+    $modelPatch = if ($dshHome) { Join-Path $dshHome 'runtime-model.patch.yml' } else { $null }
+    if ($modelInfo.unvalidated) {
+        $modelProblem = "resolver could not validate '$($modelInfo.model)' against a live catalog (catalog=$($modelInfo.catalog))"
+    } elseif (-not ($modelPatch -and (Test-Path -LiteralPath $modelPatch))) {
+        $modelProblem = "patch overlay not found at $modelPatch - the profile default would silently apply"
+    } else {
+        $launch.Args = @($launch.Args) + @('--patch', $modelPatch)
+        $modelReady = $true
+        Write-Out "model: $($modelInfo.model)  provider: $($modelInfo.provider)  validated: $(-not $modelInfo.unvalidated)  catalog: $($modelInfo.catalog)"
+        if (@($modelInfo.dropped).Count -gt 0) {
+            Write-Out "model candidates dropped (absent from the live catalog): $((@($modelInfo.dropped) -join ', '))"
+        }
+    }
+} elseif ($modelInfo) {
+    $modelProblem = "resolver returned no model (catalog=$($modelInfo.catalog) errors=$((@($modelInfo.errors) -join '; ')))"
+} else {
+    $modelProblem = 'wake-model.ps1 produced no parseable JSON'
+}
+
+# FAIL LOUD (item 181). Item 152 exists because a literal seat model silently served
+# every wake whenever resolution failed. The default is now to REFUSE to boot on an
+# unvalidated model instead of booting degraded on the profile default.
+# WAKE_MODEL_FAIL_OPEN=1 restores the old fail-soft behaviour, explicitly, for an
+# operator who would rather run degraded than not run at all.
+if (-not $modelReady) {
+    if ($env:WAKE_MODEL_FAIL_OPEN -eq '1') {
+        Write-Out "model: UNRESOLVED (WAKE_MODEL_FAIL_OPEN=1 - booting on the profile composition default) - $modelProblem"
+    } else {
+        Write-Out "model: FAIL-LOUD UNRESOLVED - refusing to boot on the profile composition default: $modelProblem"
+        Write-Out "=== exit code: 3 ==="
+        Write-Out "WAKE_EXIT_CODE=3"
+        Write-Out "WAKE_COST_USD=none"
+        exit 3
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -336,6 +448,117 @@ Write-Out "--- stdout (final answer) ---"
 if ($stdout.Trim().Length -gt 0) { Write-Out $stdout.TrimEnd() }
 Write-Out "--- stderr (provider reasoning) ---"
 if ($stderr.Trim().Length -gt 0) { Write-Out $stderr.TrimEnd() }
+
+# ---------------------------------------------------------------------------
+# FAIL LOUD (ledger item 342, part 4). A shift that produced NO final answer and
+# exited non-zero must SAY SO in a line a parser can grep, instead of leaving the
+# reason buried in provider/MCP stderr chatter.
+#
+# MEASURED BEFORE THIS CHANGE - wake-out-351-20261001T194603Z-151139.txt:
+#   --- stdout (final answer) ---            <- EMPTY
+#   --- stderr (provider reasoning) ---      <- 30 lines of mcp-remote chatter
+#   dsh: STREAM_CLOSED: SSE stream ended without [DONE]     <- line 43, unstructured
+#   === exit code: 1 ===
+#   WAKE_EXIT_CODE=1
+# An empty, exit-1 shift was therefore indistinguishable from any other failure to
+# anything that reads WAKE_EXIT_CODE, and the engine's own code was not named.
+#
+# This block adds WAKE_EMPTY_ANSWER=1 and WAKE_FAIL_REASON=<CODE>: <detail>, both
+# ABOVE the exit-code lines so the tail the dispatcher parses is unchanged
+# (dispatch.sh:503 greps WAKE_EXIT_CODE= with tail -1).
+# ---------------------------------------------------------------------------
+$answerEmpty = ($stdout.Trim().Length -eq 0)
+$engineReason = $null
+if ($answerEmpty -and $code -ne 0) {
+    foreach ($text in @($stderr, $stdout)) {
+        if (-not $text) { continue }
+        # dsh's own error line: "dsh: STREAM_CLOSED: SSE stream ended without [DONE]"
+        $m = [regex]::Match($text, 'dsh:\s*([A-Z][A-Z0-9_]*)\s*:\s*([^\r\n]+)')
+        if ($m.Success) {
+            $engineReason = "$($m.Groups[1].Value): $($m.Groups[2].Value.Trim())"
+            break
+        }
+        # a JSON error envelope, if the engine ever emits one instead
+        $m2 = [regex]::Match($text, '"code"\s*:\s*"([A-Z][A-Z0-9_]*)"')
+        if ($m2.Success) { $engineReason = $m2.Groups[1].Value; break }
+    }
+    Write-Out "!!! EMPTY ANSWER: the session produced NO final answer and exited $code - NO WORK WAS DONE"
+    Write-Out "WAKE_EMPTY_ANSWER=1"
+    if ($engineReason) { Write-Out "WAKE_FAIL_REASON=$engineReason" }
+    else { Write-Out "WAKE_FAIL_REASON=none-reported-by-engine" }
+}
+
+# ---------------------------------------------------------------------------
+# THE LAUNCHER NEVER RAN DSH AT ALL (2026-10-27). Distinct from an empty answer,
+# because the consequences are opposite: an empty answer means a session booted and
+# failed, so the item's attempt WAS spent on it; a launcher failure means no session
+# existed, so nothing was attempted and the item must keep its attempt.
+#
+# MEASURED BEFORE THIS LINE EXISTED. ZABZ-TECH, 2026-10-27 from 17:08Z: both npm
+# `_npx` roots were absent, resolution fell through to `npx dsh`, npm said
+# "npm error could not determine executable to run", and every release died in 3-24 s.
+# The dispatcher could only say "ssh hop failed (rc=1) ... out-file was recovered
+# (runner exit 1)", which wake.py's _retryable_reason deliberately EXCLUDES - so
+# `project:lpt-website:20261027` spent attempt 1 at 17:08 and attempt 2 at 18:08 and
+# became state=failed, attempts=2/2, permanently dead, with 57 todo items waiting.
+# One infrastructure fault cancelled a project's whole day.
+#
+# The signal is POSITIVE and third-party: npm's own error vocabulary, which only
+# appears when the launcher failed before any node process of ours started. A run
+# that boots and then fails keeps WAKE_EMPTY_ANSWER and no WAKE_NOT_STARTED.
+# ---------------------------------------------------------------------------
+$launchFailed = $false
+$launchWhy = $null
+if ($launchError) {
+    $launchFailed = $true
+    $launchWhy = "process could not be started: $launchError"
+}
+if (-not $launchFailed -and $answerEmpty -and $code -ne 0 -and $stderr) {
+    $npmLine = ($stderr -split "`r?`n" | Where-Object {
+            $_ -match 'npm (error|ERR!)' -or $_ -match 'could not determine executable to run'
+        } | Select-Object -First 1)
+    if ($npmLine) {
+        $launchFailed = $true
+        $launchWhy = 'launcher refused to start dsh: ' + $npmLine.Trim()
+    }
+}
+if ($launchFailed) {
+    Write-Out "!!! NO SESSION EXISTED: $launchWhy"
+    Write-Out 'WAKE_NOT_STARTED=1'
+    Write-Out ("WAKE_NOT_STARTED_REASON=" + $launchWhy.Substring(0, [Math]::Min(240, $launchWhy.Length)))
+    Write-Out 'WAKE_NOT_STARTED_CLASS=launcher'
+}
+
+# ---------------------------------------------------------------------------
+# SESSION ID SIDECAR (ledger housekeeping item 12). wake-cost.py records a run
+# TOKEN but never the DSH session id, so the release -> session map was DERIVED
+# from timing and content; a release whose session carries none of its
+# fingerprint text could not be mapped and its spend stayed unknown. Its own
+# docstring names this exact fix: write the id to `wake-session-<release
+# id>-<run token>.txt` and let the dispatcher copy it back like `wake-out-*.txt`.
+#
+# BEST-EFFORT BY CONSTRUCTION: this runs after the verdict is decided and never
+# touches $code. A missing sidecar degrades the row to `near`/`none` (the old
+# behaviour); it must never change what the run is recorded to have done.
+# ---------------------------------------------------------------------------
+try {
+    $resolver = Join-Path (Split-Path -Parent $PSCommandPath) 'wake-session-id.ps1'
+    if (Test-Path -LiteralPath $resolver) {
+        $psExe = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+        if (-not $psExe) { $psExe = (Get-Command powershell -ErrorAction SilentlyContinue).Source }
+        if ($psExe) {
+            $sidArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $resolver,
+                         '-PromptFile', $PromptFile, '-OutFile', $OutFile,
+                         '-StartedUtc', $started.ToUniversalTime().ToString('o'),
+                         '-EndedUtc', (Get-Date).ToUniversalTime().ToString('o'), '-Json')
+            if ($launch.Cwd) { $sidArgs += @('-RunnerCwd', $launch.Cwd) }
+            $sidOut = & $psExe @sidArgs 2>$null | Select-Object -Last 1
+            if ($sidOut) { Write-Out "session-id: $sidOut" }
+        }
+    }
+} catch {
+    Write-Out "session-id: sidecar not written: $($_.Exception.Message)"
+}
 
 # ---------------------------------------------------------------------------
 # Cost. dsh --profile headless prints the final answer on stdout and provider
