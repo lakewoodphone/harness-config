@@ -64,6 +64,29 @@ empty*. If nobody is there, the whole building is one perimeter.
 
 **What I need:** who sleeps there, on which nights, and whether the answer changes with the seasons or Yom Tov.
 
+> **ANSWERED 2026-10-27.** The geometry, in his words: *"the apartment is the basement of my house, meaning my office
+> is in my parents house in the basement, and the apartment is an apartment in the basement of the house. So yeah,
+> people can sometimes sleep there."*
+>
+> Three consequences, and the first one is the one that re-shapes the design:
+>
+> 1. **The shop and the apartment are on the same level, in the same basement, of his parents' house.** So this was
+>    never "a shop with a flat above it" — it is one basement containing an office and a dwelling, entered from a
+>    public hallway. "The building is empty" is therefore **never** something the system can infer from the shop being
+>    closed: an empty shop and an empty building are different facts, and the reflex has to be told which one it is
+>    looking at.
+> 2. **A resident leaving the apartment walks into the space the office cameras watch.** That is expected movement,
+>    at night, in a covered area — and under the old one-state arming model it is indistinguishable from an intruder.
+>    This is the second reason for declared states, and it is a false-alarm source that would have been discovered the
+>    hard way.
+> 3. **The people who may sleep there are his family**, in his parents' house. That makes the insider set concrete
+>    rather than hypothetical, and it puts the tenant question (D10, slot 11 still live and never rotated) directly in
+>    play: whoever holds that code lives inside the perimeter.
+>
+> Measured support, from Home Assistant's own history: the control-room presence sensor was **off at 03:00 on seven
+> consecutive nights** 21–27 October, so "sometimes" has not happened in the last week — which is exactly why a
+> schedule cannot express it and a **declared** state can.
+
 ## Q4. What are the shop's real hours — and which days?
 
 Measured: the hallway is a public 24/6 pickup-and-drop-off corridor. What I do not have is *your* hours: when the
@@ -188,6 +211,13 @@ the next real alarm silent — the worst state the system can be in.
 opening when someone is asleep behind it means something different from a door opening in an empty building.
 
 **Decision:** accept three modes (this depends on Q3).
+
+> **DECIDED 2026-10-27, once Q3 was answered.** Three declared states are adopted: **shop closed**, **apartment
+> occupied**, **nobody here**. The reason is no longer a preference about wording — it is that the shop and the
+> apartment share one basement, so a body moving at night is either a resident (expected) or an intruder, and no
+> sensor can tell those apart without being told which state the building is in. The state is **declared**, not
+> inferred: his own answer is that people sleep there "sometimes", which is precisely the shape a schedule cannot
+> express and a one-line declaration can.
 
 ## D9. Expected-entry windows
 

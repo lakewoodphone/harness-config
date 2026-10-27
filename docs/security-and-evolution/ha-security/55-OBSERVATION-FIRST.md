@@ -167,6 +167,11 @@ reading the frame and the burned-in OSD label.
    and **none of the seven stills shows a deadbolt door at all**. Under scope A the apartment interior is out of
    scope but **its door is explicitly in scope**, and today it is unwatched. *Inferred from six frames, not from a
    config file: confirm against the physical layout before buying anything.*
+   **Geometry correction, 2026-10-27:** the owner has since said the apartment is *in the same basement as the
+   office*, inside his parents' house. So the door opens into space the control-room cameras already watch — a
+   resident stepping out is captured a moment later, in the room, even though the door itself is not in frame. That
+   makes this a real gap for *identifying who is at that door* and a smaller gap for *knowing somebody came out of
+   it* than the raw finding suggested.
 2. **"Larry's exit" is a name with no exit.** `camera.cam_larry_s_exit_main_2` burns `Deserted House Exit` into
    every frame and shows the same control room as `cam_deserted_exit_main`. Whether that is two angles of one room
    or one stream duplicated is unresolved — either way **no exit is in either frame**, so whatever door the name
