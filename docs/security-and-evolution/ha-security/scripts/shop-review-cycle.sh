@@ -20,6 +20,10 @@ log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 log "grouping recent signals"
 "$PY" /root/shop-visits.py --rebuild --since 8h 2>&1 | tail -3
 
+# after grouping, because --rebuild deletes and re-inserts the window, taking `subjects` with it
+log "naming visits from the access log"
+"$PY" /root/shop-attribute.py --since 12h 2>&1 | tail -2
+
 log "capturing stills for new visits"
 "$PY" /root/shop-capture.py --since 8h 2>&1 | tail -4
 

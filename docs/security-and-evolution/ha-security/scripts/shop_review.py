@@ -216,6 +216,18 @@ def clip_for(conn: sqlite3.Connection, visit_id: str) -> sqlite3.Row | None:
 def visit_title(v: sqlite3.Row) -> str:
     doors = json.loads(v['doors'] or '[]')
     person = bool(v['has_person'])
+    # A NAME BEATS A DESCRIPTION (2026-10-28). When the keypad record says who used a code, that is
+    # the most useful thing on the card -- "Owner access at the shop door" answers the owner's own
+    # question ("who came") in a way "Person at the shop door" never can.
+    try:
+        subjects = json.loads(v['subjects'] or '[]')
+    except Exception:
+        subjects = []
+    if subjects:
+        who = subjects[0].get('who') if isinstance(subjects[0], dict) else str(subjects[0])
+        where = subjects[0].get('where', '') if isinstance(subjects[0], dict) else ''
+        if who:
+            return '%s access%s' % (who, (' at the ' + where.lower()) if where else '')
     if person and 'shop_door' in doors:
         return 'Person at the shop door'
     if person:

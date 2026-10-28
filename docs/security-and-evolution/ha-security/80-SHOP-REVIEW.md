@@ -260,3 +260,32 @@ calm — a gallery that looks peaceful while the connection is down is the one l
 **A defect caught in my own patch:** the first attempt 500'd every request with `NameError: name 'st' is not defined` —
 one of two string replacements had silently not matched, so the variable was used but never defined. The traceback said
 which line; the lesson is the same as the earlier rounds: a patch that compiles is not a patch that applied.
+
+## Round 5: "who" — the name, and the timezone that hid it
+
+The objective asks each card to say **who**. It could not: measured on the live record, every `entry_event` row for the
+shop keypad has an **empty `subject_id`**, and the raw `security_event` payload is the automation that fired, not the
+credential. The name exists in exactly one place — Home Assistant's `input_text.phoenix_access_control_log`, whose
+lines read `Oct 28, 1:16 PM - Owner Access at Interior`.
+
+**Built:** `scripts/shop-attribute.py`. It parses that log, converts each time to UTC, and attaches the nearest entry
+to any visit that had a keypad signal, within five minutes. A visit with no keypad signal gets nothing — this is a fact
+about a code, never a guess about a face. Wired into the 3-minute cycle **after** the grouping step, because
+`--rebuild` deletes and re-inserts the window and would otherwise erase the names every three minutes.
+
+**The bug that made it silently name nothing, and how it was found.** The first run reported *"6 readable entries, 9
+visits with a keypad signal, named 0"*. Instrumenting the loop showed a perfectly good 0.015-second gap to the log
+entry — so the matcher was fine and the times were not. The cause: the script read `OWNER_TIMEZONE`, which on this host
+is **`UTC`**, and that setting governs *when alerts may be sent*, not *what clock wrote a log line*. Every entry was
+therefore four hours from its visit. The authority on "what time is it in the building" is the Home Assistant instance
+itself, so the script now asks it (`/api/config` → `time_zone` → `America/New_York`), falling back to
+`SHABBAT_TIMEZONE` and then the building's zone.
+
+**After the fix:** `building timezone: America/New_York`, and five visits in twelve hours were named
+**"Owner at Interior"**. The page now titles those cards **"Owner access at the interior"** — which answers the owner's
+own question in a way *"Person at the shop door"* never can.
+
+**The honest limit, and the next fix:** the access log is a 255-character rolling field, so it holds only the last
+half-dozen presses. Names are therefore available only for recent visits. The historical names are still recoverable —
+the listener records `input_text.phoenix_access_control_log` on every update, so each past log line is sitting in
+`security_event.new_state` — and mining that is the next round's job.
