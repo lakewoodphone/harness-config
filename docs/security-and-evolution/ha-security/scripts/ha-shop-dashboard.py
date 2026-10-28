@@ -162,80 +162,57 @@ SAFETY = [
 
 
 def config(use_target: bool = False) -> dict:
-    # VERSION-PINNED (2026-10-28): this instance is Home Assistant 2025.10.3, frontend
-    # 20251001.4. On that version the logbook card has NO `state_filter` -- the property
-    # exists only in later docs and is SILENTLY IGNORED here. A "show arrivals only" filter
-    # written against current docs would look correct in the config and do nothing on the
-    # screen, which is the worst kind of bug: it survives review and lies to the eye.
-    # So the noise is cut a different way -- fewer entities. Three, not five: the two doors
-    # that matter and the doorbell's person detector.
-    # `target.entity_id` is the canonical form on 2025.10.3; `entities:` still works but is
-    # deprecated, so the canonical one is used.
-    logbook: dict = {
-        "type": "logbook",
-        "title": "Doors and doorbell — last 12 hours",
-        "hours_to_show": 12,
-        # MEASURED, 2026-10-28: over 24 hours the five door/doorbell entities produce 230
-        # logbook entries -- and 126 of them are `video_doorbell_person`, which flaps every
-        # few minutes as people pass outside. The shop door itself produces SEVEN, and the
-        # apartment door three. A timeline that is 95% doorbell flapping is a timeline nobody
-        # reads, so it is the two doors only. The doorbell still announces itself live in the
-        # banner ("person at door") -- that is what live state is for.
-        "target": {"entity_id": [DOORS[0], DOORS[1]]},
-    }
+    """The view, in reading order, built to the measured phone budget.
 
-    return {
-        "title": "Shop",
-        "views": [
-            {
-                "title": "Shop",
-                "path": "main",
-                "icon": "mdi:storefront",
-                "cards": [
-                    {"type": "markdown", "content": BANNER},
-                    {
-                        "type": "picture-glance",
-                        "title": "Shop door — tap for live",
-                        "camera_image": "camera.cam_front_hallway_main",
-                        "camera_view": "auto",
-                        "entities": [
-                            {"entity": DOORS[0], "show_state": False},
-                            {"entity": DOORS[3], "show_state": False},
-                            {"entity": DOORS[4], "show_state": False},
-                        ],
-                    },
-                    {
-                        "type": "picture-glance",
-                        "title": "Street door — outside stairwell",
-                        "camera_image": "camera.reolink_video_doorbell_poe_clear",
-                        "camera_view": "auto",
-                        "entities": [
-                            {"entity": DOORS[2], "show_state": False},
-                            {"entity": DOORS[3], "show_state": False},
-                        ],
-                    },
-                    {"type": "markdown", "title": "Keypad and codes — most recent first",
-                     "content": KEYPAD},
-                    logbook,
-                    {
-                        "type": "glance",
-                        "title": "More cameras — tap for live",
-                        "columns": 3,
-                        "show_state": False,
-                        "entities": [
-                            {"entity": "camera.cam_waiting_room_main", "name": "Drop-off"},
-                            {"entity": "camera.cam_deserted_exit_main", "name": "Control room"},
-                            {"entity": "camera.cam_deserted_interior_main", "name": "Bench"},
-                        ],
-                    },
-                    {"type": "custom:mushroom-title-card", "title": "Sensor health",
-                     "subtitle": "an old time here means the sensor stopped talking"},
-                    {"type": "entities", "state_color": True,
-                     "entities": [{"entity": e, "secondary_info": "last-changed"} for e in SAFETY]},
-                ],
-            }
-        ],
-    }
+    A 390 px phone gives about 700 px above the fold. Measured height of the previous layout:
+    banner 76 + two camera tiles 420 + keypad 164 = 692 px, so the timeline started exactly at
+    the fold and was never seen. Three changes came out of that measurement:
+
+      * ONE hero camera instead of two. The hallway camera is kept because it is the shop-door
+        threshold and the best face view (measured 2026-10-27); the street-door tile cost 210 px
+        to duplicate a job the banner already does in words.
+      * The doors get their own two-up row with the STATE IN WORDS. Before this, open-vs-closed
+        existed only as an icon colour, which is the most important fact on the page rendered as
+        a swatch.
+      * The self-describing titles are gone. "Keypad and codes - most recent first" and "More
+        cameras - tap for live" cost about 140 px of a screen to explain themselves.
+    """
+    logbook_titles: dict = {}
+
+    cards: list = [
+        {"type": "markdown", "content": BANNER},
+        # the shop door: the threshold where customers appear, and the best face view
+        {"type": "picture-glance", "title": "Shop door",
+         "camera_image": "camera.cam_front_hallway_main",
+         "camera_view": "auto",
+         "entities": [{"entity": DOORS[0], "show_state": False}]},
+        # open/closed in WORDS, two-up. Built-in glance, so nothing depends on a custom card.
+        {"type": "glance", "columns": 2, "show_state": True,
+         "entities": [{"entity": DOORS[0], "name": "Shop door"},
+                      {"entity": DOORS[1], "name": "Apartment"}]},
+        # keypad: no title, four lines. `- ` bullets are why this renders as a list at all;
+        # markdown collapses bare newlines.
+        {"type": "markdown", "content": KEYPAD.replace('lines[:5]', 'lines[:4]')},
+        # doors over 24h as bands: an open door is a coloured bar with a start and an end,
+        # which is easier to read than rows you have to pair up by eye.
+        {"type": "history-graph", "title": "Doors - last 24 hours",
+         "hours_to_show": 24,
+         "entities": [{"entity": DOORS[0], "name": "Shop"},
+                      {"entity": DOORS[1], "name": "Apartment"}]},
+        # the other three cameras, one tap each
+        {"type": "glance", "columns": 3, "show_state": False,
+         "entities": [{"entity": "camera.cam_waiting_room_main", "name": "Drop-off"},
+                      {"entity": "camera.cam_deserted_exit_main", "name": "Control"},
+                      {"entity": "camera.cam_deserted_interior_main", "name": "Bench"}]},
+    ]
+
+    # THE SENSOR-HEALTH CARD IS GONE (2026-10-28). Five rows plus a title card came to about
+    # 364 px -- half a phone screen -- for values he never sets and cannot act on from there.
+    # Its one unique fact, "a sensor has stopped talking", is what the banner's STATUS
+    # UNVERIFIED state already exists for. The card added pixels, not capability.
+
+    return {"title": "Shop", "views": [{"title": "Shop", "path": "main",
+                                        "icon": "mdi:storefront", "cards": cards}]}
 
 
 def env(key: str) -> str | None:

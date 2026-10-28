@@ -776,3 +776,52 @@ the noise is removed.
 **Also this round:** two fresh reviewers were dispatched against the **applied** config rather than the draft — one on
 mobile layout and first-screen content, one auditing every card property against 2025.10.3 for the silently-ignored
 class of bug that `state_filter` was.
+
+## 23. Round 3: the first screen was 692 px of the wrong things — relaid out on measured heights — 2026-10-28
+
+The mobile review did arithmetic instead of opinion, and it was devastating: on a 390 px phone with about 700 px
+above the fold, the previous layout was **banner 76 + two camera tiles 420 + keypad 164 = 692 px**. The timeline
+started exactly at the fold, so **the thing the page exists for was never on the first screen.**
+
+Three findings drove the rebuild.
+
+**1. Two cameras cost 420 px to do one job.** The street-door tile duplicated what the banner already says in words.
+The hero is now **one** camera — the hallway one, kept because it is the shop-door threshold and the best face view
+(measured 2026-10-27), not the doorbell the reviewer assumed was better from a distance.
+
+**2. The most important fact was a colour swatch.** Both door contacts rendered with `show_state: false`, so
+open-vs-closed existed only as an icon hue. The doors now get their own **two-up `glance` with `show_state: true`** —
+the state in words, built-in card, no custom dependency.
+
+**3. About 140 px of the screen was cards explaining themselves.** "Keypad and codes — most recent first" and
+"More cameras — tap for live" are gone; the keypad card renders four lines instead of five and carries no title.
+
+**4. The sensor-health card is deleted, not shrunk.** Five rows plus a mushroom header came to roughly **364 px — half
+a phone screen** — for values he never sets and cannot act on from there. Its one unique fact, "a sensor has stopped
+talking", is what the banner's `STATUS UNVERIFIED` state already exists for. *This reverses my own earlier argument
+for keeping it, and the reviewer was right: it added pixels, not capability.*
+
+**The view is now six cards, in this order:**
+
+```
+1. markdown       the banner
+2. picture-glance Shop door            camera=camera.cam_front_hallway_main
+3. glance         columns=2 show_state=True  ['Shop door', 'Apartment']   <- state in words
+4. markdown       keypad, four lines, no title
+5. history-graph  Doors - last 24 hours   ['Shop', 'Apartment']           <- bands, not rows
+6. glance         columns=3               ['Drop-off', 'Control', 'Bench']
+```
+
+**Why `history-graph` replaced the logbook as the history card:** an open door becomes a coloured bar with a start and
+an end, which can be read in one look; the logbook renders "on"/"off" rows that have to be paired up by eye, and on
+2025.10.3 it cannot be filtered to arrivals. The logbook's ten-rows-a-day figure from round 2 is why this was a close
+call rather than an obvious win.
+
+**Verified after applying:** `save: True`; readback `6 cards` with `glance columns=2 show_state=True`, the
+`history-graph` at 24 hours over both doors, and the keypad template rendering its four lines live through
+Home Assistant. The banner's ten state tests still pass (10/10) and the live banner still renders
+`**BUILDING QUIET** — siren live · doors closed · no doorbell · everyone away.`
+
+**Not yet done from the review:** folding "sensor stale" into the banner as a clause; the reviewer's suggestion to use
+`browser_mod` popups for one-tap fullscreen live video (deliberately deferred — it is a custom-card dependency the
+owner's phone would have to carry); and the correctness audit of every property, which is still running.
