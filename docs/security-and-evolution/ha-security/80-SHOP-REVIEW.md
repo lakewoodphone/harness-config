@@ -222,3 +222,41 @@ live   -> 200  image/jpeg  152,643 bytes
 ```
 
 That is the difference between a page that exists and a page the owner can open.
+
+## Round 4: it keeps itself current, and it says when something is wrong
+
+Two gaps closed, both of which would have made the page lie by omission.
+
+**1. The pipeline was manual — so the page would freeze.** Visits are grouped from raw signals, pictures are captured
+when a visit appears, and clips are recorded *while a visit is happening*; none of those can be done after the fact. A
+page fed by a hand-run script is a page that silently stops updating, which is what happened to the previous timeline
+(§ Round 3 finding).
+
+`shop-review-cycle.sh` on a **3-minute timer** (`shop-review-cycle.timer`), in dependency order: group → capture stills
+→ record clips. Every step is idempotent, so a rerun costs nothing. First run observed: 10 visits grouped, 0 new stills
+(all present), 0 clips (nobody had arrived in the clip window) — the "nothing to do" path is exercised and quiet.
+
+**2. There was no alert line.** The objective asks for "cameras and any alert", and the page showed none. It now carries
+the **same severity logic as the Home Assistant banner**, so the two can never disagree:
+
+| state | what the page says |
+|---|---|
+| alarm tripped **and** the siren muted | **ALARM TRIPPED, SIREN SILENCED** (red) |
+| alarm tripped | **ALARM GOING OFF NOW** (red) |
+| drill switch on | **SIREN SILENCED — TEST MODE ON** (red) |
+| lockdown | **ACCESS CONTROL LOCKED DOWN** (red) |
+| door open while marked away | **DOOR OPEN WHILE AWAY** (red) |
+| guest code on, nobody home | amber |
+| a sensor offline | **CANNOT CONFIRM THE BUILDING** (amber) |
+| door open | **DOOR OPEN** (amber) |
+| nothing | **No alerts · Doors closed.** (green) |
+
+If Home Assistant cannot be reached at all, the banner says **"Cannot reach the building"** rather than defaulting to
+calm — a gallery that looks peaceful while the connection is down is the one lie this system exists to prevent.
+
+**Verified on the public URL after the change:** 200, 64,081 bytes, and the alert block renders
+`No alerts | Doors closed.`
+
+**A defect caught in my own patch:** the first attempt 500'd every request with `NameError: name 'st' is not defined` —
+one of two string replacements had silently not matched, so the variable was used but never defined. The traceback said
+which line; the lesson is the same as the earlier rounds: a patch that compiles is not a patch that applied.

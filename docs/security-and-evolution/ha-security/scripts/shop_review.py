@@ -79,6 +79,13 @@ table.sig td{padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);vertica
 table.sig td.n{white-space:nowrap;color:var(--txt);padding-right:8px}
 .note{font-size:12px;color:var(--muted);margin:6px 0}
 .warnbox{font-size:12px;color:var(--warn)}
+.alert{border-radius:10px;padding:10px 12px;margin:2px 0 4px;border-left:8px solid var(--line);background:var(--card)}
+.alert b{display:block;font-size:15px}
+.alert span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.alert.ok{border-left-color:var(--ok)}
+.alert.warn{border-left-color:var(--warn);background:rgba(255,152,0,.10)}
+.alert.bad{border-left-color:var(--bad);background:rgba(219,68,55,.12)}
+.alert.unknown{border-left-color:var(--muted)}
 .empty{border:1px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);font-size:13px}
 """.strip()
 
@@ -109,6 +116,61 @@ def ha_get(path: str) -> tuple[int, bytes, str]:
                                  headers={'Authorization': 'Bearer ' + (env('HA_TOKEN') or '')})
     with urllib.request.urlopen(req, timeout=25) as r:
         return r.status, r.read(), r.headers.get('Content-Type', 'application/octet-stream')
+
+
+
+SAFETY = {
+    'intr': 'input_boolean.phoenix_intrusion_active',
+    'test': 'input_boolean.phoenix_intrusion_test_mode',
+    'lock': 'input_boolean.phoenix_access_control_lockdown',
+    'guest': 'input_boolean.phoenix_house_guest_mode_active',
+    'away': 'binary_sensor.phoenix_everyone_away',
+    'shop': 'binary_sensor.phoenix_control_room_interior_door_contact',
+    'apt': 'binary_sensor.phoenix_control_room_exterior_door_contact',
+}
+
+
+def safety_state() -> dict:
+    """The same severity logic the Home Assistant banner uses, so the two never disagree.
+
+    A gallery that shows a calm page while the siren is muted would be worse than no gallery: it
+    is the one lie this whole system exists to avoid. If Home Assistant cannot be reached the
+    banner says so instead of assuming the building is fine.
+    """
+    try:
+        status, body, _ = ha_get('/api/states')
+        states = {s['entity_id']: s['state'] for s in json.loads(body)}
+    except Exception:
+        return {'level': 'unknown', 'head': 'Cannot reach the building', 'detail': ''}
+    v = {k: states.get(e, 'unknown') for k, e in SAFETY.items()}
+    unknown = [k for k, x in v.items() if x in ('unknown', 'unavailable')]
+    on = lambda k: v.get(k) == 'on'          # noqa: E731
+    door = on('shop') or on('apt')
+    if on('intr') and on('test'):
+        return {'level': 'bad', 'head': 'ALARM TRIPPED, SIREN SILENCED',
+                'detail': 'Test mode is on — nothing is sounding.'}
+    if on('intr'):
+        return {'level': 'bad', 'head': 'ALARM GOING OFF NOW', 'detail': 'Check the cameras.'}
+    if on('test'):
+        return {'level': 'bad', 'head': 'SIREN SILENCED — TEST MODE ON',
+                'detail': 'No alarm will sound. Turn test mode off when you are done.'}
+    if on('lock'):
+        return {'level': 'bad', 'head': 'ACCESS CONTROL LOCKED DOWN',
+                'detail': 'Doors stay locked until it is cleared.'}
+    if on('away') and door:
+        return {'level': 'bad', 'head': 'DOOR OPEN WHILE AWAY',
+                'detail': 'Nobody is meant to be here.'}
+    if on('guest') and on('away'):
+        return {'level': 'warn', 'head': 'GUEST MODE ON, NOBODY HOME',
+                'detail': 'The alarm cannot arm while that is on.'}
+    if unknown:
+        return {'level': 'warn', 'head': 'CANNOT CONFIRM THE BUILDING',
+                'detail': 'Offline: ' + ', '.join(unknown)}
+    if door:
+        return {'level': 'warn', 'head': 'DOOR OPEN', 'detail': 'Someone is in the building.'}
+    if on('guest'):
+        return {'level': 'warn', 'head': 'GUEST MODE ON', 'detail': 'The alarm cannot arm.'}
+    return {'level': 'ok', 'head': 'No alerts', 'detail': 'Doors closed.'}
 
 
 def require(token: str) -> None:
@@ -316,13 +378,16 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
         if not blocks:
             blocks.append('<div class="empty">No visits recorded in the last %d days.</div>' % days)
 
+        st = safety_state()
         body = ('<div class="wrap"><div class="bar"><h1>Shop</h1>'
                 '<span class="chip">%d visits · %d days</span></div>'
+                '<div class="alert %s"><b>%s</b><span>%s</span></div>'
                 '<h2>Live now</h2><div class="grid g2">%s</div>'
                 '<h2>Most recent</h2><div class="recent">%s</div>'
                 '%s</div>'
-                % (len(visits), len(by_day), tiles, recent or '<div class="empty">Nothing yet.</div>',
-                   ''.join(blocks)))
+                % (len(visits), len(by_day), st['level'], html.escape(st['head']),
+                   html.escape(st['detail']), tiles,
+                   recent or '<div class="empty">Nothing yet.</div>', ''.join(blocks)))
         return HTMLResponse('<!doctype html><html lang="en"><head><meta charset="utf-8">'
                             '<meta name="viewport" content="width=device-width,initial-scale=1">'
                             '<title>Shop — review</title><style>%s</style></head><body>%s</body></html>'
