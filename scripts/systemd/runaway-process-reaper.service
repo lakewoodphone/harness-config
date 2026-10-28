@@ -1,0 +1,14 @@
+[Unit]
+Description=Reap a process that has burned a whole core for hours (orphans pin the DB WAL)
+Documentation=file:/usr/local/bin/runaway-process-reaper.py
+After=company-api.service
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/local/bin/runaway-process-reaper.py
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# A reaper that hangs must not become the thing that needs reaping.
+TimeoutStartSec=180
