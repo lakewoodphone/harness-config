@@ -78,18 +78,30 @@ def head_checks(tok: str, branch: str, sha: str) -> dict:
         return out
     mine = [r for r in runs if r.get("head_sha") == sha]
     out["total"] = len(mine)
+    cancelled = 0
+    # CANCELLED IS NOT FAILED (2026-10-28). On a push to `test` both workflows start and the PR Pre-Check is
+    # cancelled by the concurrency group when the Deploy environment takes the branch - so a head whose deploy
+    # SUCCEEDED, and which verified the live host, was being reported RED for a run that produced no verdict.
+    # A cancelled run carries no verdict: it neither passes nor fails.
     for r in mine:
         if r.get("status") != "completed":
             out["pending"].append(r.get("name"))
         elif r.get("conclusion") in ("success", "neutral", "skipped"):
             out["passed"] += 1
+        elif r.get("conclusion") == "cancelled":
+            cancelled += 1
         else:
             out["failed"].append("%s=%s" % (r.get("name"), r.get("conclusion")))
+    if cancelled:
+        out["cancelled"] = cancelled
     if not mine:
         out["state"] = "none"
     elif out["failed"]:
         out["state"] = "RED"
     elif out["pending"]:
+        out["state"] = "PENDING"
+    elif out["passed"] == 0:
+        # only cancelled runs: nothing has actually verified this head
         out["state"] = "PENDING"
     else:
         out["state"] = "GREEN"
