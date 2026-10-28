@@ -935,3 +935,29 @@ identity check. Match the entity, then look at what it is.
 
 **A fourth door does not exist yet.** The apartment door has no contact sensor, so no page or alert may claim one. When
 it is fitted it needs an entity of its own.
+
+## Round 26: "i walked all over, and i don't see any pics of me" — because we never photographed the rooms
+
+The owner walked through the shop and the gallery showed empty rooms. He was right, and the fault was the **camera list**,
+not the capture: the watcher photographed three cameras — the shop-door hallway, the doorbell and the waiting room — and
+**none of them looks at the shop floor**. The camera that covers the workbench (bins, monitors, the bench itself) is
+`cam_deserted_interior_main`, labelled "Deserted House inwards", and it had never been captured once.
+
+**What exists, counted:** the NVR advertises more mains than are connected. `cam_larry_s_interior_main` answers **HTTP
+500** — the channel is not connected — and the `_sub_2_2` / `_sub_4` entries are the same views at lower resolution. Five
+cameras are connected, which is what the owner said: *"there are only 5 cams currently connected."*
+
+**Fixed:** six images per trigger — the five connected cameras plus the doorbell — fetched **in parallel** (3.7 s for all
+six, against ~14 s in series, and the person is walking while it happens). Verified on the visit open at the time:
+
+```
+cam_front_hallway_main   cam_waiting_room_main   cam_larry_s_exit_main_2
+cam_deserted_interior_main   cam_deserted_exit_main   reolink doorbell
+```
+
+All six written at 19:05:23, 150–580 KB each, and the page shows them.
+
+**A note on what "blank" looked like.** The tiles in his screenshot were not blank images: they were empty rooms —
+correctly captured, correctly stored, showing a grey hallway with nobody in it. The gallery was honest and useless at
+the same time, because the cameras it used could not see the person. That distinction matters: the failure was coverage,
+not corruption.

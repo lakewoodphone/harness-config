@@ -40,10 +40,21 @@ DB = '/root/authority.db'
 ENV = '/opt/company/.env'
 MEDIA_ROOT = '/root/shop-media'
 
+# THE FIVE CONNECTED CAMERAS PLUS THE DOORBELL (2026-10-28, owner: "there are only 5 cams currently
+# connected"). `cam_larry_s_interior_main` returns HTTP 500 — that channel is not connected — and is
+# therefore not in the list. The others in the NVR's inventory (`_sub_2_2`, `_sub_4`) are the same views
+# at lower resolution and are excluded on purpose. The first list was three cameras — the hallway,
+# the doorbell and the waiting room — so an owner who "walked all over" was photographed in none of the
+# rooms he actually walked through: Larry's interior and exit and the deserted room's interior and exit
+# are separate cameras on the same NVR and were never captured. Sub-streams (`_sub_2_2`, `_sub_4`) are
+# the same view at lower resolution and are deliberately excluded.
 CAMERAS = [
     ('camera.cam_front_hallway_main', 'shop door threshold'),
     ('camera.reolink_video_doorbell_poe_clear', 'outside stairwell'),
     ('camera.cam_waiting_room_main', 'drop-off and pickup'),
+    ('camera.cam_larry_s_exit_main_2', "Larry's exit"),
+    ('camera.cam_deserted_interior_main', 'deserted interior'),
+    ('camera.cam_deserted_exit_main', 'deserted exit'),
 ]
 
 # what counts as "a person is here". Zones are context, not triggers, so they are deliberately absent:
@@ -145,8 +156,10 @@ def shoot(conn: sqlite3.Connection, ha: str, token: str, when: str, why: str,
     outdir = os.path.join(MEDIA_ROOT, day)
     os.makedirs(outdir, exist_ok=True)
     took = 0
-    for cam, _why in CAMERAS:
-        body, err = fetch_still(ha, token, cam)
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=7) as pool:
+        fetched = list(pool.map(lambda c: (c, *fetch_still(ha, token, c)), [c for c, _ in CAMERAS]))
+    for cam, body, err in fetched:
         now = datetime.now(timezone.utc).isoformat()
         if body is None:
             conn.execute(
