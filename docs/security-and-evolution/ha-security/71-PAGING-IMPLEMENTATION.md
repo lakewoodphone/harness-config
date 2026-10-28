@@ -408,3 +408,42 @@ short sentence, and the flip side of an exception is that it must not become an 
 
 **Still not exercised:** the voice escalation has never dialled, and the `COVERED` dedupe branch has not seen a page
 Home Assistant itself sent.
+
+## 14. The shop window — `/shop` on the dashboard, DONE 2026-10-28 16:0xZ
+
+He asked: *"is there a page or website where i can clearly see all shop activity."* There was not — a grep of the
+whole dashboard for `security_event`, `security_evidence`, `security_decision` and `security_action` returned **zero
+files**, so two days of record-building were invisible.
+
+**Now there is: `https://ai.abletelsolutions.com/shop`** (behind the dashboard session; unauthenticated requests get a
+307 to `/api/auth/signin?callbackUrl=%2Fshop`).
+
+**What it shows.** A day picker, the declared building state, and counts, over one merged timeline: arrivals (door
+contacts and person detection), keypad presses with the recognised person or "no one recognised", the judge's verdicts
+with their level and reason, and the captured pictures as thumbnails with the largest one rendered full size.
+
+**What was built, and where it landed.**
+- `GET /ceo/db/shop-activity?day=YYYY-MM-DD` on the API — one day of `security_event`, `entry_event`,
+  `security_decision` and `security_evidence`, plus the latest declared state.
+- `GET /webhook/ha/security-evidence/<sha-prefix>.jpg` — serves a captured still by the first 32 characters of its
+  sha256. Unguessable and therefore unauthenticated, exactly like the MMS media host; the lookup is a database hit on
+  the hash, never a caller-supplied path, so no request can walk outside the evidence directory. Verified: **200,
+  168,851 bytes, image/jpeg** on a real capture.
+- `web/app/shop/{page.tsx,ShopClient.tsx}` and `web/app/api/shop/route.ts` in the dashboard, using the existing
+  `withDashboardSession` + `backendFetchJson` conventions. Sources kept here under `web/`.
+
+**Two operator facts that cost time.** The dashboard is served from **`/opt/company-web`**, not `/opt/company/web` —
+`secretary-dashboard.service` has `WorkingDirectory=/opt/company-web` and runs `node node_modules/.bin/next start`.
+And `npx next build` pulls a *different* Next from the registry; the project binary is
+`node node_modules/next/dist/bin/next` (16.1.6). Build takes about 90 seconds; restart
+`secretary-dashboard.service` afterwards.
+
+**Signal vs noise, measured.** The raw day held **500** recorded signals — mostly zone and sensor chatter — which
+buries four door edges. A pattern filter (`entity_id LIKE '%door%'`) only got it to 459, because boxes, tampers,
+battery and motion sensors all match. A **precise allow-list** of the three door contacts, the doorbell's person and
+visitor detectors, and the keypad event cuts it to **130 arrivals on 27 October and 59 on the 28th**, and dropping the
+"off" edge of a person detector (a person arrives on `on`; `off` is bookkeeping) keeps it honest rather than merely
+short.
+
+**Not in it yet:** no video, no grouping of one person's movements into a single visit, no link from a visit to a work
+order, and pictures exist only for the days the capture actually ran (3 on 27 October, 0 on the 28th so far).
