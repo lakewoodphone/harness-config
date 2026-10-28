@@ -1121,3 +1121,24 @@ finding, because a wrong claim left in a config is worse than no comment at all.
 **The lesson, which is the same one as the `state_filter` round:** an instrument that measures nothing and an
 instrument that measures the wrong thing look identical in a summary. A card outside the viewport has nothing to
 refresh, so sampling it proves nothing about it.
+
+## 32. Round 13: what a dead camera actually looks like — verified, not assumed — 2026-10-28
+
+The recurring failure in this estate is a camera that reports `idle` in the entity list while its proxy returns
+**HTTP 500** — it exists, it is "on", and it has no picture. `camera.cam_larry_s_interior_main` is exactly that today
+(measured: `HTTPError 500`). So it was rendered next to a working camera on a throwaway dashboard.
+
+**It fails honestly.** The dead camera draws a **grey placeholder with a broken-image icon**, with its title still
+readable underneath. A live camera beside it draws the usual frame with a timestamp overlay. There is no stale frame,
+no silent blank, and no way to mistake one for the other. Nothing needed changing.
+
+**Two layers now stand between a dead camera and the owner:**
+1. **Before apply** — the preflight fetches a frame from every referenced camera and refuses to save if any fails, so a
+   dead camera cannot be *built into* the view.
+2. **If one dies after** — the tile degrades to the broken-image placeholder, which is visibly not a picture.
+
+**Cleanup verified:** every throwaway dashboard created during this work is gone — `shop-deadcam-test`, `shop-red-test`,
+`shop-live-test` and `shop-pe-test` all deleted. The dashboard list is back to its original eight names, and `shop-view`
+still holds its six cards.
+
+**Screenshot:** `dashboards/dead-camera-placeholder.png`.
