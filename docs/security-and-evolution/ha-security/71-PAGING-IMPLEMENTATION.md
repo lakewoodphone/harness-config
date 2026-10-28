@@ -865,3 +865,47 @@ renders a name (it lives only in the tooltip). Removed, because a property that 
 
 **Applied and verified:** `6 cards: markdown, picture-glance, glance, markdown, history-graph, grid`; banner tests
 10/10.
+
+## 25. Round 5: the keypad card is healthy, and the door list comes back — 2026-10-28
+
+**The keypad card was measured rather than assumed.** The audit's warning was that an `input_text` capped at 255
+characters *freezes* rather than truncates when a write is too long, which would have left the card showing a stale
+log forever. Measured on the live helper:
+
+```
+value length : 255 chars   (helper max = 255)
+last changed : 16:26:19  (5 minutes ago)
+lines held   : 6
+newest line  : 'Oct 28, 12:26 PM - Owner Access at Interior'
+oldest line  : 'Oct 27, 8:43 PM - Owner Access at Magl'   <- sliced mid-word by the writer
+```
+
+So it is **at the cap and still current** — the writer slices to fit instead of writing an over-long value, which
+means the log does not freeze. The cost is a truncated fragment at the tail, and the card shows the newest four lines,
+so that fragment is never displayed. No change needed, and now there is a number behind that conclusion instead of an
+assumption.
+
+**The door list came back, below the fold.** In round 3 I replaced the logbook with a `history-graph` partly because I
+believed the logbook renders raw `on`/`off`. The audit corrected that: rows render as **"<friendly name> was opened ·
+15:36"** — a localised phrase, not a state chip. That is the literal *"who came and when"* question, which is the
+owner's core need, so the logbook returns as card 6 with `target.entity_id` over the two doors and a 12-hour window.
+
+**Why it sits below the graph rather than replacing it:** the graph answers *"is anything open now"* in one look (a
+coloured band with a start and an end); the logbook answers *"when exactly did it happen"* in words. They are
+different questions, and only the first one needs to be above the fold.
+
+**The view is now seven cards, in this order:**
+
+```
+1. markdown       the banner
+2. picture-glance Shop door (camera)
+3. glance         both doors, state in words
+4. markdown       keypad, four lines
+5. history-graph  Doors - last 24 hours
+6. logbook        Door opens - last 12 hours     <- below the fold, by design
+7. grid           three camera tiles (picture-entity, 10 s refresh)
+```
+
+**Verified:** `save: True`, readback `7 cards: markdown, picture-glance, glance, markdown, history-graph, logbook,
+grid`. The 12-hour window over the two doors currently holds **3 rows**, so the list is light enough to read at a
+glance rather than another wall.

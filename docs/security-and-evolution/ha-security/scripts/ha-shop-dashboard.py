@@ -205,6 +205,16 @@ def config(use_target: bool = False) -> dict:
         # with NO refresh interval. A dead camera and a live one look identical, and the state
         # text that would say "unavailable" is hidden. `picture-entity` with the camera as its
         # own entity polls the still every ~10 s, so a frozen frame cannot masquerade as live.
+        # THE DOOR LIST, WITH TIMES (2026-10-28). The graph above shows WHEN a door was open as
+        # a band, but not the exact time. The logbook renders each row as
+        # "<friendly name> was opened - 15:36", which is the literal "who came and when"
+        # question -- the audit corrected my earlier assumption that these rows are bare
+        # on/off. It sits BELOW the fold on purpose: the glance above answers "is anything open
+        # now", this answers "when did it happen". Two doors only, measured at ~10 rows a day;
+        # the doorbell person detector adds 126 and would drown it.
+        {"type": "logbook", "title": "Door opens - last 12 hours",
+         "hours_to_show": 12,
+         "target": {"entity_id": [DOORS[0], DOORS[1]]}},
         {"type": "grid", "columns": 3, "square": True, "cards": [
             {"type": "picture-entity", "entity": "camera.cam_waiting_room_main",
              "name": "Drop-off", "show_name": True, "show_state": False, "camera_view": "auto"},
