@@ -1142,3 +1142,33 @@ no silent blank, and no way to mistake one for the other. Nothing needed changin
 still holds its six cards.
 
 **Screenshot:** `dashboards/dead-camera-placeholder.png`.
+
+## 33. Round 14: the build gate now covers dead cameras, not just missing entities — 2026-10-28
+
+The generator refused to save a view referencing an entity that does not exist. It did not refuse a view
+referencing a camera that exists and **returns nothing** — and that is the failure this estate actually has:
+`camera.cam_larry_s_interior_main` sits in the entity list as `idle` and answers its proxy with **HTTP 500**.
+
+`apply()` now fetches one frame from **every** referenced camera before saving, and refuses if any returns an error or
+under a kilobyte. Proven both ways:
+
+```
+normal  -> preflight: 5 cameras all return a frame
+           preflight: 16 entity ids all present, 0 custom card(s)
+           save: True   readback: 6 cards
+dead cam-> REFUSING TO SAVE: 1 camera(s) return no usable frame:
+             - camera.cam_larry_s_interior_main -> HTTPError
+           exit code: 1
+after   -> live view: 6 cards, dead camera present? False
+```
+
+The negative test did not simulate anything: it pointed a copy of the generator at the camera that genuinely answers
+500 today.
+
+**A bug caught in its own patch, worth recording:** the first version raised `UnboundLocalError` for all five cameras
+because the preflight used the HA URL and token before assigning them — the assignment sat below the check. That is
+the second time today a check reported a failure that was an artefact of the check rather than the subject. Both were
+caught because the gate prints *why* it refused, not just that it did.
+
+**Where this leaves the build path:** a change can now fail for a missing entity, a dead camera, a config that will
+not save, or a mismatch on readback — four different ways, each with its own message.

@@ -348,6 +348,8 @@ async def apply(url_path: str, dry: bool, use_target: bool) -> int:
         # earlier draft of this view (event.esphome.access_control_keypad_entry) did not exist
         # at all. This gate costs one get_states call and makes that class of mistake
         # impossible to ship.
+        ha_for_preflight = (env('HA_URL') or '').rstrip('/')
+        token_for_preflight = env('HA_TOKEN') or ''
         _ENT = re.compile(r'\b((?:binary_sensor|sensor|camera|input_boolean|input_text|'
                           r'input_number|event|switch|light|script|automation|person|'
                           r'device_tracker|weather|sun|media_player|number|select|button|'
@@ -361,6 +363,31 @@ async def apply(url_path: str, dry: bool, use_target: bool) -> int:
             for _m in _missing:
                 print('   -', _m)
             return 1
+
+        # AN ENTITY THAT EXISTS CAN STILL HAVE NO PICTURE (2026-10-28). `camera.exists` is not
+        # `camera.works`: this estate has a camera that reports `idle` in the entity list while
+        # its proxy answers HTTP 500, and it would have been built into the view without a word.
+        # So every referenced camera is actually fetched before saving. One frame, not two --
+        # the two-frame test lives in check-shop-entities.py for the slower diagnostic path.
+        import urllib.request as _urlreq
+        _cams = sorted(e for e in _used if e.startswith('camera.'))
+        _dead = []
+        for _cam in _cams:
+            try:
+                _rq = _urlreq.Request(ha_for_preflight + '/api/camera_proxy/' + _cam,
+                                      headers={'Authorization': 'Bearer ' + token_for_preflight})
+                with _urlreq.urlopen(_rq, timeout=25) as _resp:
+                    _bytes = len(_resp.read())
+                if _bytes < 1000:
+                    _dead.append((_cam, 'only %d bytes' % _bytes))
+            except Exception as _exc:  # noqa: BLE001 - a dead camera is reported, never raised
+                _dead.append((_cam, '%s' % type(_exc).__name__))
+        if _dead:
+            print('REFUSING TO SAVE: %d camera(s) return no usable frame:' % len(_dead))
+            for _c, _why in _dead:
+                print('   -', _c, '->', _why)
+            return 1
+        print('preflight: %d cameras all return a frame' % len(_cams))
         print('preflight: %d entity ids all present, %d custom card(s)'
               % (len(_used), len([t for t in re.findall(r'"type": "(custom:[^"]+)"', json.dumps(cfg))])))
 
