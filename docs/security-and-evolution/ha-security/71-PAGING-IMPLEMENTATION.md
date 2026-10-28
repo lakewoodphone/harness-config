@@ -1172,3 +1172,31 @@ caught because the gate prints *why* it refused, not just that it did.
 
 **Where this leaves the build path:** a change can now fail for a missing entity, a dead camera, a config that will
 not save, or a mismatch on readback — four different ways, each with its own message.
+
+## 34. Round 15: it is useful in 1.4 seconds, and tapping a camera does something worth doing — 2026-10-28
+
+Two things never checked before: how fast the page becomes **useful** (not merely how fast it responds), and whether
+the pictures are **tappable to anything**.
+
+**Speed, measured from navigation to a rendered banner:**
+
+```
+first card rendered: 1.2 s
+banner text visible: 1.4 s
+five camera images present
+```
+
+Under a second and a half to the sentence that says what is happening in the building. That is the number that matters
+for a page opened on a phone in a hurry; anything slower and he would learn to open the camera app instead.
+
+**Tapping the hero camera opens the full camera view** — title, the live image with its timestamp overlay, a settings
+gear, and a **Download snapshot** button. That last one matters more than it looks: it is the shortest path from "who
+is at the door" to *a photograph of that person in his hand*, which is the thing he asked for at the very start. Two
+taps from the dashboard.
+
+**A verification detour worth recording:** three attempts to read that dialog through the DOM returned an empty string
+and then `NO DIALOG`, which reads like "the tap does nothing". It was wrong — the dialog renders in a different
+element than the one being queried, and only the screenshot showed the truth. That is the third time today that an
+instrument reported a failure which was an artefact of the instrument, and the third time the picture settled it.
+
+**Screenshot:** `dashboards/shop-view-camera-tap.png`.
