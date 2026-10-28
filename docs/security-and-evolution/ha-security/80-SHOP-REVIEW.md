@@ -693,3 +693,49 @@ cross a hallway. Two changes:
 photographed twice" (18:04 and 18:20). It was two different visits — 18:01 and 18:18 — each photographed minutes after
 it began. The query I used did not print `visit_id`, so two rows looked like one. Fifth time this session that a query
 told me something false about a working system; the fix each time is to select the identity, not just the evidence.
+
+## Round 18: the owner's complaint, and a review that found the page shipping 1 MB of thumbnails
+
+### The complaint was right, and the cause was structural
+
+> *"someone just came a few minutes ago to the hallway to pick something up and i don't see any pics of him"*
+
+The gallery was fed by a **three-minute timer**, and a person picking something up is in the hallway for fifteen
+seconds. Checked the evidence rather than the code: the newest still for that visit was taken at **18:28** and shows
+**an empty hallway** — the timer fired ten minutes after he left. A periodic capture samples the room; it cannot watch
+a door.
+
+`shop-live-capture.py` now watches the event record instead. The listener already writes every person, door and keypad
+signal into `security_event` in real time, so the watcher polls it every **3 seconds** and photographs within seconds of
+the trigger, while the person is still in frame. Rules that keep it honest: only person-capable signals trigger it
+(zones are context — a fan or a shadow must not fire four cameras); a 20-second cooldown stops one arrival producing
+twenty pictures; every capture stores when it was taken and the page prints that time, so a picture of "three seconds
+after the door opened" is never passed off as the door opening.
+
+Deployed as `shop-live-capture.service`, running.
+
+### And the second review found something worse than I expected
+
+> *"First load ≈ 1.19 MB. **1,117,187 B of it (94%)** is three 2560 px originals filling three 117 px boxes in 'Most
+> recent'; the same three photos are then fetched again at `?w=176`."*
+
+My resizing was real and the strip **did not use it**. Three tiles were downloading full-resolution originals. Also
+found: those three tiles linked to `#<visit-id>` anchors that **did not exist** (no card carried an id), so all three
+were dead links; a clip card read *"Clip starts **7:46** into a **6:42** visit"* — impossible arithmetic inside the one
+sentence written to make a clip honest; and the clips view printed *"No visits recorded on this day"* over a day with
+26 visits, because the header counts the filtered set and the empty-state copy asserts something about the record.
+
+All four fixed and measured:
+
+| | before | after |
+|---|---|---|
+| first-screen bytes | 1,117,187 | **7,420** (three thumbnails at ~2.5 KB) |
+| recent-strip links | 3 dead anchors | 42 cards now carry `id` |
+| clip sentence | "7:46 into a 6:42 visit" | "Clip 0:25 of a 8:12 visit … starts 2:01 in" |
+| clips view, empty day | "No visits recorded" over 26 visits | "No clip kept for this day — the visits are in All events" |
+
+**Still open from that review, and worth taking next:** the camera's burned-in clock is **exactly one hour behind** the
+page (a DST fault on the cameras themselves, which cannot be corrected without their credentials, so the page should
+print both clocks); the live tiles' captions come from the phone's clock *before* the fetch completes, so a stalled
+request leaves an old frame under a new timestamp; and the alert and counts freeze at render while only the four tiles
+refresh.

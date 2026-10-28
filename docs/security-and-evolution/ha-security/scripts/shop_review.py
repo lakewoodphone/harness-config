@@ -92,7 +92,9 @@ details.ev>summary::-webkit-details-marker{display:none}
 .body{padding:0 10px 12px}
 .body video{width:100%;border-radius:8px;background:#000;margin:6px 0 8px}
 .shots{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:8px 0}
-.shots a{display:block;aspect-ratio:4/3;border-radius:6px;overflow:hidden;background:#0f1420}
+.shots a{display:block;position:relative;aspect-ratio:4/3;border-radius:6px;overflow:hidden;background:#0f1420}
+.shots .shotat{position:absolute;left:0;right:0;bottom:0;font-size:9px;padding:8px 4px 2px;
+  background:linear-gradient(transparent,rgba(0,0,0,.8));color:#dbe3ef}
 .shots img{width:100%;height:100%;object-fit:cover}
 table.sig{width:100%;border-collapse:collapse;font-size:12px;color:var(--muted)}
 table.sig td{padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
@@ -454,8 +456,15 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
             parts.append('<p class="note">This clip covers only part of the visit.</p>')
         # A clip that began part-way through must say so, or it implies it caught the arrival
         if offset and offset > 60:
-            parts.append('<p class="note">Clip starts %s into the visit — recording began after the '
-                         'visit did, so the arrival is not on it.</p>' % mmss(offset))
+            if visit_span and offset > visit_span:
+                # the two numbers disagree, so neither is repeated: say when the recording began
+                began = to_local(cl['captured_at']) if 'captured_at' in keys else None
+                if began:
+                    parts.append('<p class="note">Recording began at %s — after the arrival, so the '
+                                 'arrival is not on it.</p>' % began.strftime('%H:%M:%S'))
+            else:
+                parts.append('<p class="note">Clip starts %s into the visit — recording began after '
+                             'the visit did, so the arrival is not on it.</p>' % mmss(offset))
         parts.append('<p class="note">Clip links expire. If it will not play, reload the page.</p>')
     elif state == 'open_no_clip':
         parts.append('<p class="note">No clip for this visit — recording did not start when it '
@@ -467,13 +476,16 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
         parts.append('<p class="note">No clip — this visit is too old. Clips can only be recorded '
                      'when a visit starts.</p>')
 
-    shots = conn.execute("SELECT camera_id, path FROM shop_visit_media WHERE visit_id=? AND "
-                         "kind='still' AND result='ok' ORDER BY camera_id", (v['id'],)).fetchall()
+    shots = conn.execute("SELECT camera_id, path, captured_at FROM shop_visit_media WHERE "
+                         "visit_id=? AND kind='still' AND result='ok' ORDER BY camera_id",
+                         (v['id'],)).fetchall()
     if shots:
         cells = ''.join('<a href="/webhook/ha/shop/r/%s/full/%s/%s"><img loading="lazy" '
-                        'src="/webhook/ha/shop/r/%s/full/%s/%s?w=320"></a>'
-                        % (token, v['id'], html.escape(s['camera_id']), token, v['id'],
-                           html.escape(s['camera_id'])) for s in shots)
+                        'src="/webhook/ha/shop/r/%s/full/%s/%s?w=320">'
+                        '<span class="shotat">%s</span></a>'
+                        % (token, v['id'], html.escape(sh['camera_id']), token, v['id'],
+                           html.escape(sh['camera_id']), clock(sh['captured_at']))
+                        for sh in shots)
         parts.append('<div class="shots">%s</div>' % cells)
     else:
         parts.append('<p class="note">No picture — none was captured when this began.</p>')
@@ -509,10 +521,10 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                     '' if v['signal_count'] == 1 else 's',
                     ', '.join(d.replace('_', ' ') for d in doors) or 'none'))
 
-    return ('<details class="ev" name="event"><summary>%s<div class="meta"><div class="t">%s</div>'
+    return ('<details class="ev" name="event" id="%s"><summary>%s<div class="meta"><div class="t">%s</div>'
             '<div class="s">%s · %s</div><div class="badges">%s</div></div></summary>'
             '<div class="body">%s</div></details>'
-            % (thumb, visit_title(v), clock(v['started_at']), duration(v),
+            % (v['id'], thumb, visit_title(v), clock(v['started_at']), duration(v),
                ''.join(badges), ''.join(parts)))
 
 
@@ -574,7 +586,7 @@ async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse
             if not st:
                 return ''
             return ('<a href="#%s"><img loading="lazy" '
-                    'src="/webhook/ha/shop/r/%s/full/%s/%s">'
+                    'src="/webhook/ha/shop/r/%s/full/%s/%s?w=176">'
                     '<span class="t">%s %s</span></a>'
                     % (v['id'], token, v['id'], html.escape(st['camera_id']),
                        clock(v['started_at']), html.escape(visit_title(v))))
@@ -610,8 +622,12 @@ async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse
             vs = by_day.get(day, [])
             if not vs:
                 covered = bool(first_visit and first_visit[:10] <= day)
-                note = ('No visits recorded on this day.' if covered
-                        else 'The record starts later than this day — nothing was kept for it.')
+                if clips and covered:
+                    note = 'No clip kept for this day — the visits are in All events.'
+                elif covered:
+                    note = 'No visits recorded on this day.'
+                else:
+                    note = 'The record starts later than this day — nothing was kept for it.'
                 blocks.append('<section class="day"><div class="hdr"><b>%s</b>'
                               '<i>no visits</i></div><p class="note">%s</p></section>'
                               % (day_label(day), note))
