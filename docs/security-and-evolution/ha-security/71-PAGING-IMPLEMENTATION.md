@@ -517,3 +517,34 @@ trace.
 **Still to come from the 20 rounds:** fold in the three analyses (card mechanics, banner edge cases, what to cut from
 the three older dashboards), retire `camera-wall`, `snapshots-admin` and the old `shop-view` overlap, and confirm the
 layout on a narrow screen.
+
+## 17. The banner analysis folded in — 2026-10-28 16:3xZ
+
+The status-banner analysis came back rigorous enough to replace my hand-written banner outright, and it changed the
+view in three ways.
+
+**1. The muted-siren guarantee is positional, not remembered.** The three `test` branches occupy positions 1, 3 and 4
+and between them exhaust `test == on`: alarm+test, then test+unreadable, then test alone. Every calm branch below them
+is therefore reachable only with the siren live — including the `else`. That is a structural guarantee instead of a
+convention someone has to keep.
+
+**2. It refuses to guess.** New branches the old banner did not have: **CANNOT CONFIRM** when a safety entity is
+`unknown`/`unavailable`, and **CANNOT TELL IF ANYONE IS HOME** when the away flag and the presence sensors disagree —
+which sends him to the cameras instead of picking a story. And the normal case reads **"No alerts."**, never "safe":
+every input on this card is a flag, and none of them is panel health, armed state or siren continuity. A disarmed
+panel, a cut siren wire and a quiet building are indistinguishable from here, so the card may not claim safety.
+
+**3. A sensor-health row, so a dead sensor is visible.** Last card, deliberately small: the five safety inputs with
+`secondary_info: last-changed`. That is the only way this view can show a sensor that stopped talking *without* going
+`unavailable` — the failure mode the whole estate keeps paying for.
+
+**Verified:** the 18-row test table in the analysis was rendered through Jinja2 with stubbed `states()`/`is_state()`,
+so those sentences are literal output rather than intention; and the live template, rendered through Home Assistant's
+own `/api/template`, returns `**No alerts.**` for the building as it stands.
+
+**Live now:** one view, **9 cards** — banner · Cameras (3 mushroom-headed picture-glance) · Today (logbook, 24 h) ·
+Sensor health (5 entities with last-changed). `save: True`, readback confirms the nine cards in that order.
+
+**What the analysis says this banner cannot do, and I agree:** it cannot answer "is the alarm armed" (no such entity is
+in the input set), it cannot say "safe", and where two occupancy sources disagree it must refuse to choose. If the
+armed question matters, it needs an armed/panel-health entity — the template cannot derive one.

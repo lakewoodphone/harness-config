@@ -7,13 +7,23 @@ route into /config — only 8123 answers from anywhere else. A generator means t
 reviewable in git, can be re-applied after a mistake, and is the single source of truth for
 what the owner's phone shows.
 
-Design rules behind it (2026-10-28, owner's words: "way too complex … i don't need the whole
-backend data dump" and "one clear simplified view"):
+Design rules (owner: "way too complex … i don't need the whole backend data dump", and
+"one clear simplified view"):
   * ONE view, one column, readable on a phone.
   * The first thing on the screen is one honest sentence about the building.
-  * The muted-siren state can never hide under a calm sentence.
+  * A calm sentence can never appear while the siren is muted — guaranteed by branch
+    POSITION, not by remembering to check (the three test-mode branches exhaust test==on
+    before any calm branch is reachable).
+  * It says "No alerts", never "safe": every input is a flag, and none of them is panel
+    health, armed state or siren continuity. A disarmed panel, a cut siren wire and a quiet
+    building all look identical from here.
   * The three cameras that see something useful, in the order a person arrives.
-  * Today's timeline last, because it is for looking back, not for a glance.
+  * The timeline last, because it is for looking back, not for a glance.
+  * Sensor health last, small: a frozen last_changed is the only way this view can show a
+    sensor that died without going `unavailable`.
+
+Banner credit: designed 2026-10-28, 18 state rows rendered through Jinja2 3.1.6 with stubbed
+states()/is_state(), so the sentences are literal output rather than intention.
 
 usage:  PYTHONPATH=/opt/company python3 ha-shop-dashboard.py [--url-path shop-view] [--dry]
 """
@@ -26,38 +36,62 @@ import sys
 
 ENV = '/opt/company/.env'
 
-BANNER = (
-    "{% set intr = is_state('input_boolean.phoenix_intrusion_active','on') %}"
-    "{% set test = is_state('input_boolean.phoenix_intrusion_test_mode','on') %}"
-    "{% set lock = is_state('input_boolean.phoenix_access_control_lockdown','on') %}"
-    "{% set away = is_state('binary_sensor.phoenix_everyone_away','on') %}"
-    "{% set guest = is_state('input_boolean.phoenix_house_guest_mode_active','on') %}"
-    "{% set shopdoor = is_state('binary_sensor.phoenix_control_room_interior_door_contact','on') %}"
-    "{% set aptdoor = is_state('binary_sensor.phoenix_control_room_exterior_door_contact','on') %}"
-    "{% set here = is_state('input_boolean.phoenix_user_is_here','on') "
-    "or is_state('binary_sensor.control_room_hub_control_room_presence','on') %}"
-    "{# THE MUTED SIREN OUTRANKS A CALM SENTENCE. Siren silenced is the one state where the "
-    "building looks fine and an alarm would do nothing. #}"
-    "{% if test and intr %}"
-    "## 🔴 ALARM GOING OFF — AND THE SIREN IS MUTED\nA drill switch is on, so nothing is sounding."
-    "{% elif test %}"
-    "## ⚠️ Siren is MUTED (drill switch on)\nA real alarm right now would be silent. Turn the drill switch off."
-    "{% elif intr %}"
-    "## 🔴 ALARM GOING OFF"
-    "{% elif lock %}"
-    "## ⚠️ Access control is locked down"
-    "{% elif guest and away %}"
-    "## ⚠️ Marked empty, but a house code is still active\nThe alarm cannot arm while that is on."
-    "{% elif shopdoor and away %}"
-    "## ⚠️ Shop door is open while the building is marked empty"
-    "{% elif aptdoor %}"
-    "## 🟡 Apartment door is open"
-    "{% elif not here %}"
-    "## 🟢 Empty and armed"
-    "{% else %}"
-    "## 🟡 Someone is inside"
-    "{% endif %}"
-)
+# `<br>` because markdown eats bare newlines inside a paragraph.
+BANNER = """{%- set intr = is_state('input_boolean.phoenix_intrusion_active','on') -%}
+{%- set test = is_state('input_boolean.phoenix_intrusion_test_mode','on') -%}
+{%- set lock = is_state('input_boolean.phoenix_access_control_lockdown','on') -%}
+{%- set away = is_state('binary_sensor.phoenix_everyone_away','on') -%}
+{%- set here = is_state('input_boolean.phoenix_user_is_here','on') -%}
+{%- set work = is_state('input_boolean.phoenix_worker_is_here','on') -%}
+{%- set guest = is_state('input_boolean.phoenix_house_guest_mode_active','on') -%}
+{%- set motion = is_state('binary_sensor.control_room_hub_control_room_presence','on') -%}
+{%- set shop = is_state('binary_sensor.phoenix_control_room_interior_door_contact','on') -%}
+{%- set apt = is_state('binary_sensor.phoenix_control_room_exterior_door_contact','on') -%}
+{%- set bell = is_state('binary_sensor.video_doorbell_person','on') -%}
+{%- set unknown = states('input_boolean.phoenix_intrusion_active') in ['unknown','unavailable']
+   or states('input_boolean.phoenix_intrusion_test_mode') in ['unknown','unavailable']
+   or states('binary_sensor.phoenix_everyone_away') in ['unknown','unavailable']
+   or states('binary_sensor.phoenix_control_room_interior_door_contact') in ['unknown','unavailable']
+   or states('binary_sensor.phoenix_control_room_exterior_door_contact') in ['unknown','unavailable'] -%}
+{%- set doors = 'Both doors' if shop and apt else ('Shop door' if shop else 'Apartment door') -%}
+{%- set who = 'You are in the building.' if here else ('A worker is in the building.' if work else 'No one is flagged as present.') -%}
+{%- if intr and test -%}
+**ALARM TRIPPED, SIREN SILENCED.**<br>Test mode is on. Turn it off to hear the siren.
+{%- elif intr -%}
+**ALARM GOING OFF NOW.**<br>Check cameras.
+{%- elif test and unknown -%}
+**CANNOT CONFIRM, SIREN SILENCED.**<br>Test mode is on and a sensor is offline.
+{%- elif test -%}
+**SIREN SILENCED — TEST MODE ON.**<br>No alarm will sound. Turn test mode off when done.
+{%- elif unknown -%}
+**CANNOT CONFIRM THE BUILDING.**<br>A sensor is offline. This card cannot see the building.
+{%- elif away and (here or work or motion) -%}
+**CANNOT TELL IF ANYONE IS HOME.**<br>Away flag and presence sensors disagree. Check cameras.
+{%- elif away and (shop or apt) -%}
+**DOOR OPEN, NOBODY HOME.**<br>{{ doors }} open.
+{%- elif guest and away -%}
+**GUEST MODE ON, NOBODY HOME.**<br>Alarm cannot arm. Turn guest mode off.
+{%- elif lock -%}
+**ACCESS CONTROL LOCKED DOWN.**<br>Doors stay locked until it is cleared.
+{%- elif guest -%}
+**GUEST MODE ON.**<br>Alarm cannot arm. Turn it off when the guest leaves.
+{%- elif motion and not here and not work -%}
+**MOVEMENT IN THE CONTROL ROOM.**<br>No one is flagged as present.
+{%- elif shop or apt -%}
+**{{ doors }} open.**<br>{{ who }}
+{%- elif bell -%}
+**SOMEONE AT THE OUTER DOOR.**
+{%- else -%}
+**No alerts.**
+{%- endif -%}"""
+
+SAFETY = [
+    "input_boolean.phoenix_intrusion_active",
+    "input_boolean.phoenix_intrusion_test_mode",
+    "binary_sensor.phoenix_everyone_away",
+    "binary_sensor.phoenix_control_room_interior_door_contact",
+    "binary_sensor.phoenix_control_room_exterior_door_contact",
+]
 
 
 def config() -> dict:
@@ -70,54 +104,28 @@ def config() -> dict:
                 "icon": "mdi:storefront",
                 "cards": [
                     {"type": "markdown", "content": BANNER},
-                    {
-                        "type": "conditional",
-                        "conditions": [
-                            {"condition": "state",
-                             "entity": "input_boolean.phoenix_intrusion_test_mode",
-                             "state": "on"},
-                        ],
-                        "card": {
-                            "type": "markdown",
-                            "content": (
-                                "**The siren will not sound.** While the drill switch is on, an intruder "
-                                "gets silence. Nothing turns it off automatically."
-                            ),
-                        },
-                    },
                     {"type": "custom:mushroom-title-card", "title": "Cameras"},
-                    {
-                        "type": "picture-glance",
-                        "title": "Shop door",
-                        "camera_image": "camera.cam_front_hallway_main",
-                        "camera_view": "auto",
-                        "entities": [],
-                    },
-                    {
-                        "type": "picture-glance",
-                        "title": "Drop-off and pickup",
-                        "camera_image": "camera.cam_waiting_room_main",
-                        "camera_view": "auto",
-                        "entities": [],
-                    },
-                    {
-                        "type": "picture-glance",
-                        "title": "Outside",
-                        "camera_image": "camera.reolink_video_doorbell_poe_clear",
-                        "camera_view": "auto",
-                        "entities": [],
-                    },
+                    {"type": "picture-glance", "title": "Shop door",
+                     "camera_image": "camera.cam_front_hallway_main",
+                     "camera_view": "auto", "entities": []},
+                    {"type": "picture-glance", "title": "Drop-off and pickup",
+                     "camera_image": "camera.cam_waiting_room_main",
+                     "camera_view": "auto", "entities": []},
+                    {"type": "picture-glance", "title": "Outside",
+                     "camera_image": "camera.reolink_video_doorbell_poe_clear",
+                     "camera_view": "auto", "entities": []},
                     {"type": "custom:mushroom-title-card", "title": "Today"},
-                    {
-                        "type": "logbook",
-                        "hours_to_show": 24,
-                        "entities": [
-                            "binary_sensor.phoenix_control_room_interior_door_contact",
-                            "binary_sensor.phoenix_control_room_exterior_door_contact",
-                            "binary_sensor.video_doorbell_person",
-                            "input_boolean.phoenix_house_guest_mode_active",
-                        ],
-                    },
+                    {"type": "logbook", "hours_to_show": 24,
+                     "entities": [
+                         "binary_sensor.phoenix_control_room_interior_door_contact",
+                         "binary_sensor.phoenix_control_room_exterior_door_contact",
+                         "binary_sensor.video_doorbell_person",
+                         "input_boolean.phoenix_house_guest_mode_active",
+                     ]},
+                    {"type": "custom:mushroom-title-card", "title": "Sensor health",
+                     "subtitle": "a frozen time here means the sensor has stopped talking"},
+                    {"type": "entities", "state_color": True,
+                     "entities": [{"entity": e, "secondary_info": "last-changed"} for e in SAFETY]},
                 ],
             }
         ],
@@ -157,8 +165,10 @@ async def apply(url_path: str, dry: bool) -> int:
 
     cfg = config()
     if dry:
-        print(json.dumps(cfg, indent=1)[:1200])
-        print('... (%d cards in one view; dry run, nothing applied)' % len(cfg['views'][0]['cards']))
+        cards = cfg['views'][0]['cards']
+        print('dry run: %d cards, %d bytes of config' % (len(cards), len(json.dumps(cfg))))
+        for c in cards:
+            print('  -', c.get('type'), c.get('title') or '')
         return 0
 
     async with websockets.connect(ws_url, **_kw) as ws:
