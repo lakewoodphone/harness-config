@@ -109,3 +109,27 @@ from outside), and an indoor arrival is known from the **door contact** plus the
 Two ways to fix that properly, both needing the NVR's credential, which does not exist in this environment: enable
 IVS/human rules on the NVR channels, or pull the NVR's own event log. Until then the build is honest about which
 signal it has rather than pretending six cameras are watching for people.
+
+## Round 1 (of the review surface): the media layer, and the clock that lies on the picture
+
+**Built:** `scripts/shop-capture.py` plus the `shop_visit_media` table. For every visit it captures a still from the
+three cameras that matter — the shop-door threshold (best face view), the outside stairwell, and the drop-off door —
+through Home Assistant's `camera_proxy`, hashes it, writes it under `/root/shop-media/<date>/`, and records the result
+including failures. Idempotent: a visit that already has a good still is skipped.
+
+**Measured on the first run:** 10 visits → **30 stills, 0 failures, 10.7 MB**. Every file is a real 2560×1440 frame,
+verified by opening one. At ~1 MB per visit this is roughly 50 MB a day for the current traffic, so retention is a
+design parameter, not an afterthought.
+
+**The finding that the pictures carry their own lie.** The still captured for the 17:15:59 visit has **12:26:50**
+burned into the image. The camera's own clock is nearly five hours away from the event time (and ~49 minutes from the
+correct local time). Two consequences, both now requirements:
+
+1. **The event time shown in the UI is Home Assistant's trigger time, never the burned-in stamp.** A person reading
+   `12:26:50` on a card that says 17:15 would conclude the system is broken.
+2. **The offset has to be recorded and shown**, the way the design review demanded: when a camera's clock is more than
+   a minute out, the expanded event says so (`Camera clock 49m behind`) and that camera is never merged with another by
+   time alone. The same skew is why cross-camera merging cannot be done on timestamps.
+
+This is the second time in this estate that a camera's honest-looking timestamp was wrong; the first cost a whole
+morning of confusion about whether NTP was on.
