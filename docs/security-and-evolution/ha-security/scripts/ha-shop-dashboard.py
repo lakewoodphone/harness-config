@@ -277,8 +277,16 @@ def config(use_target: bool = False) -> dict:
     # Its one unique fact, "a sensor has stopped talking", is what the banner's STATUS
     # UNVERIFIED state already exists for. The card added pixels, not capability.
 
-    return {"title": "Shop", "views": [{"title": "Shop", "path": "main",
-                                        "icon": "mdi:storefront", "cards": cards}]}
+    # A SECTIONS VIEW, CAPPED AT ONE COLUMN (2026-10-28). The owner sent a desktop screenshot:
+    # at a wide window the default masonry view flowed the cards into two columns, so the banner
+    # sat alone in a narrow strip on the left while everything else stacked on the right -- the
+    # reading order broke exactly where it matters most. A sections view takes `max_columns`, so
+    # it stays one column at any width and centres itself instead of stretching.
+    return {"title": "Shop", "views": [{
+        "title": "Shop", "path": "main", "icon": "mdi:storefront",
+        "type": "sections", "max_columns": 1,
+        "sections": [{"type": "grid", "cards": cards}],
+    }]}
 
 
 def env(key: str) -> str | None:
@@ -402,8 +410,15 @@ async def apply(url_path: str, dry: bool, use_target: bool) -> int:
         print('save  :', saved.get('success'), (saved.get('error') or {}).get('message', ''))
         back = (await call({'type': 'lovelace/config', 'url_path': url_path})).get('result') or {}
         views = back.get('views') or []
-        kinds = [c.get('type') for c in (views[0].get('cards') if views else [])]
-        print('readback: %d view(s); %d cards: %s' % (len(views), len(kinds), ', '.join(kinds)))
+        # a sections view keeps its cards inside sections[*].cards; a masonry view keeps them
+        # at views[0].cards. Read whichever shape is actually stored, not the one we expected.
+        _v = views[0] if views else {}
+        _cards = _v.get('cards')
+        if _cards is None:
+            _cards = [c for sec in (_v.get('sections') or []) for c in (sec.get('cards') or [])]
+        kinds = [c.get('type') for c in _cards]
+        print('readback: %d view(s), type=%s, %d cards: %s'
+              % (len(views), _v.get('type') or 'masonry', len(kinds), ', '.join(kinds)))
         return 0 if saved.get('success') else 1
     finally:
         await ws.close()

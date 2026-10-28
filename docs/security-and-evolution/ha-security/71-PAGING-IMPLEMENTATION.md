@@ -1231,3 +1231,34 @@ page scrolled to the bottom before sampling, and reports **5 of 5**.
 
 That is the fourth time today an instrument reported a failure that was an artefact of the instrument rather than of
 its subject. Every one was caught because the output said *how many*, not just *whether*.
+
+## 36. The owner's screenshot: the desktop layout was broken, and he was right — 2026-10-28
+
+He opened it on his desktop and sent a picture. **At a wide window the cards split into two columns** — the banner sat
+alone in a narrow strip on the left while the camera, doors, keypad, graph and camera grid stacked on the right. The
+default view type flows cards into as many columns as the width allows, so the reading order broke exactly where it
+matters most: the sentence that says what is happening ended up visually detached from everything it describes.
+
+**Fix: a `sections` view with `max_columns: 1`.** Sections views take a column cap, so the page stays one centred
+column at any width instead of stretching or splitting.
+
+```
+readback: 1 view(s), type=sections, 6 cards: markdown, picture-glance, glance, markdown, history-graph, grid
+```
+
+Verified by rendering at both widths: **1006 px** (his desktop) now shows one centred column in the right order, and
+**390 px** is unchanged from the phone version that was already verified.
+
+**The fix broke two tools, and both were caught immediately:**
+- the generator's readback crashed with `TypeError: 'NoneType' object is not iterable`, because a sections view has no
+  top-level `cards`;
+- `check-shop-entities.py` would have read `views[0]['cards']`, found nothing, and reported **"16 entities, 0 missing"**
+  for a view it never looked at — a clean bill of health for an uninspected dashboard.
+
+Both now read either shape. The checker's silence was the dangerous one: a tool that inspects nothing and reports
+success is worse than one that crashes, because nobody investigates a pass.
+
+**Lesson for the file:** a view's shape is part of its contract. Changing `type: sections` moved every card one level
+deeper, and only the render — and the crash — showed it.
+
+**Screenshot:** `dashboards/shop-view-1006-desktop.png`.

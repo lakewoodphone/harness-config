@@ -41,10 +41,26 @@ def env(key: str) -> str | None:
     return None
 
 
+def all_cards(cfg: dict) -> list[dict]:
+    """Every card in the view, whether it is stored as a masonry view or a sections view.
+
+    Getting this wrong is silent: a checker that reads `views[0]['cards']` on a sections view
+    sees an empty list and reports "0 entities, 0 missing" -- a clean bill of health for a view
+    it never looked at.
+    """
+    out: list[dict] = []
+    for view in cfg.get('views') or []:
+        if view.get('cards'):
+            out.extend(view['cards'])
+        for section in view.get('sections') or []:
+            out.extend(section.get('cards') or [])
+    return out
+
+
 def referenced(cfg: dict) -> dict[str, list[str]]:
     """entity id -> [where it is used], so a failure names the card."""
     found: dict[str, list[str]] = {}
-    cards = cfg.get('views', [{}])[0].get('cards') or []
+    cards = all_cards(cfg)
     for idx, card in enumerate(cards, 1):
         label = 'card %d (%s%s)' % (idx, card.get('type'),
                                     ' "' + card['title'] + '"' if card.get('title') else '')
@@ -56,7 +72,7 @@ def referenced(cfg: dict) -> dict[str, list[str]]:
 
 def custom_cards(cfg: dict) -> list[str]:
     out = []
-    for card in cfg.get('views', [{}])[0].get('cards') or []:
+    for card in all_cards(cfg):
         stack = [card]
         while stack:
             c = stack.pop()
