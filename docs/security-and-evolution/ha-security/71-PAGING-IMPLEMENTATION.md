@@ -1017,3 +1017,37 @@ full height** before capture.
 **`DOOR OPEN WHILE AWAY`** without anyone touching it. That is the round-1 branch doing its job on real data.
 
 **Screenshot:** `dashboards/shop-view-390.png` (780×2420 at 2× DPR).
+
+## 29. Round 9: an alarm now looks like an alarm, and the layout survives a small phone and dark mode — 2026-10-28
+
+The render loop makes these checks cheap: change, render at phone size, look at the picture. Three findings this round.
+
+**1. The banner read identically whether the building was quiet or a door stood open.** Same weight, same colour, same
+height — the difference was entirely in the words. That was the one place in this layout where typography alone failed,
+and the design review had predicted it. It now carries a **coloured left edge and a tint**, driven by the same
+conditions as the sentence itself:
+
+| condition | edge |
+|---|---|
+| intrusion, drill switch, lockdown, or a door open while marked away | **red** (`--error-color`, 12% tint) |
+| guest code active, or a door open | **amber** (`--warning-color`, 10% tint) |
+| everything else | **green** |
+
+Verified in the dark-mode render: the banner shows an amber edge with a warm tint while the shop door stands open, and
+the rest of the page is unaffected.
+
+**Why this does not add a dependency:** `card_mod` is a *key on a standard markdown card*, not a `custom:` card type.
+If card-mod is ever removed, Home Assistant ignores the unknown key and the banner renders exactly as before — the
+style degrades to nothing, the card never breaks. The preflight still reports **0 custom cards**.
+
+**2. Dark mode works.** Rendered with `color_scheme='dark'` at 390×844: the banner text is legible, the door tiles
+read `Open`/`Closed` in words, the graph bands and axis are visible, and all four camera stills render. Nothing needed
+changing.
+
+**3. A 360×640 phone works.** Rendered at that size: the banner wraps to three lines instead of two, the door row, the
+keypad list, the graph and the 2×2 camera grid all fit without clipping or overlap. Nothing needed changing.
+
+**Live evidence the tiles are real:** mid-render, the Bench tile showed a worker sitting at the repair bench, and the
+keypad list gained a new line at 12:41 PM — both are live data arriving while the screenshots were taken.
+
+**Screenshots:** `dashboards/shop-view-390.png`, `shop-view-390-dark.png`, `shop-view-360.png`.

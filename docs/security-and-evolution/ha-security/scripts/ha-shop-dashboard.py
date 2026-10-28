@@ -180,8 +180,36 @@ def config(use_target: bool = False) -> dict:
     """
     logbook_titles: dict = {}
 
+    # A COLOURED EDGE SO AN ALARM LOOKS LIKE AN ALARM (2026-10-28). The render showed the
+    # banner reading identically whether the building was quiet or a door was open with
+    # nobody home -- same weight, same colour, same height. That is the one place in this
+    # layout where typography alone fails. card-mod styles the standard markdown card, so if
+    # card-mod is ever missing the style is simply ignored and the card still works: this
+    # adds no custom-card dependency to the view.
+    banner = {
+        "type": "markdown",
+        "content": BANNER,
+        "card_mod": {"style": """ha-card {
+  {% set intr = is_state('input_boolean.phoenix_intrusion_active','on') %}
+  {% set test = is_state('input_boolean.phoenix_intrusion_test_mode','on') %}
+  {% set lock = is_state('input_boolean.phoenix_access_control_lockdown','on') %}
+  {% set away = is_state('binary_sensor.phoenix_everyone_away','on') %}
+  {% set shop = is_state('binary_sensor.phoenix_control_room_interior_door_contact','on') %}
+  {% set apt = is_state('binary_sensor.phoenix_control_room_exterior_door_contact','on') %}
+  {% set guest = is_state('input_boolean.phoenix_house_guest_mode_active','on') %}
+  {% if intr or test or lock or (away and (shop or apt)) %}
+    border-left: 8px solid var(--error-color);
+    background: rgba(219, 68, 55, 0.12);
+  {% elif guest or shop or apt %}
+    border-left: 8px solid var(--warning-color);
+    background: rgba(255, 152, 0, 0.10);
+  {% else %}
+    border-left: 8px solid var(--success-color);
+  {% endif %}
+}"""},
+    }
     cards: list = [
-        {"type": "markdown", "content": BANNER},
+        banner,
         # the shop door: the threshold where customers appear, and the best face view
         {"type": "picture-glance", "title": "Shop door",
          "camera_image": "camera.cam_front_hallway_main",
