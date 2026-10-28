@@ -1051,3 +1051,37 @@ keypad list, the graph and the 2×2 camera grid all fit without clipping or over
 keypad list gained a new line at 12:41 PM — both are live data arriving while the screenshots were taken.
 
 **Screenshots:** `dashboards/shop-view-390.png`, `shop-view-390-dark.png`, `shop-view-360.png`.
+
+## 30. Round 10: the red state is now seen, not assumed — and the colour logic is tested — 2026-10-28
+
+The previous round verified the amber edge but never red, and red is the one that matters. Flipping intrusion or the
+drill switch on the live system would sound an alarm in an occupied shop and page the owner, so the test was built to
+touch nothing.
+
+**Method.** `scripts/make-forced-states.py` builds a throwaway dashboard (`shop-red-test`, hidden, admin-only) whose
+banner templates have the state variables **hardcoded** — intrusion + muted siren, muted siren alone, and a guest code
+latched for nineteen hours. It is rendered headless at 390 px, looked at, and then **deleted**: after the run the
+dashboard list is back to the original eight names and `shop-red-test` is absent.
+
+**Finding: forcing the sentence does not force the colour.** The first attempt produced three *amber* cards, not red —
+because the card-mod style reads the **live** entities, and the shop door genuinely was open. The style had to be
+forced separately to see red. That is a useful distinction to have learned cheaply: the text and the colour come from
+two different evaluations of the same conditions, so a test that forces one proves nothing about the other.
+
+**Red renders correctly:** a 8 px `--error-color` edge with a 12% red tint, legible against both light and dark card
+backgrounds, on `INTRUSION ACTIVE` and on `SIREN MUTED`. Amber renders correctly on `ARMING BLOCKED`.
+
+**The colour condition itself is tested**, by rendering the if-chain through Home Assistant's template engine with
+literal booleans — seven cases, **0 failures**:
+
+```
+intrusion                -> red     guest code only        -> amber
+drill switch             -> red     door open, someone in  -> amber
+door open + away         -> red     quiet                  -> green
+lockdown                 -> red
+```
+
+So the banner now has two independent proofs: **the wording** (ten state tests, §21) and **the severity colour**
+(seven cases, here), plus a rendered picture of both the red and the amber appearance.
+
+**Evidence:** `dashboards/shop-view-forced-states.png` — three forced banners, two red and one amber, in one render.
