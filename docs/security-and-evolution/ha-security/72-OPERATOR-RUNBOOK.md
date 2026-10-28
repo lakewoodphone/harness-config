@@ -141,6 +141,78 @@ process start** plus `/health`.
 | `page_decision` 7/7 cases | a real MMS carrying the picture |
 | the picture chain to "a verified public URL exists" | delivery to a handset |
 
-**One sentence for the next session:** the whole chain is built and every refusal path is proven, but **no page has
-ever been sent**, so delivery, the MMS, the voice escalation and the real dedupe are all unproven until one goes out —
-and that needs the owner's word on the exact body.
+**Corrected 2026-10-28 15:39:48Z:** a page HAS now been sent — the owner's MMS is **delivered**, `media=1`, sid
+`MM1801cd7f0c87ebf59072fb71c2fabcd2` — and the voice escalation has dialled (three completed calls: 15:45:03,
+15:47:03, 15:49:08, two of which were a bug now fixed). What is still unproven is the `COVERED` branch against a page
+Home Assistant itself sent, and delivery to a handset as reported by the recipient rather than by Twilio.
+
+## 9. The Shop dashboard — how to run it, change it, and check it
+
+The owner opens **`shop-view`** on his phone: `http://192.168.50.34:8123/shop-view`, or
+`ha.abletelsolutions.com/shop-view` from outside. One view, six cards, built entirely from built-in card types.
+
+**What is on it, in order:** the status banner · the shop-door camera · both doors in words (`Open`/`Closed`) · the
+last four keypad entries · a 24-hour band graph of both doors · a 2×2 grid of the other four cameras.
+
+### The files
+
+| file | what it is |
+|---|---|
+| `scripts/ha-shop-dashboard.py` | **the source of truth** — the layout, the banner Jinja, the severity colours, plus an idempotent applier with a `--dry` mode and an entity preflight |
+| `scripts/check-shop-entities.py` | standalone preflight: every entity must exist, and every camera must return a frame |
+| `scripts/render-shop.py` | renders the dashboard headless at phone size and saves a PNG |
+| `scripts/watch-shop.py` | samples the live DOM twice to prove the banner updates and the cameras refresh |
+| `scripts/test-banner-states.py` | ten banner states through Jinja2 with stubbed `states()` |
+| `scripts/make-forced-states.py` | builds a throwaway dashboard with forced alarm states, to see red without sounding an alarm |
+| `dashboards/shop-view-390.png`, `-390-dark.png`, `-360.png`, `-forced-states.png` | what it actually looks like |
+
+### The commands
+
+```bash
+cd /opt/company
+P="PYTHONPATH=/opt/company"
+
+# change the layout, then:
+PYTHONPATH=/opt/company .venv/bin/python /root/ha-shop-dashboard.py --dry     # show the card list
+PYTHONPATH=/opt/company .venv/bin/python /root/ha-shop-dashboard.py           # preflight + apply + readback
+
+# prove it is not broken before trusting it
+PYTHONPATH=/opt/company .venv/bin/python /root/check-shop-entities.py          # entities + a frame from each camera
+PYTHONPATH=/opt/company .venv/bin/python /root/test-banner-states.py           # 10 banner states
+PYTHONPATH=/opt/company .venv/bin/python /root/render-shop.py                  # screenshot at 390 px
+PYTHONPATH=/opt/company .venv/bin/python /root/render-shop.py --dark           # and in dark mode
+PYTHONPATH=/opt/company .venv/bin/python /root/render-shop.py --width 360 --height 640
+PYTHONPATH=/opt/company .venv/bin/python /root/watch-shop.py --seconds 20      # does it update by itself?
+```
+
+**Then look at the PNG.** Reading the config back proves nothing about how it looks; two of the defects found in this
+work were invisible to every API readback.
+
+### The traps, each paid for
+
+- **`/config` is unreachable** (only 8123 answers), so everything goes over the websocket: `lovelace/dashboards/create`,
+  `lovelace/config/save`, `lovelace/config`, `lovelace/dashboards/list|update|delete`.
+- **A storage dashboard's `url_path` must contain a hyphen** — Home Assistant refuses `shop`.
+- **`websockets.connect` rejects `ssl=` for a `ws://` URI**; pass an SSL context only for `wss://`.
+- **`lovelace/config/save` validates nothing.** A bad card is stored and fails at render as a generic error box. That is
+  why the generator refuses to save when an entity id is missing, and why every change is read back.
+- **Markdown template errors are suppressed** outside the editor: the card goes blank or stale. Render every template
+  through `/api/template` before applying it.
+- **Cards live in shadow DOM.** A plain `document.querySelectorAll` finds nothing; Playwright's locators pierce one
+  level, and the banner needs an explicit walk of nested roots.
+- **Home Assistant pauses image polling for cards that are off screen.** A card outside the viewport has nothing to
+  refresh, so sampling it proves nothing. Scroll before measuring.
+- **`card_mod` is a key on a standard card, not a `custom:` card.** If card-mod disappears the style is ignored and the
+  card still works; the view depends on **zero** custom cards.
+- **The logbook card renders nothing on this instance** — measured empty with both `target.entity_id` and the
+  deprecated `entities` form, while `logbook/get_events` returns rows for the same entities. It was deleted rather than
+  shipped as 479 px of white.
+
+### What cannot be done in Home Assistant
+
+**A visit with its picture.** Home Assistant's cards cannot join a history entry to a stored image, and there is no
+file access to add a template sensor that would. The band graph gives the *visits* (start, end, duration); the keypad
+card gives the *people*; the cameras give the *pictures*. Tying one to the others needs a store that can hold both —
+which is the company's `/root/authority.db`, where `security_evidence` already holds a picture and a hash per event.
+That page was built and rejected as too complex; if it comes back, it should be one list of visits with thumbnails,
+not a dashboard.
