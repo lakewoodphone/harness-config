@@ -1262,3 +1262,42 @@ success is worse than one that crashes, because nobody investigates a pass.
 deeper, and only the render — and the crash — showed it.
 
 **Screenshot:** `dashboards/shop-view-1006-desktop.png`.
+
+## 37. "Why don't I see any pics of people at all?" — because nothing displayed them — 2026-10-28
+
+The question exposed a gap in my own view of the system, not in the dashboard.
+
+**Pictures have been captured all along.** Home Assistant runs automations on every person detection and every door
+event that write **named stills** to `/config/www/snapshots/`, served at `/local/snapshots/<name>.jpg` and
+**overwritten on each event**:
+
+```
+latest_person_hallway.jpg          149,429 bytes   written 17:06:47  (four minutes before this was checked)
+latest_person_doorbell.jpg         691,974 bytes   written 17:06:42
+latest_person_waiting_room.jpg     191,792 bytes   written 17:06:50
+latest_control_room_open_hallway.jpg 157,980      written 16:48:58  (the door opening that fired at 16:48:44)
+latest_doorbell_ring_hallway.jpg   149,441 bytes   written 2026-10-12 (the bell has not rung since)
+```
+
+The automations that do it fired today: `evidence_control_room_exterior_door_clip` at 16:48:44,
+`evidence_control_room_interior_door_clip` at 16:26:20, with the matching `snapshot_…_entry_cameras` at the same
+seconds, and `housekeeping_purge_old_snapshots` at 08:05 keeps the directory from growing.
+
+**Why he saw none of it:** the page I built showed only **live cameras**, and an empty room at 10am is exactly what a
+live camera looks like. I had built "who is here now" and he was asking "who came".
+
+**Fixed — a "People - most recent capture" strip** above the cameras: the latest person at the shop door, outside, and
+the drop-off door, tap for the full-size original (where a face is actually recognisable).
+
+**Two layout attempts before it was right, both measured by rendering:**
+1. a `grid` with `square: true` **letterboxes** a portrait still inside a square cell, leaving a white band under each;
+2. a markdown row with `display:flex` — **the sanitiser strips inline flex styles**, so the three images stacked full
+   width and pushed the rest of the page 1,200 px down.
+
+`columns: 3, square: false` is the shape that works: each image keeps its own proportions, the strip stays compact, and
+the tap opens the original.
+
+**Clips do exist, but not here.** Home Assistant has a **Reolink** media source (Media → Reolink) — that is the
+doorbell's own recordings, browsable and playable in the media browser. The other cameras record to the NVR's disk,
+which is a separate system with no HA card that can browse it. So: stills on the dashboard, clips in the media browser,
+and nothing pretends otherwise.
