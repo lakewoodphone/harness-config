@@ -571,3 +571,29 @@ positive. Read from the live states: `everyone_away` went **on at 18:10:54**, an
 `control_room_interior_door_contact` has read **on since 17:47:22** — the shop door has been open for 27 minutes,
 including the moment the house decided it was empty. That is exactly the class of event this page exists to surface,
 and it surfaced it unprompted.
+
+## Round 14: the alert states when it was checked, a clips view, and a serialization bug worth 6 seconds
+
+**The alert now carries its own freshness** — `checked 14:17:07` under the message. A green "No alerts" with no
+timestamp is an unverified claim, and this estate has already published one stale reassurance too many.
+
+**A clips view.** `All events (41)` · `Clips (1)` at the top. Server-side, so it is one query parameter and
+deep-linkable (`?clips=1`), works with no JavaScript, and renders **10,071 bytes instead of 49,676** because it carries
+only the events that have a clip. The stream is for browsing; this is for watching.
+
+**The real bug of this round: blocking I/O inside async endpoints.** The media routes were `async def` but called
+`ha_get()`, which is blocking `urllib`. Four camera tiles therefore queued behind one another in the event loop. Measured
+before: **1.7–3.7 s per tile, ~8 s for four**. A plain `def` endpoint is run by FastAPI in a worker thread, so the
+fetches overlap:
+
+```
+page paint           0.93 s
+four tiles, parallel 4.4 s cold, then cached
+four tiles decoded   2.2 s
+```
+
+**A fourth measurement of mine to distrust.** The first screenshot after this change showed all four tiles black. They
+were not: the JPEG measures **mean brightness 124.7** against the upstream frame's 124.9, byte-identical in intent. The
+screenshot fired the moment the images *decoded*, before the compositor painted them. Decoded is not painted, in the
+same way that written is not applied and exit 0 is not success — the fourth time this session an instrument reported a
+fault that was its own timing.

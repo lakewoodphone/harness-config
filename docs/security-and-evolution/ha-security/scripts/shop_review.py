@@ -58,6 +58,9 @@ a{color:var(--accent);text-decoration:none}
 .wrap{max-width:520px;margin:0 auto;padding:10px 12px 60px}
 .bar{display:flex;align-items:center;justify-content:space-between;padding:6px 0 12px}
 .bar h1{font-size:20px;margin:0;font-weight:650}
+.nav{display:flex;gap:6px;margin:0 0 10px}
+.nav a{font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+.nav a.on{color:var(--txt);border-color:var(--accent);background:rgba(59,130,246,.14)}
 .chip{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
 h2{font-size:16px;margin:18px 0 8px;font-weight:600;display:flex;justify-content:space-between;align-items:baseline}
 h2 span{font-size:12px;color:var(--muted);font-weight:400}
@@ -99,6 +102,7 @@ table.sig td.n{white-space:nowrap;color:var(--txt);padding-right:8px}
 .alert{border-radius:10px;padding:10px 12px;margin:2px 0 4px;border-left:8px solid var(--line);background:var(--card)}
 .alert b{display:block;font-size:15px}
 .alert span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.alert .ts2{font-size:10px;opacity:.75}
 .alert.ok{border-left-color:var(--ok)}
 .alert.warn{border-left-color:var(--warn);background:rgba(255,152,0,.10)}
 .alert.bad{border-left-color:var(--bad);background:rgba(219,68,55,.18);
@@ -513,7 +517,7 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
 
 
 @router.get('/webhook/ha/shop/r/{token}', response_class=HTMLResponse)
-async def shop_review(token: str, days: int = 4) -> HTMLResponse:
+async def shop_review(token: str, days: int = 4, clips: int = 0) -> HTMLResponse:
     require(token)
     conn = db()
     try:
@@ -578,8 +582,16 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
 
         # days
         since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-        visits = conn.execute("SELECT * FROM shop_visit WHERE started_at >= ? "
-                              "ORDER BY started_at DESC", (since,)).fetchall()
+        if clips:
+            # CLIPS ONLY (2026-10-28): the stream is for browsing, this is for watching. Server-side
+            # so it is one query parameter, deep-linkable, and works with no JavaScript at all.
+            visits = conn.execute(
+                "SELECT v.* FROM shop_visit v JOIN shop_visit_media m ON m.visit_id=v.id "
+                "AND m.kind='clip' AND m.result='ok' WHERE v.started_at >= ? "
+                "ORDER BY v.started_at DESC", (since,)).fetchall()
+        else:
+            visits = conn.execute("SELECT * FROM shop_visit WHERE started_at >= ? "
+                                  "ORDER BY started_at DESC", (since,)).fetchall()
         by_day: dict[str, list] = {}
         for v in visits:
             by_day.setdefault(v['started_at'][:10], []).append(v)
@@ -596,14 +608,21 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
             blocks.append('<div class="empty">No visits recorded in the last %d days.</div>' % days)
 
         st = safety_state()
+        st['checked'] = datetime.now(LOCAL_TZ).strftime('%H:%M:%S')
+        n_clips = conn.execute(
+            "SELECT COUNT(1) FROM shop_visit_media WHERE kind='clip' AND result='ok'").fetchone()[0]
+        nav = ('<div class="nav"><a class="%s" href="?">All events</a>'
+               '<a class="%s" href="?clips=1">Clips (%d)</a></div>'
+               % ('on' if not clips else '', 'on' if clips else '', n_clips))
         body = ('<div class="wrap"><div class="bar"><h1>Shop</h1>'
-                '<span class="chip">%d visits · %d days</span></div>'
-                '<div class="alert %s"><b>%s</b><span>%s</span></div>'
+                '<span class="chip">%d visits · %d days</span></div>%s'
+                '<div class="alert %s"><b>%s</b><span>%s</span>'
+                '<span class="ts2">checked %s</span></div>'
                 '<h2>Live now</h2><div class="grid g2">%s</div>'
                 '<h2>Most recent</h2><div class="recent">%s</div>'
                 '%s</div>'
-                % (len(visits), len(by_day), st['level'], html.escape(st['head']),
-                   html.escape(st['detail']), tiles,
+                % (len(visits), len(by_day), nav, st['level'], html.escape(st['head']),
+                   html.escape(st['detail']), st['checked'], tiles,
                    recent or '<div class="empty">Nothing yet.</div>', ''.join(blocks)))
         return HTMLResponse('<!doctype html><html lang="en"><head><meta charset="utf-8">'
                             '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -622,7 +641,7 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
 
 
 @router.get('/webhook/ha/shop/r/{token}/img/{visit_id}')
-async def shop_img(token: str, visit_id: str, camera: str | None = None) -> Response:
+def shop_img(token: str, visit_id: str, camera: str | None = None) -> Response:
     require(token)
     conn = db()
     try:
@@ -643,14 +662,14 @@ async def shop_img(token: str, visit_id: str, camera: str | None = None) -> Resp
 
 
 @router.get('/webhook/ha/shop/r/{token}/full/{visit_id}/{camera}')
-async def shop_full(token: str, visit_id: str, camera: str, w: int = 0) -> Response:
+def shop_full(token: str, visit_id: str, camera: str, w: int = 0) -> Response:
     """One stored still, optionally at thumbnail size.
 
     `w=0` serves the original for the lightbox. A card passes `w=176`, because a 2560 px frame in an
     88×66 box costs 152 KB per card and a page can hold fifty of them — the same waste the live
     tiles had, in the one place it multiplies.
     """
-    resp = await shop_img(token, visit_id, camera)
+    resp = shop_img(token, visit_id, camera)
     if not w:
         return resp
     return Response(shrink_jpeg(resp.body, width=max(96, min(720, w)), quality=68),
@@ -659,7 +678,7 @@ async def shop_full(token: str, visit_id: str, camera: str, w: int = 0) -> Respo
 
 
 @router.get('/webhook/ha/shop/r/{token}/cam/{camera}')
-async def shop_cam(token: str, camera: str, w: int = 360) -> Response:
+def shop_cam(token: str, camera: str, w: int = 360) -> Response:
     """A small, current snapshot, proxied. The browser never sees the Home Assistant token.
 
     A 2560 px frame was being drawn into a 179×101 box — 756 KB and up to 2.5 s per tile, four
