@@ -351,8 +351,10 @@ def visit_title(v: sqlite3.Row) -> str:
         return 'Person outside'
     if 'shop_door' in doors:
         return 'Interior shop door opened'
-    if 'apartment_door' in doors:
-        return 'Apartment door opened'
+    if 'apartment_door' in doors or 'exterior_door' in doors:
+        # the owner corrected the naming: the exterior SHOP door carries this sensor. The apartment
+        # door has no sensor yet, so nothing here may claim one.
+        return 'Exterior shop door opened'
     if 'street_door' in doors:
         return 'Outside door opened'
     return 'Activity'
@@ -528,7 +530,8 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                  % (clock(v['started_at']), duration(v), v['signal_count'],
                     '' if v['signal_count'] == 1 else 's',
                     ', '.join({'shop_door': 'interior shop door',
-                               'apartment_door': 'apartment door',
+                               'apartment_door': 'exterior shop door',
+                               'exterior_door': 'exterior shop door',
                                'street_door': 'outside door'}.get(d, d.replace('_', ' '))
                               for d in doors) or 'none'))
 

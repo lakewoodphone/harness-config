@@ -909,3 +909,29 @@ door"*, *"Apartment door opened"*, *"Outside door opened"*, and the footer names
 **Provenance of the identification:** `phoenix_control_room_interior_door_contact` is the **keypad door** — measured, not
 guessed. At 17:47:21 the keypad fired and at 17:47:22 that contact opened; it closed again at 18:46:56 (59 minutes later)
 when the owner physically closed it.
+
+## Round 25: the owner corrected the doors — and I had renamed a lock
+
+He said plainly: *"the apartment door doesnt have a sensor on it, i have to get one, only the outside and the interior and
+exterior shop doors."*
+
+My previous round had mapped the second contact to **"Apartment door"**, because its device was called *"Apartment Door
+Sensor"* in Home Assistant. The device name was wrong, or at least misleading, and I took it as fact. Corrected:
+
+| what it is | display name now |
+|---|---|
+| keypad door into the shop | **Interior shop door** |
+| the shop's exterior door | **Exterior shop door** |
+| the outside/street door | **Outside door** |
+
+The page follows: *"Interior shop door opened"*, *"Exterior shop door opened"*, *"Outside door opened"*, and the footer
+names the door. The grouping writes `exterior_door` from now on, and the page maps the older `apartment_door` rows to the
+same words so history does not keep a wrong name.
+
+**And an overreach of mine, reverted.** My rename loop matched **any device whose name contained "apartment"**, which
+included `Apartment_Door_Smart_Lock` — a **lock**, not a sensor. That device is back to its original name; only the
+contact sensor devices were renamed. The lesson is the same one this build keeps teaching: a name-matching rule is not an
+identity check. Match the entity, then look at what it is.
+
+**A fourth door does not exist yet.** The apartment door has no contact sensor, so no page or alert may claim one. When
+it is fitted it needs an entity of its own.

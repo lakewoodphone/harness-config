@@ -66,7 +66,7 @@ CREATE INDEX IF NOT EXISTS ix_vsignal_visit ON shop_visit_signal(visit_id);
 HUMAN_SUFFIX = '_smart_motion_human_2'
 DOOR_ENTITIES = {
     'binary_sensor.phoenix_control_room_interior_door_contact': 'shop_door',
-    'binary_sensor.phoenix_control_room_exterior_door_contact': 'apartment_door',
+    'binary_sensor.phoenix_control_room_exterior_door_contact': 'exterior_door',
     'binary_sensor.phoenix_outside_door_contact': 'street_door',
 }
 PERSON_ENTITIES = {
