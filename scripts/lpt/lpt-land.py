@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 
 RECONCILE = "/root/bin/lpt-reconcile.py"
 OPEN = "/root/bin/lpt-pr-open.py"
@@ -201,6 +202,38 @@ def main() -> int:
         print("  open PR for %s: %s" % (branch, out[:180]))
         if p.returncode in (0, 3):
             return 0
+    # ---------------------------------------------------------------------------------------
+    # THE QUEUE THAT IS NOT IN THE D4 LIST (2026-10-28). D4 covers `done` items whose branch never
+    # landed. It does NOT cover a pull request that was opened for another reason - a docs PR, or a
+    # fix a session wrote and opened by hand (#694, #697, #700 tonight). Nothing merged those, so
+    # they would wait for ever even once the base is green. Merge the OLDEST green PR that has been
+    # open for at least QUIET_MIN minutes and whose checks the repository itself calls green.
+    # lpt-pr-merge.py re-checks everything (base must be test, no draft, no do-not-merge, GREEN,
+    # clean), so this cannot merge anything the branch protection would refuse.
+    QUIET_MIN = 20
+    now = datetime.now(timezone.utc)
+    candidates = []
+    for branch, pr in prs.items():
+        if (row for row in rows if (row.get("branch") or "").replace("origin/", "") == branch):
+            continue                      # already handled above
+        created = pr.get("created_at")
+        try:
+            opened = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except Exception:  # noqa: BLE001
+            continue
+        if (now - opened).total_seconds() < QUIET_MIN * 60:
+            continue
+        candidates.append((opened, pr))
+    for opened, pr in sorted(candidates):
+        args = [sys.executable, MERGE, str(pr["number"])] + ([] if dry else ["--yes"])
+        p = sh(args, timeout=300)
+        out = (p.stdout.strip().splitlines() or [""])[-1][:160]
+        print("  other green PR #%s (open %s min): %s" % (
+            pr["number"], int((now - opened).total_seconds() // 60), out))
+        if p.returncode == 0 and not dry:
+            return 0
+        if p.returncode not in (0, 3):
+            break
     print("lpt-land: no action this tick")
     return 0
 
