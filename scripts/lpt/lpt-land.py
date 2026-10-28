@@ -176,6 +176,16 @@ def main() -> int:
         if p.returncode not in (0, 3):
             print("  -> not mergeable now; will try another branch next tick")
 
+    # CAP ON D4 PRS IN FLIGHT (2026-10-28). One new PR per tick and no merges, because every landing moves
+    # `test` and invalidates the other open PRs' checks. Two is the compromise: one that may be red and needs a
+    # decision (like #703), one that is making progress. When a slot frees, the next branch is opened.
+    in_flight = [b for b in ((r.get("branch") or "").replace("origin/", "") for r in rows) if b in prs]
+    CAP = 2
+    if len(in_flight) >= CAP:
+        print("  %d D4 PR(s) already in flight (%s) - not opening another until a slot frees"
+              % (len(in_flight), ", ".join("#%s" % prs[b]["number"] for b in in_flight)))
+        return 0
+
     for row in rows:
         branch = (row.get("branch") or "").replace("origin/", "")
         if not branch or branch in prs:
