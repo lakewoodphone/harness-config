@@ -289,3 +289,34 @@ own question in a way *"Person at the shop door"* never can.
 half-dozen presses. Names are therefore available only for recent visits. The historical names are still recoverable —
 the listener records `input_text.phoenix_access_control_log` on every update, so each past log line is sitting in
 `security_event.new_state` — and mining that is the next round's job.
+
+## Round 6: the names the rolling log had already forgotten
+
+**The problem:** the access log is a 255-character field that holds the last few presses. Names were therefore
+available only for the newest visits, and everything older said *"Person at the shop door"*.
+
+**The recovery:** the listener records that field on **every** change, so each historical version is sitting in
+`security_event.new_state`. There are only **10 snapshots**, but each contains the full text of its moment, so parsing
+all of them and de-duplicating yields **24 distinct access entries** instead of the 6 the buffer still held, from
+**11 sources** (10 snapshots plus the live field).
+
+Matching those against visits named **9 visits instead of 5**, and the extra ones are the interesting ones:
+
+```
+36  Person outside
+ 7  Owner access at interior
+ 4  Street door opened
+ 3  Shop door opened
+ 1  Yocheved access
+ 1  Owner access at the maglock
+ 1  Apartment door opened
+```
+
+**"Yocheved access"** is the proof this does what the owner asked: the page distinguishes *people*, not just events. It
+comes from a keypad entry on 27 October at 14:32 that no longer exists in the live buffer.
+
+**A polish the data forced:** the rolling log truncates mid-word, producing `at Int` and `at Magl`. Those are now
+normalised to *interior* and *the maglock*, and a fragment shorter than five characters is dropped rather than shown as
+a typo — which is why *"Yocheved access"* carries no location; the only surviving fragment was `In`.
+
+**Verified:** local and public both **200**, 64,113 bytes, titles as listed above.

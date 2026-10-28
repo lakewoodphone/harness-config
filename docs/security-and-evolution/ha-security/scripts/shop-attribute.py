@@ -105,12 +105,32 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     since = now - timedelta(hours=hours)
 
+    # TWO SOURCES, ONE TIMELINE (2026-10-28). The live access log is a 255-character rolling field
+    # and holds only the last few presses. But the listener recorded every version of that field,
+    # so each historical line is still sitting in `security_event.new_state`. Mining those
+    # snapshots recovers names the rolling buffer has already forgotten -- it is the same text,
+    # captured at the moment it changed.
+    texts: list[str] = []
     try:
-        text = fetch_log()
+        texts.append(fetch_log())
     except Exception as exc:
-        print('cannot read the access log: %s %s' % (type(exc).__name__, exc))
-        return 2
-    entries = parse_entries(text, tz, now)
+        print('live access log unreadable (%s); using recorded snapshots only' % type(exc).__name__)
+    try:
+        conn0 = sqlite3.connect(DB)
+        for (val,) in conn0.execute(
+                "SELECT new_state FROM security_event WHERE entity_id=? AND new_state IS NOT NULL "
+                "ORDER BY occurred_at DESC", (LOG_ENTITY,)):
+            texts.append(val)
+        conn0.close()
+    except Exception as exc:
+        print('recorded snapshots unreadable: %s' % type(exc).__name__)
+
+    seen: dict[tuple, dict] = {}
+    for t in texts:
+        for e in parse_entries(t, tz, now):
+            seen.setdefault((e['at'], e['who'], e['where']), e)
+    entries = sorted(seen.values(), key=lambda e: e['at'], reverse=True)
+    print('access entries: %d distinct, from %d snapshot(s)' % (len(entries), len(texts)))
     print('access log: %d readable entr%s, newest %s'
           % (len(entries), 'y' if len(entries) == 1 else 'ies',
              entries[0]['line'][:44] if entries else '-'))

@@ -227,7 +227,15 @@ def visit_title(v: sqlite3.Row) -> str:
         who = subjects[0].get('who') if isinstance(subjects[0], dict) else str(subjects[0])
         where = subjects[0].get('where', '') if isinstance(subjects[0], dict) else ''
         if who:
-            return '%s access%s' % (who, (' at the ' + where.lower()) if where else '')
+            # the rolling log truncates mid-word ("at Int", "at Magl"), so a short fragment is
+            # dropped rather than shown as a typo
+            w = where.lower().strip()
+            if w.startswith('int'):
+                w = 'interior'
+            elif w.startswith('magl'):
+                w = 'the maglock'
+            label = (' at ' + w) if len(w) >= 5 else ''
+            return '%s access%s' % (who, label)
     if person and 'shop_door' in doors:
         return 'Person at the shop door'
     if person:
