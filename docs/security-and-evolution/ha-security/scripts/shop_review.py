@@ -346,15 +346,15 @@ def visit_title(v: sqlite3.Row) -> str:
             label = (' at ' + w) if len(w) >= 5 else ''
             return '%s access%s' % (who, label)
     if person and 'shop_door' in doors:
-        return 'Person at the shop door'
+        return 'Person at the interior shop door'
     if person:
         return 'Person outside'
     if 'shop_door' in doors:
-        return 'Shop door opened'
+        return 'Interior shop door opened'
     if 'apartment_door' in doors:
         return 'Apartment door opened'
     if 'street_door' in doors:
-        return 'Street door opened'
+        return 'Outside door opened'
     return 'Activity'
 
 
@@ -527,7 +527,10 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
     parts.append('<p class="note">%s · %s · %d signal%s · doors: %s · times are local</p>'
                  % (clock(v['started_at']), duration(v), v['signal_count'],
                     '' if v['signal_count'] == 1 else 's',
-                    ', '.join(d.replace('_', ' ') for d in doors) or 'none'))
+                    ', '.join({'shop_door': 'interior shop door',
+                               'apartment_door': 'apartment door',
+                               'street_door': 'outside door'}.get(d, d.replace('_', ' '))
+                              for d in doors) or 'none'))
 
     return ('<details class="ev" name="event" id="%s"><summary>%s<div class="meta"><div class="t">%s</div>'
             '<div class="s">%s · %s</div><div class="badges">%s</div></div></summary>'

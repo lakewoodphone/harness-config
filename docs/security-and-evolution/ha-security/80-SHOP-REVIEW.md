@@ -885,3 +885,27 @@ picture, person badge and clip badge.
 
 The definition is committed as `dashboards/shop-review-dashboard.json` with the token redacted, so it can be recreated
 from the repo.
+
+## Round 24: the doors now have names
+
+The owner's own correction: *"it needs to be clearer which door, call it interior shop door, exterior, outside door
+and apartment door maybe."* He was right that a page (and an alert) cannot say *"shop door"* when there are three
+different door contacts and none of them is named.
+
+**What actually exists — counted, not assumed.** Three physical door sensors, each with a Phoenix template twin:
+
+| physical sensor | Phoenix twin | new name |
+|---|---|---|
+| `interior_control_room_door_sensor_contact` | `phoenix_control_room_interior_door_contact` | **Interior shop door** |
+| `external_control_room_door_sensor_contact` | `phoenix_control_room_exterior_door_contact` | **Apartment door** |
+| `0x286d97000115ca7a_contact` | `phoenix_outside_door_contact` | **Outside door** |
+
+All six renamed through the entity registry (display names only — entity ids untouched, so no automation breaks), and
+the hand-written labels were removed from the dashboard so the real names show through.
+
+**The page now uses the same words**: visit titles read *"Interior shop door opened"*, *"Person at the interior shop
+door"*, *"Apartment door opened"*, *"Outside door opened"*, and the footer names the door rather than printing a slug.
+
+**Provenance of the identification:** `phoenix_control_room_interior_door_contact` is the **keypad door** — measured, not
+guessed. At 17:47:21 the keypad fired and at 17:47:22 that contact opened; it closed again at 18:46:56 (59 minutes later)
+when the owner physically closed it.
