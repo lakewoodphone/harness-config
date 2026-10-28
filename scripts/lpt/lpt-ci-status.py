@@ -63,16 +63,92 @@ def head(tok: str, branch: str) -> dict:
             "when": d["commit"]["committer"]["date"], "age": age(d["commit"]["committer"]["date"])}
 
 
+def head_checks(tok: str, branch: str, sha: str) -> dict:
+    """The state of a BRANCH HEAD, from the workflow runs recorded on that branch.
+
+    A commit sha is not a branch. Pull requests built from a commit attach their own check-runs to it -
+    cancelled shards, gates that only mean something for a PR into another branch - and reading those as
+    the head's own state made a 20/20 green `test` head look red (2026-10-28T03:51Z).
+    """
+    out = {"total": 0, "failed": [], "pending": [], "passed": 0, "state": "none"}
+    try:
+        runs = api("/repos/%s/actions/runs?branch=%s&per_page=40" % (REPO, branch), tok).get("workflow_runs", [])
+    except Exception as exc:  # noqa: BLE001
+        out["error"] = "%s: %s" % (type(exc).__name__, exc)
+        return out
+    mine = [r for r in runs if r.get("head_sha") == sha]
+    out["total"] = len(mine)
+    for r in mine:
+        if r.get("status") != "completed":
+            out["pending"].append(r.get("name"))
+        elif r.get("conclusion") in ("success", "neutral", "skipped"):
+            out["passed"] += 1
+        else:
+            out["failed"].append("%s=%s" % (r.get("name"), r.get("conclusion")))
+    if not mine:
+        out["state"] = "none"
+    elif out["failed"]:
+        out["state"] = "RED"
+    elif out["pending"]:
+        out["state"] = "PENDING"
+    else:
+        out["state"] = "GREEN"
+
+    # Billing, still distinguished. Only when every failing run is billing-attributed is the state
+    # BILLING; otherwise it stays RED and the note rides alongside (L13559).
+    if out["state"] == "RED":
+        billing = 0
+        note = ""
+        for r in mine:
+            if r.get("conclusion") in ("success", "neutral", "skipped") or r.get("status") != "completed":
+                continue
+            try:
+                suite = api("/repos/%s/check-suites/%s/check-runs" % (REPO, r.get("check_suite_id")), tok)
+            except Exception:  # noqa: BLE001
+                continue
+            is_billing = False
+            for cr in suite.get("check_runs", []):
+                if cr.get("conclusion") in ("success", "neutral", "skipped", None):
+                    continue
+                try:
+                    ann = api("/repos/%s/check-runs/%s/annotations" % (REPO, cr.get("id")), tok)
+                except Exception:  # noqa: BLE001
+                    continue
+                for a in ann if isinstance(ann, list) else []:
+                    m = (a.get("message") or "")
+                    if "payments have failed" in m or "spending limit" in m:
+                        is_billing = True
+                        note = note or m[:160]
+            billing += 1 if is_billing else 0
+        if billing and billing == len(out["failed"]):
+            out["state"] = "BILLING"
+            out["billing_note"] = note
+        elif billing:
+            out["billing_note"] = note
+            out["state_note"] = "%d of %d failing run(s) are billing-refused; the rest are real failures" % (
+                billing, len(out["failed"]))
+    return out
+
+
 def checks(tok: str, sha: str) -> dict:
     """Aggregate over BOTH surfaces: check-runs (Actions) and legacy statuses."""
     out = {"total": 0, "failed": [], "pending": [], "passed": 0, "state": "none"}
     try:
         runs = api("/repos/%s/commits/%s/check-runs?per_page=100" % (REPO, sha), tok)
+        # LATEST PER CONTEXT (2026-10-28). A re-run creates NEW check-runs for the same context, and branch
+        # protection judges the latest result per context - so counting every historical attempt reports a
+        # failure GitHub no longer holds (measured on PR #694 after a re-run).
+        latest = {}
         for r in runs.get("check_runs", []):
+            name = r.get("name")
+            stamp = r.get("completed_at") or r.get("started_at") or ""
+            prev = latest.get(name)
+            if prev is None or stamp > (prev.get("completed_at") or prev.get("started_at") or ""):
+                latest[name] = r
+        for r in latest.values():
             out["total"] += 1
             name = r.get("name")
             concl = r.get("conclusion")
-            stat = r.get("status")
             if concl in ("success", "neutral", "skipped"):
                 out["passed"] += 1
             elif concl in (None, "queued", "in_progress"):
@@ -95,8 +171,11 @@ def checks(tok: str, sha: str) -> dict:
     if out["failed"]:
         out["state"] = "RED"
         try:
-            ids = [r.get("id") for r in runs.get("check_runs", [])
-                   if r.get("conclusion") not in ("success", "neutral", "skipped", None)][:3]
+            # EVERY failed run, not the first three: with a per-run annotation call this is what makes
+            # "all of them are billing" a fact rather than a sample.
+            failed_runs = [r for r in runs.get("check_runs", [])
+                           if r.get("conclusion") not in ("success", "neutral", "skipped", None)]
+            ids = [r.get("id") for r in failed_runs]
             notes = []
             for cid in ids:
                 ann = api("/repos/%s/check-runs/%s/annotations" % (REPO, cid), tok)
@@ -105,8 +184,30 @@ def checks(tok: str, sha: str) -> dict:
                     if "payments have failed" in msg or "spending limit" in msg:
                         notes.append(msg[:160])
             if notes:
-                out["state"] = "BILLING"
+                # A BILLING BLOCK MUST NOT HIDE A CODE FAILURE (2026-10-28). The first version set
+                # state=BILLING whenever ANY failed check-run carried the billing annotation, which
+                # masked a real red: head cf2da5af failed Test Frontend (Shard 4/4) on a genuine
+                # assertion while two OTHER jobs were refused for money. A reading that cannot tell
+                # "the pipeline never ran" from "the code is broken" is the defect this session exists
+                # to remove, so: BILLING only when EVERY failure is billing; otherwise RED, with the
+                # billing note carried alongside so both facts survive.
+                billing_failed = set()
+                for cid in ids:
+                    try:
+                        ann = api("/repos/%s/check-runs/%s/annotations" % (REPO, cid), tok)
+                    except Exception:  # noqa: BLE001
+                        continue
+                    for a in ann if isinstance(ann, list) else []:
+                        m = (a.get("message") or "")
+                        if "payments have failed" in m or "spending limit" in m:
+                            billing_failed.add(cid)
+                # every failed run we could attribute to billing -> BILLING; otherwise RED
                 out["billing_note"] = notes[0]
+                all_billing = bool(failed_runs) and len(billing_failed) == len(failed_runs)
+                out["state"] = "BILLING" if all_billing else "RED"
+                if not all_billing:
+                    out["state_note"] = ("%d of %d failing check(s) are billing-refused; the rest are "
+                                         "real code failures" % (len(billing_failed), len(out["failed"])))
         except Exception as exc:  # noqa: BLE001
             out["billing_check_error"] = "%s: %s" % (type(exc).__name__, exc)
     elif out["pending"]:
@@ -122,7 +223,8 @@ def main() -> int:
     data = {"repo": REPO, "heads": {}, "prs": [], "runs": []}
     for br in ("test", "main"):
         h = head(tok, br)
-        h["checks"] = checks(tok, h["sha"])
+        # by BRANCH, not by sha: see head_checks (2026-10-28)
+        h["checks"] = head_checks(tok, br, h["sha"])
         data["heads"][br] = h
 
     prs = api("/repos/%s/pulls?state=open&base=test&per_page=30" % REPO, tok)

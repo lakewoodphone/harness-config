@@ -39,6 +39,7 @@ RECONCILE = "/root/bin/lpt-reconcile.py"
 OPEN = "/root/bin/lpt-pr-open.py"
 MERGE = "/root/bin/lpt-pr-merge.py"
 REPO = "lakewoodphone/phone-and-tech-full"
+CI = "/root/bin/lpt-ci-status.py"  # the one reader of CI state
 PROJECT = "lpt-website"
 
 
@@ -68,43 +69,28 @@ def api(path: str, tok: str):
 
 
 def base_is_green(tok: str) -> tuple[bool, str]:
-    """Is the `test` head itself green?
-
-    A red base makes every new PR's required checks red on arrival, so opening PRs onto it
-    achieves nothing except a queue of PRs that cannot merge - and nobody can tell which failure
-    belongs to which branch. Fail closed with the reason, and let the next tick try again.
+    """Is the `test` head itself green? ONE READER (2026-10-28): ask lpt-ci-status, which judges a head by
+    ITS BRANCH'S runs. This function used to scan /commits/<sha>/check-runs itself, so a promotion PR built
+    from the head - whose cancelled shards and main-only gates attach to the same sha - made a 20/20 green
+    head look red here while the reader called it green, and the lander then refused to land anything.
     """
-    # A BILLING BLOCK IS NOT A CODE RED (2026-10-28). lpt-ci-status.py already tells the two apart;
-    # asking it first stops this tool from writing "test head is RED" about a head whose jobs were
-    # never started, which is the sentence that sends the next session hunting a defect.
     try:
-        import subprocess as _sp
-        out = _sp.run([sys.executable, "/root/bin/lpt-ci-status.py", "--json"],
-                      capture_output=True, text=True, timeout=240)
+        out = subprocess.run([sys.executable, CI, "--json"], capture_output=True, text=True, timeout=240)
         ci = json.loads(out.stdout or "{}")
-        state = ((ci.get("heads") or {}).get("test") or {}).get("checks", {}).get("state")
-        if state == "BILLING":
-            note = ((ci.get("heads") or {}).get("test") or {}).get("checks", {}).get("billing_note") or ""
-            return False, "test is BILLING-BLOCKED (GitHub refused to start jobs): %s" % note[:150]
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        head = api("/repos/%s/commits/test" % REPO, tok)["sha"]
-        runs = api("/repos/%s/commits/%s/check-runs?per_page=100" % (REPO, head), tok).get("check_runs", [])
     except Exception as exc:  # noqa: BLE001
-        return False, "cannot read the test head's checks: %s: %s" % (type(exc).__name__, exc)
-    failed = ["%s=%s" % (r["name"], r.get("conclusion")) for r in runs
-              if r.get("conclusion") not in ("success", "neutral", "skipped", None)]
-    pending = [r["name"] for r in runs if r.get("conclusion") is None]
-    # ZERO check runs is not green. A head that has just been created has not been tested at all,
-    # and reading that as "green (0 checks)" would let the lander act on an untested base.
-    if not runs:
-        return False, "test head %s has no check runs yet" % head[:10]
-    if failed:
-        return False, "test head %s is RED: %s" % (head[:10], ", ".join(failed[:4]))
-    if pending:
-        return False, "test head %s has %d check(s) still running" % (head[:10], len(pending))
-    return True, "test head %s is green (%d checks)" % (head[:10], len(runs))
+        return False, "cannot read CI state: %s: %s" % (type(exc).__name__, exc)
+    head = (ci.get("heads") or {}).get("test") or {}
+    chk = head.get("checks") or {}
+    state = chk.get("state", "?")
+    if state == "BILLING":
+        return False, "test is BILLING-BLOCKED (GitHub refused to start jobs): %s" % (
+            chk.get("billing_note") or "")[:150]
+    if state == "GREEN":
+        return True, "test head %s is green (%d/%d run(s))" % (
+            (head.get("sha") or "?")[:10], chk.get("passed", 0), chk.get("total", 0))
+    return False, "test head %s is %s: %s" % (
+        (head.get("sha") or "?")[:10], state,
+        "; ".join((chk.get("failed") or [])[:4] + (chk.get("pending") or [])[:3]) or "no detail")
 
 
 def deploy_quiet(tok: str) -> tuple[bool, str]:

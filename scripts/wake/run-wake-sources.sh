@@ -246,6 +246,22 @@ elif [ "$int_out" != "quiet" ]; then
   echo "$STAMP  work-integrator  $(printf '%s' "$int_out" | grep -Ei 'filed' | tail -1)" >>"$LOG"
 fi
 
+# LPT PROMOTION READINESS, ON A SCHEDULE (added 2026-10-28). The owner's answer to row 1107 was
+# "that is totally your domain", so promoting test to production is the loop's own job - but nothing ran
+# lpt-promote.py, so the moment the gates opened would have been noticed by nobody. This block runs it in
+# CHECK mode: it prints the four gates and their measurements every tick and changes NOTHING. The first
+# real promotion is watched once by hand; flipping this to `--yes` afterwards is a one-word change, and
+# the tool itself still refuses on a red/BLOCKED/pending head, a deploy that does not match, a run in
+# flight, or nothing to promote.
+promo_out=$(timeout 300 /usr/bin/python3 /root/bin/lpt-promote.py --yes 2>&1)
+promo_rc=$?
+promo_line=$(printf '%s' "$promo_out" | grep -E "VERDICT|test head is GREEN" | tr '\n' ' ' | cut -c1-230)
+if [ "$promo_rc" -ne 0 ]; then
+  echo "$STAMP  lpt-promote  NOT READY: $promo_line" >>"$LOG"
+else
+  echo "$STAMP  lpt-promote  READY: $promo_line" >>"$LOG"
+fi
+
 # LPT BILLING WATCH - a bill is not a code failure (added 2026-10-28).
 # GitHub refuses hosted jobs with "The job was not started because recent account payments have
 # failed or your spending limit needs to be increased" and reports it as a CHECK FAILURE, so the

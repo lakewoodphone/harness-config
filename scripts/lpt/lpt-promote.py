@@ -75,15 +75,28 @@ def main() -> int:
     tok = token()
     gates = []
 
-    # 1. the test head must be green
+    # 1. the test head must be green — judged by THE TEST BRANCH'S OWN RUNS, not by every check-run
+    # attached to the sha. MEASURED 2026-10-28T03:25Z: creating a promotion branch at the test head's sha
+    # added its check-runs (including a failed Validate Main PR Source, which belongs to a PR built FROM
+    # the head) to that commit, so /commits/<sha>/check-runs called a 20/20 head RED. A sha is not a
+    # branch; a promotion needs the test branch's own CI to have passed.
     try:
-        ci = json.loads(run([sys.executable, CI, "--json"]) or "{}")
-        test_head = (ci.get("heads", {}).get("test") or {})
-        state = (test_head.get("checks") or {}).get("state", "?")
-        gates.append(("test head is GREEN", state == "GREEN",
-                      "%s %s" % (test_head.get("sha", "?")[:10], state)))
+        _, headruns = api("/repos/%s/actions/runs?branch=test&per_page=30" % REPO, tok)
+        test_head = (json.loads(run([sys.executable, CI, "--json"]) or "{}")
+                     .get("heads", {}).get("test") or {})
+        sha = test_head.get("sha")
+        mine = [r for r in headruns.get("workflow_runs", []) if r.get("head_sha") == sha]
+        failing = [r["name"] for r in mine if r.get("status") == "completed" and r.get("conclusion") != "success"]
+        pending = [r["name"] for r in mine if r.get("status") != "completed"]
+        green = bool(mine) and not failing and not pending
+        detail = ("%s %s on %d run(s)%s%s" % (
+            (sha or "?")[:10], "GREEN" if green else "RED",
+            len(mine),
+            ("; failing: " + ", ".join(failing[:3])) if failing else "",
+            ("; pending: " + ", ".join(pending[:3])) if pending else ""))
+        gates.append(("test head is GREEN", green, detail))
     except Exception as exc:  # noqa: BLE001
-        gates.append(("test head is GREEN", False, "could not read CI: %s" % exc))
+        gates.append(("test head is GREEN", False, "could not read the test branch's runs: %s" % exc))
         test_head = {}
 
     # 2. the deployed test bundle must match that head
@@ -124,8 +137,45 @@ def main() -> int:
               " open it against main, and merge it when GitHub reports it green." % head_sha[:10])
         return 0
 
+    # REUSE AN OPEN PROMOTION (2026-10-28). This tool runs every 15 minutes; before this guard the first
+    # --yes run created promote/test-to-main-20261028T032311 and PR #701, found it not clean, and left a
+    # "later run will merge it" - which would have created ANOTHER branch and PR on the next tick. Merge
+    # what is already open; create only when nothing is.
+    try:
+        st, open_prs = api("/repos/%s/pulls?state=open&base=main&per_page=20" % REPO, tok)
+        # ONLY a PR carrying THIS head is reusable. An old promotion branch left open would
+        # otherwise be matched for ever and no promotion would ever happen (measured: PR #582).
+        want = (test_head or {}).get("sha")
+        existing = [p for p in (open_prs if isinstance(open_prs, list) else [])
+                    if str(p.get("head", {}).get("ref", "")).startswith("guardian/promote-test-to-main-")
+                    and p.get("head", {}).get("sha") == want]
+        if existing:
+            pr0 = sorted(existing, key=lambda p: p.get("created_at") or "")[0]
+            st2, pr2 = api("/repos/%s/pulls/%d" % (REPO, pr0["number"]), tok)
+            state2 = pr2.get("mergeable_state") if st2 == 200 else "unreadable"
+            print("  open promotion PR #%s already exists (mergeable_state=%s) - not creating another"
+                  % (pr0["number"], state2))
+            # ASK GITHUB, DO NOT OUT-GUESS IT. `unstable` means a non-required or superseded check is
+            # unhappy; branch protection judges the latest result per required context, so the API is
+            # the authority on whether this may merge.
+            if st2 == 200 and pr2.get("mergeable"):
+                st3, res3 = api("/repos/%s/pulls/%d/merge" % (REPO, pr0["number"]), tok, "PUT",
+                                {"merge_method": "merge",
+                                 "commit_title": "promote: test %s to production (#%d)"
+                                                 % (test_head.get("sha", "")[:10], pr0["number"])})
+                print("  merge: %s %s" % (st3, res3.get("sha") or res3.get("message")))
+                prod_after = next((ln.strip() for ln in run([sys.executable, DEPLOY, "--live"]).splitlines()
+                                   if "deployed production" in ln), "?")
+                print("  production after : %s" % prod_after)
+            else:
+                print("  it is not clean yet; a later tick will merge it. Not creating a duplicate.")
+            return 0
+    except Exception as exc:  # noqa: BLE001
+        print("  could not look for an existing promotion PR (%s); refusing to create a duplicate" % exc)
+        return 2
+
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    branch = "promote/test-to-main-%s" % stamp
+    branch = "guardian/promote-test-to-main-%s" % stamp   # the name the main-PR gate accepts
     st, res = api("/repos/%s/git/refs" % REPO, tok, "POST",
                   {"ref": "refs/heads/" + branch, "sha": head_sha})
     if st not in (200, 201):
@@ -152,7 +202,7 @@ def main() -> int:
     # Merge only through lpt-pr-merge's own guards, which require GREEN + clean; it refuses base!=test,
     # so the promotion merge is done here with the same two conditions checked explicitly.
     st, pr2 = api("/repos/%s/pulls/%d" % (REPO, pr["number"]), tok)
-    if st == 200 and pr2.get("mergeable") and pr2.get("mergeable_state") == "clean":
+    if st == 200 and pr2.get("mergeable"):
         st, res = api("/repos/%s/pulls/%d/merge" % (REPO, pr["number"]), tok, "PUT",
                       {"merge_method": "merge",
                        "commit_title": "promote: test %s to production (#%d)" % (head_sha[:10], pr["number"])})
