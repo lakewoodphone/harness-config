@@ -86,9 +86,15 @@ def main() -> int:
                      .get("heads", {}).get("test") or {})
         sha = test_head.get("sha")
         mine = [r for r in headruns.get("workflow_runs", []) if r.get("head_sha") == sha]
-        failing = [r["name"] for r in mine if r.get("status") == "completed" and r.get("conclusion") != "success"]
+        # A CANCELLED RUN IS NOT A FAILED RUN (2026-10-28). On a push to `test` the concurrency group cancels
+        # the PR Pre-Check when the deploy takes the branch, so a head whose deploy SUCCEEDED was being called
+        # RED here - this file had its own copy of the gate and never received the fix that lpt-ci-status got.
+        NEUTRAL_CONCLUSIONS = ("success", "neutral", "skipped", "cancelled")
+        failing = [r["name"] for r in mine
+                   if r.get("status") == "completed" and r.get("conclusion") not in NEUTRAL_CONCLUSIONS]
         pending = [r["name"] for r in mine if r.get("status") != "completed"]
-        green = bool(mine) and not failing and not pending
+        succeeded = any(r.get("conclusion") == "success" for r in mine)
+        green = bool(mine) and succeeded and not failing and not pending
         # PENDING IS NOT RED (2026-10-28): a head whose runs are still going was printed as RED, the same
         # two-causes-one-label mistake as BILLING hiding a code failure (L13559). Name the state that is true.
         label = "GREEN" if green else ("PENDING" if (pending and not failing) else "RED")
@@ -218,6 +224,21 @@ def main() -> int:
         print("  FAILED to open the promotion PR: %s %s" % (st, pr.get("message")))
         return 2
     print("  opened PR #%s %s" % (pr["number"], pr["html_url"]))
+
+    # SUPERSEDED_PROMOTIONS (2026-10-28). A newer promotion PR makes the older ones pointless - each is a valid
+    # subset, but only one can land and a reader cannot tell which is current. Close the others, keep the branch.
+    try:
+        _, open_all = api("/repos/%s/pulls?state=open&base=main&per_page=50" % REPO, tok)
+        for other in (open_all if isinstance(open_all, list) else []):
+            ref = str(other.get("head", {}).get("ref", ""))
+            if ref.startswith("guardian/promote-test-to-main-") and other.get("number") != pr["number"]:
+                api("/repos/%s/issues/%d/comments" % (REPO, other["number"]), tok, "POST",
+                    {"body": "Superseded by #%d, which promotes a newer test head. The branch is intact; "
+                             "nothing is lost." % pr["number"]})
+                api("/repos/%s/pulls/%d" % (REPO, other["number"]), tok, "PATCH", {"state": "closed"})
+                print("  closed superseded promotion PR #%s (%s)" % (other["number"], ref[:44]))
+    except Exception as exc:  # noqa: BLE001
+        print("  could not tidy older promotion PRs: %s: %s" % (type(exc).__name__, exc))
 
     # Merge only through lpt-pr-merge's own guards, which require GREEN + clean; it refuses base!=test,
     # so the promotion merge is done here with the same two conditions checked explicitly.
