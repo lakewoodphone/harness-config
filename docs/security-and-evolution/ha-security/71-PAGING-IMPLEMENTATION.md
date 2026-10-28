@@ -478,3 +478,42 @@ what is good in `snapshots-admin` into `shop-view` rather than keep three overla
 
 **No clips.** Home Assistant holds stills and a live view; video clips live on the recorder's disk. A "clips" tab would
 have to link out to the NVR, not play inside HA.
+
+## 16. One consolidated Shop view — applied 2026-10-28 16:2xZ
+
+He asked for **one clear simplified view**, built properly, and to fan the analysis out. Goal re-armed to this
+objective for 20 rounds. Three analyses were dispatched (phone-first design; Home Assistant card mechanics; the honest
+status banner) and the working version was built in parallel rather than waiting.
+
+**Live now: dashboard `Shop`, url path `shop-view`, ONE view, 8 cards**, applied over the websocket and read back:
+
+```
+readback: 1 view(s); 8 cards: markdown, conditional, custom:mushroom-title-card,
+          picture-glance, picture-glance, picture-glance, custom:mushroom-title-card, logbook
+```
+
+In reading order, top of a phone screen downwards:
+1. **the banner** — one honest sentence about the building, with the muted-siren case ranked above every calm state;
+2. **a warning card that only exists when the drill switch is on** (`conditional` card) — *"The siren will not sound…
+   Nothing turns it off automatically"*;
+3. **Cameras** (mushroom section header) — Shop door (`cam_front_hallway_main`, the best face view), Drop-off and
+   pickup (`cam_waiting_room_main`), Outside (`reolink_video_doorbell_poe_clear`);
+4. **Today** (mushroom section header) — a **logbook** across both door contacts, the doorbell person detector and
+   guest mode, 24 hours.
+
+**The instance has 12 custom frontend resources**, including `mushroom`, `card-mod`, `auto-entities`,
+`multiple-entity-row`, `fold-entity-row`, `button-card`, `decluttering-card` and `browser_mod`. That matters: a
+phone-readable view should be built from mushroom cards, not raw entity rows, and the previous version was not.
+
+**The banner was verified by rendering it through Home Assistant's own `/api/template`**, not by trusting the Jinja:
+it returns `## 🟢 Empty and armed` for the state right now. A markdown card that showed raw braces to the owner would
+have been worse than no banner.
+
+**The design is now a generator**: `scripts/ha-shop-dashboard.py` holds the layout, applies it idempotently
+(`lovelace/dashboards/create` + `config/save`, with a `--dry` mode), and is the single source of truth — so the
+dashboard can be reviewed in git and re-applied after a mistake, instead of being hand-edited in a UI that leaves no
+trace.
+
+**Still to come from the 20 rounds:** fold in the three analyses (card mechanics, banner edge cases, what to cut from
+the three older dashboards), retire `camera-wall`, `snapshots-admin` and the old `shop-view` overlap, and confirm the
+layout on a narrow screen.
