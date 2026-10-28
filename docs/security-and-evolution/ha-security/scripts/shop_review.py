@@ -61,6 +61,7 @@ a{color:var(--accent);text-decoration:none}
 .nav{display:flex;gap:6px;margin:0 0 10px}
 .nav a{font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
 .nav a.on{color:var(--txt);border-color:var(--accent);background:rgba(59,130,246,.14)}
+.live-note{font-size:10px;color:var(--muted);margin:6px 0 2px}
 .chip{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
 h2{font-size:16px;margin:18px 0 8px;font-weight:600;display:flex;justify-content:space-between;align-items:baseline}
 h2 span{font-size:12px;color:var(--muted);font-weight:400}
@@ -540,14 +541,17 @@ async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse
                 ('camera.cam_deserted_interior_main', 'Bench')]
         # a tile labelled "live" that was fetched at page load is a lie a minute later, so each
         # one states when its frame was taken and refreshes itself in place
-        shot_at = datetime.now(LOCAL_TZ).strftime('%H:%M:%S')
+        # NO PER-TILE CLOCK (2026-10-28). A caption that proves when the PHONE asked, rather than when
+        # the camera answered, is worse than no caption: a failed fetch leaves an old frame wearing a
+        # new time. One line under the strip states when the server last read the building.
+        as_of = datetime.now(LOCAL_TZ).strftime('%H:%M:%S')
         tiles = ''.join(
             '<a class="tile" href="/webhook/ha/shop/r/%s/live/%s" data-cam="%s">'
             '<img loading="lazy" decoding="async" width="360" alt="%s" '
             'src="/webhook/ha/shop/r/%s/cam/%s?w=360&t=%s">'
-            '<span class="lbl">%s<em class="ts">%s</em></span></a>'
-            % (token, c, c, html.escape(n), token, c, shot_at.replace(':', ''),
-               html.escape(n), shot_at) for c, n in live)
+            '<span class="lbl">%s</span></a>'
+            % (token, c, c, html.escape(n), token, c, as_of.replace(':', ''),
+               html.escape(n)) for c, n in live)
 
         # recent: the three newest visits that have a picture
         # MOST RECENT = THE THREE MOST RECENT *PLACES* (2026-10-28). Taking the three newest visits
@@ -650,28 +654,63 @@ async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse
                % ('on' if not clips else '', 'on' if clips else '', n_clips))
         body = ('<div class="wrap"><div class="bar"><h1>Shop</h1>'
                 '<span class="chip">%d visits · %d days</span></div>%s'
-                '<div class="alert %s"><b>%s</b><span>%s</span>'
+                '<div class="alert %s" id="alert"><b>%s</b><span>%s</span>'
                 '<span class="ts2">checked %s</span></div>'
                 '<h2>Live now</h2><div class="grid g2">%s</div>'
+                '<p class="live-note"><span id="asof">snapshots read at %s</span>'
+                ' · <span id="tick">refreshing every 30s</span></p>'
                 '<h2>Most recent</h2><div class="recent">%s</div>'
                 '%s</div>'
                 % (len(visits), len(by_day), nav, st['level'], html.escape(st['head']),
-                   html.escape(st['detail']), st['checked'], tiles,
+                   html.escape(st['detail']), st['checked'], tiles, as_of,
                    recent or '<div class="empty">Nothing yet.</div>', ''.join(blocks)))
         return HTMLResponse('<!doctype html><html lang="en"><head><meta charset="utf-8">'
                             '<meta name="viewport" content="width=device-width,initial-scale=1">'
                             '<title>Shop — review</title><style>%s</style></head><body>%s'
-                            '<script>(function(){var t=30000;setInterval(function(){'
-                            'var d=new Date();var s=("0"+d.getHours()).slice(-2)+":"+'
-                            '("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);'
+                            '<script>(function(){'
+                            'var base="/webhook/ha/shop/r/%s";'
+                            'function tick(){'
+                            'fetch(base+"/state.json",{cache:"no-store"})'
+                            '.then(function(r){return r.json()}).then(function(j){'
+                            'var a=document.getElementById("asof");'
+                            'if(a)a.textContent="snapshots read at "+j.as_of;'
+                            'var el=document.getElementById("alert");'
+                            'if(el){el.className="alert "+j.alert.level;'
+                            'el.querySelector("b").textContent=j.alert.head;'
+                            'var t2=el.querySelector(".ts2"); if(t2)t2.textContent="checked "+j.as_of;}'
                             'document.querySelectorAll("a.tile img").forEach(function(i){'
                             'var c=i.closest("a.tile").dataset.cam;'
-                            'i.src="/webhook/ha/shop/r/%s/cam/"+c+"?w=360&t="+d.getTime();'
-                            'var l=i.closest("a.tile").querySelector(".ts"); if(l) l.textContent=s;'
-                            '});},t);})();</script></body></html>'
+                            'i.src=base+"/cam/"+c+"?w=360&t="+j.epoch;});'
+                            '}).catch(function(){'
+                            'var a=document.getElementById("asof");'
+                            'if(a)a.textContent="cannot reach the building — last good reading above";'
+                            '});}'
+                            'setInterval(tick,30000);'
+                            'document.addEventListener("visibilitychange",function(){'
+                            'if(!document.hidden)tick();});'
+                            '})();</script></body></html>'
                             % (CSS, body, token))
     finally:
         conn.close()
+
+
+@router.get('/webhook/ha/shop/r/{token}/state.json')
+def shop_state(token: str) -> Response:
+    """The live half of the page, as data, so the browser never invents a time.
+
+    The old tile strip wrote its caption from the phone's `new Date()` *before* the fetch finished, so a
+    stalled camera left an old frame under a brand-new timestamp — a false "live", and the most
+    dangerous thing on the page after staleness. Now every time shown comes from here, produced by the
+    server at the moment it read the building.
+    """
+    require(token)
+    st = safety_state()
+    return Response(
+        json.dumps({'as_of': datetime.now(LOCAL_TZ).strftime('%H:%M:%S'),
+                    'epoch': int(time.time()),
+                    'alert': {'level': st['level'], 'head': st['head'], 'detail': st['detail']}}),
+        media_type='application/json',
+        headers={'Cache-Control': 'no-store'})
 
 
 @router.get('/webhook/ha/shop/r/{token}/img/{visit_id}')

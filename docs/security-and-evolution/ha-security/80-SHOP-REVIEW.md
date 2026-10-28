@@ -739,3 +739,38 @@ page (a DST fault on the cameras themselves, which cannot be corrected without t
 print both clocks); the live tiles' captions come from the phone's clock *before* the fetch completes, so a stalled
 request leaves an old frame under a new timestamp; and the alert and counts freeze at render while only the four tiles
 refresh.
+
+## Round 19: the page now reads its own time instead of guessing it
+
+Three defects, one shape: **a time printed without being read from the thing that produced it.**
+
+- the live tiles wrote their caption from the phone's `new Date()` **before** the fetch finished, so a stalled camera
+  showed an old frame under a new timestamp — a false "live";
+- the alert and every count froze at page render, so *"checked 14:21:29"* was still there at 14:28;
+- the camera's burned-in clock runs an hour behind, and nothing said so.
+
+**Built:** `GET /webhook/ha/shop/r/<token>/state.json` returns `{as_of, epoch, alert:{level,head,detail}}`, produced by
+the server at the moment it read the building. The page's only script now polls it every 30 s and on tab focus:
+
+- the alert **class, headline and "checked" stamp** all change with the reading, so a trip that happens while the page
+  is open appears without a reload;
+- the tiles re-request using the server's `epoch`, not the phone's clock;
+- **one line** states the truth — *"snapshots read at 14:35:01"* — instead of four per-tile captions that measured the
+  wrong thing. If the fetch fails it says *"cannot reach the building — last good reading above"* rather than showing a
+  stale frame as current.
+
+**Verified in a browser, over one full cycle:**
+
+```
+as-of before : snapshots read at 14:34:30
+as-of after  : snapshots read at 14:35:01   changed: True
+tile src changed: True      alert text: DOOR OPEN WHILE AWAY | checked 14:34:31
+js errors    : 0
+```
+
+Gate: 17 checks, 17 passed.
+
+**Still not fixed, and it is the cameras themselves:** every camera's burned-in clock is exactly one hour behind the
+page (a DST fault on the camera, not on this server). Correcting it needs the camera's own credentials, which this
+environment does not have. Until then the page must not pretend otherwise, and the honest presentation is the two
+times side by side in the expanded card: *when the camera says*, and *when we fetched it*.
