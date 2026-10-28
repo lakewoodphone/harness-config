@@ -699,6 +699,25 @@ WAKE_PROMPT_CONTRACT=$(cat <<'CONTRACT'
    nowhere while the shift believed it had landed. With no db flag at all these verbs
    answer correctly. (work.py now redirects such a --db to the real ledger and says so
    on stderr, but the flag is still wrong.)
+9. A PUBLIC PAGE IS NOT ADDED UNTIL FOUR INVENTORIES KNOW ABOUT IT. MEASURED
+   2026-10-28: the /status page worked, was merged, and then failed three separate
+   reds, each in a different table, before it served at all:
+     - frontend/src/components/landing/__tests__/publicSiteShell.test.tsx  SHELL_ROUTES
+       (or OUTSIDE_SHELL with a written reason)
+     - functions/_lib/route-decision.js   APP_STATIC_PATHS, and PUBLIC_DOCUMENT_PATHS only
+       if the page is a real prerendered document - a page that needs input (a ticket
+       number, a sign-in) is an APP route, and putting it in PUBLIC_DOCUMENT_PATHS makes
+       the deploy wait fail with "has no document for /path" (exit 2)
+     - frontend/src/seo/publicRoutes.ts   PUBLIC_ROUTES if it is a marketing document a
+       stranger should find, or APP_DOCUMENT_ROUTES if it renders the shell but takes input
+   Anchor text patches on a line unique to the block: "  '/kosher-waze'," appears in more
+   than one list in route-decision.js and str.replace(..., 1) took the wrong one.
+10. A BILLING BLOCK IS NOT A CODE RED. If a check-run annotation reads "The job was not
+   started because recent account payments have failed or your spending limit needs to be
+   increased", the pipeline never ran and NOTHING in the repository can fix it. Say that in
+   one line, do not touch code to satisfy it, and carry on with work that does not need CI
+   (ledger honesty, measurements, docs). `lpt-ci-status.py` reports state=BILLING and
+   `lpt-billing-watch.py` files the owner row; it has stopped this pipeline three times.
 === END WAKE CONTRACT ===
 CONTRACT
 )
