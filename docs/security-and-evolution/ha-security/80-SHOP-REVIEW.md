@@ -405,3 +405,30 @@ their event. Everything before that has none, because capturing them now would b
 The live tiles are a snapshot taken at page load, with no timestamp and no refresh (and they are full-resolution
 2560 px JPEGs drawn into 179×101 boxes — 1.29 MB for four thumbnails). The alert bar is not sticky. Together those are
 the next round.
+
+## Round 9: the page was shipping 1.3 MB of camera frames into four small boxes
+
+The review's performance finding, fixed with measurements on both sides.
+
+**Live tiles.** Each tile downloaded a **full 2560 px camera frame** to fill a 179×101 box — 756 KB for the
+doorbell, and the review measured one tile taking **22.7 seconds** to appear. The route now resizes on the server
+(Pillow, LANCZOS, quality 70) and caches for **five seconds** — short on purpose, because a stale "live" tile is a
+lie.
+
+```
+doorbell tile   765,355 bytes -> 23,316 bytes     (33x smaller)
+card thumbnail  152,081 bytes ->  2,459 bytes     (62x smaller)
+original still  152,081 bytes    unchanged, still served for the lightbox
+```
+
+**The tiles now tell the truth about their age.** Each one prints the moment its frame was taken (`17:54:29`) and a
+small inline script re-fetches every tile every 30 seconds, updating the stamp with it. Before this, the label "Live
+now" described a picture taken when the page opened.
+
+**The alarm now sticks.** `.alert.bad` is `position: sticky; top: 0`, full-bleed with an 18% red wash — so a tripped
+alarm stays on screen while he scrolls the day, which is the page's actual job. Before, one flick downward and the only
+warning on the page was gone.
+
+**Two false alarms of my own on the way**, both the same shape: I called the event thumbnails "broken" twice because a
+viewport screenshot catches lazy images mid-load. The network log settled it — every image returned **200**, the four
+tiles at 360 px and the thumbnails at 2560 px. That last number was the real defect, and it is the one now fixed.

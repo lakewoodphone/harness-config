@@ -18,8 +18,10 @@ trade-off: it can be moved behind the dashboard's session later without changing
 from __future__ import annotations
 
 import html
+import io
 import json
 import os
+import time
 import sqlite3
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -94,7 +96,9 @@ table.sig td.n{white-space:nowrap;color:var(--txt);padding-right:8px}
 .alert span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .alert.ok{border-left-color:var(--ok)}
 .alert.warn{border-left-color:var(--warn);background:rgba(255,152,0,.10)}
-.alert.bad{border-left-color:var(--bad);background:rgba(219,68,55,.12)}
+.alert.bad{border-left-color:var(--bad);background:rgba(219,68,55,.18);
+  position:sticky;top:0;z-index:20;border-radius:0;margin:0 -12px;padding:12px}
+.tile .ts{font-style:normal;color:#c9d2e0;margin-left:6px;font-size:10px}
 .alert.unknown{border-left-color:var(--muted)}
 .empty{border:1px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);font-size:13px}
 """.strip()
@@ -181,6 +185,31 @@ def safety_state() -> dict:
     if on('guest'):
         return {'level': 'warn', 'head': 'GUEST MODE ON', 'detail': 'The alarm cannot arm.'}
     return {'level': 'ok', 'head': 'No alerts', 'detail': 'Doors closed.'}
+
+
+_TILE_CACHE: dict[str, tuple[float, bytes]] = {}
+TILE_TTL_S = 5.0
+
+
+def shrink_jpeg(body: bytes, width: int = 360, quality: int = 70) -> bytes:
+    """Return a small JPEG for a phone tile.
+
+    A 2560 px camera frame was being drawn into a 179×101 box: 756 KB and up to 2.5 s per tile,
+    four tiles, so the first screen paid ~1.3 MB and several seconds of empty bordered boxes.
+    Resizing on the server is the difference between a tile that appears and one that does not.
+    """
+    try:
+        from PIL import Image
+        with Image.open(io.BytesIO(body)) as im:
+            im = im.convert('RGB')
+            if im.width > width:
+                im = im.resize((width, max(1, round(im.height * width / im.width))),
+                               Image.LANCZOS)
+            out = io.BytesIO()
+            im.save(out, format='JPEG', quality=quality, optimize=True)
+            return out.getvalue()
+    except Exception:
+        return body          # never fail a tile because resizing failed
 
 
 def require(token: str) -> None:
@@ -328,7 +357,8 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
         # WRAPPED IN THE SIZED BOX (2026-10-28). Without the wrapper the image is a direct child
         # of <summary> and renders at its natural 2560 px: one event card filled an entire phone
         # screen. The box is what makes a thumbnail a thumbnail.
-        thumb = ('<div class="thumb"><img loading="lazy" src="/webhook/ha/shop/r/%s/full/%s/%s" alt=""></div>'
+        thumb = ('<div class="thumb"><img loading="lazy" decoding="async" '
+                 'src="/webhook/ha/shop/r/%s/full/%s/%s?w=176" alt=""></div>'
                  % (token, v['id'], html.escape(st['camera_id'])))
     else:
         # NO EMPTY BOX (2026-10-28). An 88x66 empty frame reads as a failed image; a review of the
@@ -413,9 +443,16 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
                 ('camera.reolink_video_doorbell_poe_clear', 'Outside'),
                 ('camera.cam_waiting_room_main', 'Drop-off'),
                 ('camera.cam_deserted_interior_main', 'Bench')]
-        tiles = ''.join('<a class="tile" href="/webhook/ha/shop/r/%s/live/%s"><img loading="lazy" '
-                        'src="/webhook/ha/shop/r/%s/cam/%s"><span class="lbl">%s</span></a>'
-                        % (token, c, token, c, html.escape(n)) for c, n in live)
+        # a tile labelled "live" that was fetched at page load is a lie a minute later, so each
+        # one states when its frame was taken and refreshes itself in place
+        shot_at = datetime.now(LOCAL_TZ).strftime('%H:%M:%S')
+        tiles = ''.join(
+            '<a class="tile" href="/webhook/ha/shop/r/%s/live/%s" data-cam="%s">'
+            '<img loading="lazy" decoding="async" width="360" alt="%s" '
+            'src="/webhook/ha/shop/r/%s/cam/%s?w=360&t=%s">'
+            '<span class="lbl">%s<em class="ts">%s</em></span></a>'
+            % (token, c, c, html.escape(n), token, c, shot_at.replace(':', ''),
+               html.escape(n), shot_at) for c, n in live)
 
         # recent: the three newest visits that have a picture
         # MOST RECENT = THE THREE MOST RECENT *PLACES* (2026-10-28). Taking the three newest visits
@@ -487,8 +524,16 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
                    recent or '<div class="empty">Nothing yet.</div>', ''.join(blocks)))
         return HTMLResponse('<!doctype html><html lang="en"><head><meta charset="utf-8">'
                             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-                            '<title>Shop — review</title><style>%s</style></head><body>%s</body></html>'
-                            % (CSS, body))
+                            '<title>Shop — review</title><style>%s</style></head><body>%s'
+                            '<script>(function(){var t=30000;setInterval(function(){'
+                            'var d=new Date();var s=("0"+d.getHours()).slice(-2)+":"+'
+                            '("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);'
+                            'document.querySelectorAll("a.tile img").forEach(function(i){'
+                            'var c=i.closest("a.tile").dataset.cam;'
+                            'i.src="/webhook/ha/shop/r/%s/cam/"+c+"?w=360&t="+d.getTime();'
+                            'var l=i.closest("a.tile").querySelector(".ts"); if(l) l.textContent=s;'
+                            '});},t);})();</script></body></html>'
+                            % (CSS, body, token))
     finally:
         conn.close()
 
@@ -515,22 +560,43 @@ async def shop_img(token: str, visit_id: str, camera: str | None = None) -> Resp
 
 
 @router.get('/webhook/ha/shop/r/{token}/full/{visit_id}/{camera}')
-async def shop_full(token: str, visit_id: str, camera: str) -> Response:
-    return await shop_img(token, visit_id, camera)
+async def shop_full(token: str, visit_id: str, camera: str, w: int = 0) -> Response:
+    """One stored still, optionally at thumbnail size.
+
+    `w=0` serves the original for the lightbox. A card passes `w=176`, because a 2560 px frame in an
+    88×66 box costs 152 KB per card and a page can hold fifty of them — the same waste the live
+    tiles had, in the one place it multiplies.
+    """
+    resp = await shop_img(token, visit_id, camera)
+    if not w:
+        return resp
+    return Response(shrink_jpeg(resp.body, width=max(96, min(720, w)), quality=68),
+                    media_type='image/jpeg',
+                    headers={'Cache-Control': 'public, max-age=86400'})
 
 
 @router.get('/webhook/ha/shop/r/{token}/cam/{camera}')
-async def shop_cam(token: str, camera: str) -> Response:
-    """A live snapshot, proxied. The browser never sees the Home Assistant token."""
+async def shop_cam(token: str, camera: str, w: int = 360) -> Response:
+    """A small, current snapshot, proxied. The browser never sees the Home Assistant token.
+
+    A 2560 px frame was being drawn into a 179×101 box — 756 KB and up to 2.5 s per tile, four
+    tiles, so the first screen paid ~1.3 MB and several seconds of empty bordered boxes.
+    Resized here, cached for five seconds (short, because a stale "live" tile is a lie).
+    """
     require(token)
     if not camera.startswith('camera.'):
         raise HTTPException(404, 'not a camera')
+    now = time.monotonic()
+    hit = _TILE_CACHE.get(camera)
+    if hit and (now - hit[0]) < TILE_TTL_S:
+        return Response(hit[1], media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
     try:
         status, body, ctype = ha_get('/api/camera_proxy/' + camera)
     except Exception:
         raise HTTPException(404, 'camera unavailable')
-    return Response(body, media_type=ctype or 'image/jpeg',
-                    headers={'Cache-Control': 'no-store'})
+    data = shrink_jpeg(body, width=max(160, min(720, w)))
+    _TILE_CACHE[camera] = (now, data)
+    return Response(data, media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
 
 
 @router.get('/webhook/ha/shop/r/{token}/live/{camera}', response_class=HTMLResponse)
