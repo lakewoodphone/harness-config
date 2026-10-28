@@ -640,3 +640,57 @@ has real content rather than an empty window.
 **The transferable lesson:** a dashboard property is not real until it is read at the version that runs. Both the design
 analysis and I assumed current-docs behaviour; only the analysis that pinned the tag caught it. This is the same defect
 as a hardcoded model name: the safety is in resolving against the thing that actually runs.
+
+## 20. Keypad presses added, the overlap superseded, and the objective closed — 2026-10-28 17:0xZ
+
+Two gaps in the objective closed this round.
+
+**1. Keypad presses are now on the view.** There is no usable keypad *entity*: `event.esphome.access_control_keypad_entry`
+**does not exist on this instance at all** (a config referencing it renders "Entity not found"), and the rolling
+`input_text.phoenix_access_control_log` produces **83 logbook events a day**, most of them auto-departure noise. The
+clean read is the text itself, formatted to its top five lines, rendered through Home Assistant before being trusted:
+
+```
+- Oct 28, 11:36 AM - Owner Access at Interior
+- Oct 27, 9:03 PM - Owner Access at Interior
+- Oct 27, 8:48 PM - Owner Access at Interior
+- Oct 27, 8:44 PM - Owner Access at Interior
+- Oct 27, 8:43 PM - Owner Access at Maglock
+```
+
+That is "who used a code, where, and when" in the sentence the owner actually asked for, without a logbook full of
+noise around it.
+
+**2. The overlap is superseded, not deleted.** Only `shop-view` should occupy the sidebar. The listing showed
+`snapshots-admin`, `phoenix-admin`, `operations-panel` and `phoenix-triangulation` were **already** `show_in_sidebar:
+false`; `camera-wall` was the last duplicate still visible. It is now hidden — one `lovelace/dashboards/update` with
+`dashboard_id: camera_wall`, `show_in_sidebar: false` — which is **reversible with one call**, unlike deletion, so no
+irreversible step was taken without the owner's word.
+
+```
+hidden  phoenix-admin           hidden  climate-control      hidden  operations-panel
+hidden  phoenix-triangulation   hidden  snapshots-admin      VISIBLE map
+hidden  camera-wall             VISIBLE shop-view (Shop)
+```
+
+**Final state: one view, 8 cards.**
+banner · shop door · street door · **keypad and codes** · doors and doorbell (12 h) · more cameras (glance) ·
+sensor health header · sensor health rows.
+
+**The objective's own checklist, each with its evidence:**
+- plain-language banner — renders `**BUILDING QUIET** — siren live · doors closed · no doorbell · everyone away.`
+- the pictures that matter — two hero cameras + three one-tap shortcuts, camera ids verified in the stored config
+- timeline of arrivals **and keypad presses** — logbook with 38 real events in 12 h, plus the five-line keypad card
+- any active alert — the banner's first token is `ALARM`/`SIREN MUTED`/`LOCKDOWN ON`/`DOOR OPEN WHILE AWAY`, and the
+  mute branch outranks every calm state by position
+- versioned generator — `scripts/ha-shop-dashboard.py`, synced from the deployed copy so the repo is the truth, `--dry`
+  mode, idempotent apply
+- applied over the websocket — `lovelace/dashboards/create` + `config/save`, no file access needed
+- retired/superseded — only `Shop` and `Map` in the sidebar
+- verified by readback — every change read back out of Home Assistant, because `config/save` validates nothing
+- documented — sections 16–20 here, plus the five dashboard dumps and the three analyses
+
+**The one thing that is not verified, and cannot be from here: nobody has looked at the rendered screen.** Every check is
+a readback of stored config, a template render, or a data query. The visual result on a narrow phone — whether three
+glance columns are cramped, whether the banner wraps — is unproven. That needs the owner's eyes, and it is the honest
+boundary of what this round can claim.

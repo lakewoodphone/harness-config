@@ -124,6 +124,21 @@ BANNER = """{%- set test = states('input_boolean.phoenix_intrusion_test_mode') -
 {%- endset -%}
 **{{ prefix }}** — {{ ns.parts | join(' · ') }}."""
 
+# Keypad and code entries are not in a logbook-friendly entity on this instance: the
+# `event.esphome.access_control_keypad_entry` entity does not exist at all, and the rolling
+# `input_text.phoenix_access_control_log` produces 83 logbook events a day, most of them
+# auto-departure noise. The clean read is the text itself, formatted as the top five lines —
+# "Oct 28, 11:36 AM - Owner Access at Interior" is exactly the sentence he wants.
+KEYPAD = """{%- set raw = states('input_text.phoenix_access_control_log') -%}
+{%- set lines = raw.split('
+') | reject('eq', '') | list -%}
+{%- if lines -%}
+{% for l in lines[:5] %}- {{ l }}
+{% endfor %}
+{%- else -%}
+Nothing recorded yet.
+{%- endif -%}"""
+
 DOORS = [
     "binary_sensor.phoenix_control_room_interior_door_contact",
     "binary_sensor.phoenix_control_room_exterior_door_contact",
@@ -142,16 +157,21 @@ SAFETY = [
 
 
 def config(use_target: bool = False) -> dict:
+    # VERSION-PINNED (2026-10-28): this instance is Home Assistant 2025.10.3, frontend
+    # 20251001.4. On that version the logbook card has NO `state_filter` -- the property
+    # exists only in later docs and is SILENTLY IGNORED here. A "show arrivals only" filter
+    # written against current docs would look correct in the config and do nothing on the
+    # screen, which is the worst kind of bug: it survives review and lies to the eye.
+    # So the noise is cut a different way -- fewer entities. Three, not five: the two doors
+    # that matter and the doorbell's person detector.
+    # `target.entity_id` is the canonical form on 2025.10.3; `entities:` still works but is
+    # deprecated, so the canonical one is used.
     logbook: dict = {
         "type": "logbook",
         "title": "Doors and doorbell — last 12 hours",
         "hours_to_show": 12,
-        "state_filter": ["on"],
+        "target": {"entity_id": [DOORS[0], DOORS[1], DOORS[3]]},
     }
-    if use_target:
-        logbook["target"] = {"entity_id": DOORS}
-    else:
-        logbook["entities"] = DOORS
 
     return {
         "title": "Shop",
@@ -183,6 +203,8 @@ def config(use_target: bool = False) -> dict:
                             {"entity": DOORS[3], "show_state": False},
                         ],
                     },
+                    {"type": "markdown", "title": "Keypad and codes — most recent first",
+                     "content": KEYPAD},
                     logbook,
                     {
                         "type": "glance",
