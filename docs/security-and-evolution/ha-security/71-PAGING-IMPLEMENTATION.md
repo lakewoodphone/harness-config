@@ -447,3 +447,34 @@ short.
 
 **Not in it yet:** no video, no grouping of one person's movements into a single visit, no link from a visit to a work
 order, and pictures exist only for the days the capture actually ran (3 on 27 October, 0 on the 28th so far).
+
+## 15. A simple Home Assistant view instead of a data page — 2026-10-28
+
+He looked at the dashboard page and said it was *"way too complex … i don't need the whole backend data dump"*. Fair:
+it rendered 130 rows of record data. What he actually asked for is a **Home Assistant view**: pictures, snapshots, a
+timeline, maybe alerts.
+
+**There was no file route to `/config`** (only 8123 answers from anywhere else), so this was built entirely over the
+**websocket API** — `lovelace/dashboards/create` then `lovelace/config/save`. Script: `scripts/ha-shop-dashboard.py`.
+
+**Created: dashboard `Shop`, url path `shop-view`**, two views:
+- **Now** — a state banner (INTRUSION ACTIVE / Empty and armed / Someone is here), then three picture-glance cameras
+  (shop door hallway, drop-off/pickup, outside doorbell) and the door/presence entity list.
+- **Timeline** — a **logbook card** across the door contacts, the doorbell person detector and guest mode for the last
+  24 hours; a history graph of the same doors; and one line saying the full record lives on the company server.
+
+Readback confirms: `2 view(s) | Now (5 cards), Timeline (3 cards)`.
+
+**Two operatives facts learned the hard way.** A storage dashboard's `url_path` **must contain a hyphen** (HA refuses
+`shop` with *"Url path needs to contain a hyphen"*), hence `shop-view`. And `websockets.connect` rejects an `ssl`
+argument for a `ws://` URI — the HA_URL here is plain http on the tailnet, so the SSL context must be passed only for
+`wss://`.
+
+**What already existed, which I should have checked first.** The instance already had **`camera-wall`** (Wall grid,
+Main room grid, Status) and **`snapshots-admin`** (Entry, Intrusion Evidence with a vertical-stack and a logbook,
+Control Room). `snapshots-admin` is close to what he asked for, and the estate's own rule — prove it is not already
+there before building — was the thing I skipped. The new view is simpler than either; the honest next step is to fold
+what is good in `snapshots-admin` into `shop-view` rather than keep three overlapping dashboards.
+
+**No clips.** Home Assistant holds stills and a live view; video clips live on the recorder's disk. A "clips" tab would
+have to link out to the NVR, not play inside HA.
