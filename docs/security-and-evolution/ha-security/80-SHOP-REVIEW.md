@@ -72,3 +72,40 @@ failure this estate keeps repeating is a confident blank.
   question), and a phone-first design for the day gallery.
 - Ground truth established above: sensors, volume, listener, clip path, tooling.
 - Not yet built: the grouping layer, the media capture per event, the UI.
+
+## Round 2 — the grouping layer, and a finding that changes the design
+
+**Built:** `scripts/shop-visits.py` and two tables in the authority database — `shop_visit` (the human event) and
+`shop_visit_signal` (the raw rows that formed it, so any visit can be expanded to its evidence).
+
+The rule, deliberately explainable: only signals that can mean a person are considered (a camera's human detector, a
+door contact, the doorbell's person/visitor, a keypad credential, an occupied zone); a visit opens at the first such
+signal, absorbs everything within **150 seconds**, and closes on a longer gap. Zones are recorded as context but never
+open or extend a visit — without that, `business_area_occupied` glued unrelated arrivals together and labelled every
+visit with rooms instead of cameras.
+
+**Result over 43 hours: 277 person-capable signals → 53 visits, 45 of them with a person detected.** That is the
+compression the day gallery needs: 53 cards to scroll, not 8,092 rows.
+
+One visit, expanded exactly as the UI will read it:
+
+```
+17:15:59  keypad entry -> received
+17:16:03  business_area_occupied -> on
+17:16:03  zone_control_room_occupied -> on
+17:16:54  shop door contact -> off        (visit still open)
+```
+
+**The finding: the per-camera human detectors have never fired.** All twelve `cam_*_smart_motion_human_2` and
+`*_motion_alarm_2` entities have been `off` for **43 hours** — the record holds seven rows for them, every one from a
+restart at 22:36 on 26 October. The NVR integration exposes them, but the NVR has no human-detection rules configured
+on those channels, so they emit nothing.
+
+That matters because the original design assumed six independent person detectors. In reality there is **one** — the
+doorbell's own detector, which fires ~120 times a day. So a visit's "person" flag comes from the doorbell (the view
+from outside), and an indoor arrival is known from the **door contact** plus the **keypad**, not from a camera saying
+"a human is here".
+
+Two ways to fix that properly, both needing the NVR's credential, which does not exist in this environment: enable
+IVS/human rules on the NVR channels, or pull the NVR's own event log. Until then the build is honest about which
+signal it has rather than pretending six cameras are watching for people.
