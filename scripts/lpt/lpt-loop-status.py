@@ -8,8 +8,8 @@ back -> the branch is pushed -> a PR is merged into `test` -> the deploy workflo
 answered "is this loop working", so every session re-derived it, and the day the runner could
 not start a session the summary still read `releases today: 44 | failed 7` with no verdict.
 
-Each section is a MEASURED reading with its provenance, and the last section is the only
-opinion in the file: the links that are actually broken, named.
+Each section is a MEASURED reading with its provenance, and the last section is the only opinion
+in the file: the links that are actually broken, named.
 
 READ-ONLY: it opens the wake store and the ledger read-only and only GETs GitHub.
   lpt-loop-status.py [--json]
@@ -98,6 +98,13 @@ def wake_section() -> dict:
     last = conn.execute(
         "SELECT id, subject, finished_at, state FROM wake WHERE finished_at IS NOT NULL "
         "ORDER BY finished_at DESC LIMIT 1").fetchone()
+    # THE LAST FAILURE COMES FROM THE STORE, NOT FROM THE LOG. A dispatcher that dies with a claimed
+    # row closes it `failed` through the EXIT trap and writes NO "released ... failed" line, so a
+    # log-derived timestamp missed exactly the failure mode that killed three sessions on 2026-10-28
+    # and printed "last failure ?".
+    last_failed = conn.execute(
+        "SELECT finished_at, subject FROM wake WHERE state='failed' AND finished_at IS NOT NULL "
+        "AND finished_at >= ? ORDER BY finished_at DESC LIMIT 1", (today,)).fetchone()
     rows = [dict(r) for r in conn.execute(
         "SELECT id, subject, state, attempts, max_attempts, not_before, claimed_at "
         "FROM wake WHERE subject LIKE ? ORDER BY id DESC LIMIT 6", ("%:" + PROJECT + ":%",))]
@@ -111,6 +118,8 @@ def wake_section() -> dict:
         "release_block": wake.release_block(conn),
         "last_release_age_min": round((_age_hours(last["finished_at"]) or 0) * 60, 1) if last else None,
         "last_release": dict(last) if last else None,
+        "last_failed_at": (last_failed["finished_at"] if last_failed else None),
+        "last_failed_subject": (last_failed["subject"] if last_failed else None),
         "project_rows": rows,
         "claimable": cands,
         "gated": gated,
@@ -133,9 +142,6 @@ def dispatch_section() -> dict:
         bad = [ln[:20] for ln in rel if " failed " in ln]
         out["last_success"] = max(ok) if ok else None
         out["last_failure"] = max(bad) if bad else None
-        # A release that never started a session is a fleet fault, not a work fault.
-        out["never_started_today"] = sum(
-            1 for ln in lines if ln.startswith(today) and "the session never started" in ln)
     except Exception as exc:  # noqa: BLE001
         out["error"] = "%s: %s" % (type(exc).__name__, exc)
     # The supply tick's own verdict for THIS project is the single most useful line in the
@@ -182,7 +188,7 @@ def verdict(wk: dict, dp: dict, led: dict, pipe: dict) -> list[str]:
         rate = 100.0 * wk["failed_today"] / wk["releases_today"]
         # A failure count with no time attached reads as "it is broken NOW" even when every
         # failure predates the last successful release. Say which it is.
-        last_fail = dp.get("last_failure") or ""
+        last_fail = wk.get("last_failed_at") or dp.get("last_failure") or ""
         last_done = dp.get("last_success") or ""
         if last_done and last_fail and last_done > last_fail:
             problems.append("%d of %d rows claimed today failed (%.0f%%) - HISTORICAL: the last "
@@ -195,8 +201,13 @@ def verdict(wk: dict, dp: dict, led: dict, pipe: dict) -> list[str]:
         problems.append("%d release(s) today never started a session (launcher fault, attempts refunded)"
                         % dp["never_started_today"])
     supply = " ".join(dp.get("supply_lines") or [])
+    running = led.get("running") or []
     if led.get("ok") and led.get("todo") and not wk.get("claimable"):
-        if "suppressed:cooldown" in supply:
+        if running:
+            # A shift is WORKING: the queue is supposed to be empty while one holds an item.
+            problems.append("a shift is RUNNING item %s - the empty queue is the loop working, not a stall"
+                            % ", ".join("#%s" % r["id"] for r in running))
+        elif "suppressed:cooldown" in supply:
             problems.append("supply is GATED, not dead: %d todo item(s) and the project source says "
                             "suppressed:cooldown (the family was released recently and will re-file)"
                             % led["todo"])
@@ -210,7 +221,13 @@ def verdict(wk: dict, dp: dict, led: dict, pipe: dict) -> list[str]:
     heads = ci.get("heads") or {}
     for br in ("test", "main"):
         st = (heads.get(br) or {}).get("checks", {}).get("state")
-        if st and st != "GREEN":
+        if st == "BILLING":
+            # Money, not code. Say so in the words the owner can act on.
+            problems.append("%s head is BILLING-BLOCKED: GitHub Actions refused to start jobs - %s. "
+                            "Nothing in the repository can fix this and every merge is blocked until "
+                            "the spending limit is raised." % (br, ((heads.get(br) or {}).get("checks", {})
+                                                                   .get("billing_note") or "")[:150]))
+        elif st and st != "GREEN":
             problems.append("%s head is %s" % (br, st))
     prs = ci.get("prs") or []
     green_waiting = [p for p in prs if p.get("checks") == "GREEN"]

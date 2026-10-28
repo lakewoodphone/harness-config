@@ -1687,7 +1687,14 @@ def cmd_finish(args) -> int:
     #   * does NOT increment wake_budget.failed, because it is not a failure;
     #   * increments `unverified`, the bound file_wake applies to re-flags, so a
     #     result nobody can read can never retry forever.
-    if getattr(args, "failed", False):
+    # A ROW THAT WAS NEVER WORK (2026-10-28). Proof rows and rows an operator abandons were being
+    # closed with --failed, which is a lie in the one direction the store cares about: they then
+    # count as failures in every reading (wake.py stats, autonomy-status, lpt-loop-status) and made
+    # today's failure rate read 44% when the real failures were zero. `cancelled` already exists as a
+    # state and had no way to set it.
+    if getattr(args, "cancelled", False):
+        state = "cancelled"
+    elif getattr(args, "failed", False):
         state = "failed"
     elif getattr(args, "unverified", False):
         state = "unverified"
@@ -2192,6 +2199,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--outcome", default="")
     s.add_argument("--cost-usd", type=float, default=None)
     s.add_argument("--failed", action="store_true")
+    s.add_argument("--cancelled", action="store_true",
+                   help="the row was never work (a proof row, or an item put back by an operator): "
+                        "records the state without counting it as a failure")
     s.add_argument("--unverified", action="store_true",
                    help="the session ran but its result could not be read back: the third "
                         "outcome, distinct from failed - the attempt is refunded and the "

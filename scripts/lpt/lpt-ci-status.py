@@ -87,8 +87,28 @@ def checks(tok: str, sha: str) -> dict:
         out["combined_status"] = st.get("state")
     except Exception:  # noqa: BLE001
         pass
+    # BILLING IS NOT A CODE FAILURE (2026-10-28). GitHub answers "The job was not started because
+    # recent account payments have failed or your spending limit needs to be increased" with a
+    # check-run FAILURE, so a red head can mean the pipeline never ran - and this estate has now hit
+    # that three times (owner rows 940, 1028, and again tonight). Reading it as RED sends the next
+    # session hunting a code defect that does not exist, which is exactly what nearly happened.
     if out["failed"]:
         out["state"] = "RED"
+        try:
+            ids = [r.get("id") for r in runs.get("check_runs", [])
+                   if r.get("conclusion") not in ("success", "neutral", "skipped", None)][:3]
+            notes = []
+            for cid in ids:
+                ann = api("/repos/%s/check-runs/%s/annotations" % (REPO, cid), tok)
+                for a in ann if isinstance(ann, list) else []:
+                    msg = (a.get("message") or "")
+                    if "payments have failed" in msg or "spending limit" in msg:
+                        notes.append(msg[:160])
+            if notes:
+                out["state"] = "BILLING"
+                out["billing_note"] = notes[0]
+        except Exception as exc:  # noqa: BLE001
+            out["billing_check_error"] = "%s: %s" % (type(exc).__name__, exc)
     elif out["pending"]:
         out["state"] = "PENDING"
     elif out["total"]:
