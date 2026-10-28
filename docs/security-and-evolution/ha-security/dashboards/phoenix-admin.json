@@ -1,0 +1,360 @@
+{
+ "title": "Phoenix Admin",
+ "views": [
+  {
+   "title": "Overview",
+   "path": "overview",
+   "icon": "mdi:shield-home",
+   "type": "masonry",
+   "visible": [
+    {
+     "user": "15be5af167934aaca1e48935abfab237"
+    }
+   ],
+   "badges": [],
+   "cards": [
+    {
+     "type": "markdown",
+     "title": "Admin Console",
+     "content": "This is the **Boss-only** console for managing **all** access controls.\n- **Worker PINs + RFID** are managed here. - **Parent dashboard** only exposes: Temporary House Access, Guest PIN, Tenant PIN.\nSecurity notes: - Unauthorized edits to sensitive helpers are automatically reverted and logged. - Restricted door actions are enforced at the **script** level (not just UI)."
+    },
+    {
+     "type": "entities",
+     "title": "\u2705 Parent-safe controls (what Mom can edit)",
+     "show_header_toggle": false,
+     "entities": [
+      {
+       "type": "section",
+       "label": "Temporary House Access (time-limited)"
+      },
+      {
+       "entity": "input_text.phoenix_house_access_pin",
+       "name": "Temporary PIN"
+      },
+      {
+       "entity": "input_boolean.phoenix_house_access_pin_enabled",
+       "name": "Enabled"
+      },
+      {
+       "entity": "input_number.phoenix_house_access_pin_duration",
+       "name": "Duration (hours)"
+      },
+      {
+       "entity": "timer.phoenix_house_access_timer",
+       "name": "Time Remaining"
+      },
+      {
+       "type": "section",
+       "label": "Guest + Tenant PINs"
+      },
+      {
+       "entity": "input_text.phoenix_guest_pin",
+       "name": "Guest PIN"
+      },
+      {
+       "entity": "input_text.phoenix_tenant_pin",
+       "name": "Tenant PIN"
+      }
+     ]
+    },
+    {
+     "type": "entities",
+     "title": "Security Mode / Presence",
+     "entities": [
+      {
+       "entity": "input_select.phoenix_security_mode"
+      },
+      {
+       "entity": "binary_sensor.control_room_hub_control_room_presence",
+       "name": "Control Room Occupied"
+      },
+      {
+       "entity": "timer.hallway_guard_window"
+      },
+      {
+       "entity": "input_boolean.phoenix_access_control_lockdown",
+       "name": "Access Control Lockdown"
+      },
+      {
+       "entity": "timer.phoenix_access_control_lockout",
+       "name": "Lockout Timer"
+      },
+      {
+       "entity": "input_boolean.phoenix_user_is_here",
+       "name": "Boss Is Here"
+      },
+      {
+       "entity": "input_boolean.phoenix_worker_is_here",
+       "name": "Workers Are Here"
+      },
+      {
+       "entity": "input_boolean.phoenix_house_guest_mode_active"
+      },
+      {
+       "entity": "input_boolean.phoenix_customer_pin_enabled"
+      },
+      {
+       "entity": "script.phoenix_access_control_clear_lockout",
+       "name": "Clear Lockout"
+      }
+     ]
+    },
+    {
+     "type": "thermostat",
+     "name": "Basement Climate",
+     "entity": "climate.zen_thermostat"
+    },
+    {
+     "type": "entities",
+     "title": "Doors / Locks",
+     "entities": [
+      {
+       "entity": "binary_sensor.phoenix_outside_door_contact",
+       "name": "Outside Door (contact)"
+      },
+      {
+       "entity": "switch.smart_switch_l1",
+       "name": "Outside Strike (relay)"
+      },
+      {
+       "entity": "binary_sensor.phoenix_control_room_exterior_door_contact",
+       "name": "Control Room Exterior Door (contact)"
+      },
+      {
+       "entity": "switch.smart_switch_l2",
+       "name": "Control Room Maglock (relay)"
+      },
+      {
+       "entity": "binary_sensor.phoenix_control_room_interior_door_contact",
+       "name": "Control Room Interior Door (contact)"
+      },
+      {
+       "entity": "switch.smart_switch_l4",
+       "name": "Interior Maglock (relay)"
+      },
+      {
+       "entity": "lock.0x002446fffd0a4705",
+       "name": "Apartment Deadbolt"
+      }
+     ]
+    },
+    {
+     "type": "entities",
+     "title": "\ud83d\udd10 PIN Management (Access Codes)",
+     "entities": [
+      {
+       "type": "section",
+       "label": "Owner & Parent Master Codes"
+      },
+      {
+       "entity": "input_text.phoenix_admin_pin",
+       "name": "\ud83d\udc51 Owner PIN (All Doors)"
+      },
+      {
+       "entity": "input_text.phoenix_parent_pin",
+       "name": "\ud83d\udc6a Parent PIN (Strike/Maglock/Interior)"
+      },
+      {
+       "type": "section",
+       "label": "Family / Guest / Tenant"
+      },
+      {
+       "entity": "input_text.phoenix_family_pin",
+       "name": "\ud83c\udfe0 Family PIN (Strike/Apartment)"
+      },
+      {
+       "entity": "input_text.phoenix_guest_pin",
+       "name": "\ud83e\uddd1 Guest PIN (Apartment Deadbolt slot 3)"
+      },
+      {
+       "entity": "input_text.phoenix_tenant_pin",
+       "name": "\ud83d\udd11 Tenant PIN (Strike/Apartment)"
+      },
+      {
+       "type": "section",
+       "label": "Workers (Edit Here)"
+      },
+      {
+       "entity": "input_text.phoenix_worker_pin",
+       "name": "\ud83d\udc77 Generic Worker PIN (Strike/Maglock)"
+      },
+      {
+       "entity": "input_text.phoenix_worker_klein_pin",
+       "name": "\ud83d\udc77 Klein PIN (Strike/Maglock)"
+      },
+      {
+       "entity": "input_text.phoenix_worker_montrose_pin",
+       "name": "\ud83d\udc77 Montrose PIN (Strike/Maglock)"
+      },
+      {
+       "entity": "input_text.phoenix_worker_bachrach_pin",
+       "name": "\ud83d\udc77 Bachrach PIN (Strike/Maglock)"
+      },
+      {
+       "type": "section",
+       "label": "Temporary / Business"
+      },
+      {
+       "entity": "input_text.phoenix_drop_off_pin",
+       "name": "\ud83d\udce6 Drop-off PIN (Strike Only)"
+      },
+      {
+       "entity": "input_text.phoenix_house_access_pin",
+       "name": "\u26a0\ufe0f HOUSE ACCESS PIN (ALL 4 DOORS)"
+      },
+      {
+       "entity": "input_boolean.phoenix_house_access_pin_enabled",
+       "name": "Enable House Access PIN"
+      },
+      {
+       "entity": "input_number.phoenix_house_access_pin_duration"
+      },
+      {
+       "entity": "timer.phoenix_house_access_timer"
+      },
+      {
+       "entity": "input_text.phoenix_customer_pin",
+       "name": "\ud83d\udcbc Business Access PIN (Strike/Maglock)"
+      },
+      {
+       "entity": "input_boolean.phoenix_customer_pin_enabled",
+       "name": "Enable Business Access PIN"
+      }
+     ]
+    },
+    {
+     "type": "entities",
+     "title": "\ud83c\udff7\ufe0f RFID Tag Management",
+     "entities": [
+      {
+       "entity": "input_boolean.phoenix_rfid_capture_next_tag",
+       "name": "Capture next scanned tag"
+      },
+      {
+       "entity": "input_text.phoenix_rfid_last_tag_uid",
+       "name": "Last captured tag UID"
+      },
+      {
+       "type": "section",
+       "label": "Assign (recommended)"
+      },
+      {
+       "entity": "input_select.phoenix_rfid_assign_role",
+       "name": "Assign to role"
+      },
+      {
+       "entity": "input_button.phoenix_rfid_assign_last_tag",
+       "name": "Assign last captured tag"
+      },
+      {
+       "type": "section",
+       "label": "Role Tag Mapping (manual)"
+      },
+      {
+       "entity": "input_text.phoenix_rfid_owner_tag",
+       "name": "Owner tag"
+      },
+      {
+       "entity": "input_text.phoenix_rfid_worker_klein_tag",
+       "name": "Worker Klein tag"
+      },
+      {
+       "entity": "input_text.phoenix_rfid_worker_montrose_tag",
+       "name": "Worker Montrose tag"
+      },
+      {
+       "entity": "input_text.phoenix_rfid_worker_bachrach_tag",
+       "name": "Worker Bachrach tag"
+      },
+      {
+       "entity": "input_text.phoenix_rfid_tenant_tag",
+       "name": "Tenant tag"
+      }
+     ]
+    },
+    {
+     "type": "custom:mushroom-title-card",
+     "title": "Buzz In",
+     "subtitle": "Manual unlock actions"
+    },
+    {
+     "type": "grid",
+     "columns": 2,
+     "square": false,
+     "cards": [
+      {
+       "type": "button",
+       "entity": "script.buzz_in_strike",
+       "name": "Outside",
+       "icon": "mdi:door"
+      },
+      {
+       "type": "button",
+       "entity": "script.buzz_in_maglock",
+       "name": "Control Room",
+       "icon": "mdi:door"
+      },
+      {
+       "type": "button",
+       "entity": "script.buzz_in_interior_maglock",
+       "name": "Interior Door",
+       "icon": "mdi:door"
+      },
+      {
+       "type": "button",
+       "entity": "script.buzz_in_apartment_door",
+       "name": "Apartment Deadbolt",
+       "icon": "mdi:lock-open-variant"
+      }
+     ]
+    },
+    {
+     "type": "entities",
+     "title": "Access Manager (Create PIN)",
+     "entities": [
+      {
+       "entity": "sensor.phoenix_users",
+       "name": "Managed Users (count)"
+      },
+      {
+       "entity": "input_text.phoenix_popup_user_name"
+      },
+      {
+       "entity": "input_text.phoenix_popup_user_pin"
+      },
+      {
+       "entity": "input_text.phoenix_popup_user_locks"
+      },
+      {
+       "entity": "input_boolean.phoenix_popup_one_time_use"
+      }
+     ]
+    },
+    {
+     "type": "button",
+     "entity": "script.phoenix_add_user_from_helpers",
+     "name": "Add User (from helpers)",
+     "icon": "mdi:account-plus"
+    },
+    {
+     "type": "entities",
+     "title": "Activity Logs",
+     "entities": [
+      {
+       "entity": "input_text.phoenix_access_control_log"
+      },
+      {
+       "entity": "input_text.phoenix_door_activity_log"
+      },
+      {
+       "entity": "counter.phoenix_invalid_pin_attempts"
+      },
+      {
+       "entity": "timer.phoenix_invalid_pin_window"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

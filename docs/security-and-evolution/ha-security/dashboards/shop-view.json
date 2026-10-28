@@ -1,0 +1,82 @@
+{
+ "title": "Shop",
+ "views": [
+  {
+   "title": "Now",
+   "path": "now",
+   "icon": "mdi:storefront",
+   "cards": [
+    {
+     "type": "markdown",
+     "content": "{% set away = is_state('binary_sensor.phoenix_everyone_away','on') %}{% set intr = is_state('input_boolean.phoenix_intrusion_active','on') %}{% if intr %}## \ud83d\udd34 INTRUSION ACTIVE\n{% elif away %}## \ud83d\udfe2 Empty and armed\n{% else %}## \ud83d\udfe1 Someone is here\n{% endif %}Door: {{ states('binary_sensor.phoenix_control_room_interior_door_contact') }} \u00b7 Apartment: {{ states('binary_sensor.phoenix_control_room_exterior_door_contact') }} \u00b7 Keypad: {{ states('input_boolean.phoenix_house_guest_mode_active') }}"
+    },
+    {
+     "type": "picture-glance",
+     "title": "Shop door (hallway)",
+     "camera_image": "camera.cam_front_hallway_main",
+     "camera_view": "auto",
+     "entities": []
+    },
+    {
+     "type": "picture-glance",
+     "title": "Drop-off / pickup",
+     "camera_image": "camera.cam_waiting_room_main",
+     "camera_view": "auto",
+     "entities": []
+    },
+    {
+     "type": "picture-glance",
+     "title": "Outside (doorbell)",
+     "camera_image": "camera.reolink_video_doorbell_poe_clear",
+     "camera_view": "auto",
+     "entities": []
+    },
+    {
+     "type": "entities",
+     "title": "Doors and presence",
+     "entities": [
+      "binary_sensor.phoenix_control_room_interior_door_contact",
+      "binary_sensor.phoenix_control_room_exterior_door_contact",
+      "binary_sensor.phoenix_outside_door_contact",
+      "binary_sensor.video_doorbell_person",
+      "binary_sensor.control_room_hub_control_room_presence"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Timeline",
+   "path": "timeline",
+   "icon": "mdi:timeline-clock",
+   "cards": [
+    {
+     "type": "logbook",
+     "title": "Doors and keypad, last 24 hours",
+     "hours_to_show": 24,
+     "entities": [
+      "binary_sensor.phoenix_control_room_interior_door_contact",
+      "binary_sensor.phoenix_control_room_exterior_door_contact",
+      "binary_sensor.phoenix_outside_door_contact",
+      "binary_sensor.video_doorbell_person",
+      "input_boolean.phoenix_house_guest_mode_active"
+     ]
+    },
+    {
+     "type": "history-graph",
+     "title": "Doors, last 24 hours",
+     "hours_to_show": 24,
+     "entities": [
+      "binary_sensor.phoenix_control_room_interior_door_contact",
+      "binary_sensor.phoenix_control_room_exterior_door_contact",
+      "binary_sensor.video_doorbell_person"
+     ]
+    },
+    {
+     "type": "markdown",
+     "title": "What the record holds",
+     "content": "Every arrival, keypad press and verdict is also kept outside Home Assistant, on the company server, with a picture and a hash for each one. This view is the quick look; the full record lives in the company."
+    }
+   ]
+  }
+ ]
+}

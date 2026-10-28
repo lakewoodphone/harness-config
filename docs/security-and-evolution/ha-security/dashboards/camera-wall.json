@@ -1,0 +1,148 @@
+{
+ "title": "Camera Wall",
+ "views": [
+  {
+   "title": "Wall",
+   "path": "wall",
+   "icon": "mdi:cctv",
+   "type": "panel",
+   "cards": [
+    {
+     "type": "grid",
+     "columns": 3,
+     "square": false,
+     "cards": [
+      {
+       "type": "picture-entity",
+       "entity": "camera.cam_deserted_exit_sub_4",
+       "name": "Main room \u00b7 exit side",
+       "camera_view": "live",
+       "fit_mode": "cover",
+       "show_name": true,
+       "show_state": false
+      },
+      {
+       "type": "picture-entity",
+       "entity": "camera.cam_deserted_interior_sub_4",
+       "name": "Main room \u00b7 interior",
+       "camera_view": "live",
+       "fit_mode": "cover",
+       "show_name": true,
+       "show_state": false
+      },
+      {
+       "type": "picture-entity",
+       "entity": "camera.cam_front_hallway_sub_4",
+       "name": "Front hallway",
+       "camera_view": "live",
+       "fit_mode": "cover",
+       "show_name": true,
+       "show_state": false
+      },
+      {
+       "type": "picture-entity",
+       "entity": "camera.cam_waiting_room_sub_4",
+       "name": "Waiting room",
+       "camera_view": "live",
+       "fit_mode": "cover",
+       "show_name": true,
+       "show_state": false
+      },
+      {
+       "type": "picture-entity",
+       "entity": "camera.video_doorbell_fluent",
+       "name": "Doorbell",
+       "camera_view": "live",
+       "fit_mode": "cover",
+       "show_name": true,
+       "show_state": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Main room",
+   "path": "main-room",
+   "icon": "mdi:sofa",
+   "type": "panel",
+   "cards": [
+    {
+     "type": "grid",
+     "columns": 2,
+     "square": false,
+     "cards": [
+      {
+       "type": "picture-entity",
+       "entity": "camera.cam_deserted_exit_main",
+       "name": "Main room \u00b7 exit side",
+       "camera_view": "live",
+       "fit_mode": "cover",
+       "show_name": true,
+       "show_state": false
+      },
+      {
+       "type": "picture-entity",
+       "entity": "camera.cam_deserted_interior_main",
+       "name": "Main room \u00b7 interior",
+       "camera_view": "live",
+       "fit_mode": "cover",
+       "show_name": true,
+       "show_state": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Status",
+   "path": "status",
+   "icon": "mdi:video-check",
+   "type": "masonry",
+   "cards": [
+    {
+     "type": "markdown",
+     "title": "What is actually running",
+     "content": "**Five cameras exist.** Four on the Dahua NVR at `192.168.50.170` (channels 1, 5, 6, 7) plus one Reolink doorbell at `192.168.50.231`. The NVR has three further channels (2, 3 and 4) with **no camera attached**, and two Home Assistant entries point at two of them \u2014 they can never produce a picture, and that is not a fault to chase."
+    },
+    {
+     "type": "entities",
+     "title": "Liveness",
+     "show_header_toggle": false,
+     "entities": [
+      {
+       "entity": "camera.cam_deserted_exit_main",
+       "name": "Main room \u00b7 exit side (NVR ch1)"
+      },
+      {
+       "entity": "camera.cam_deserted_interior_main",
+       "name": "Main room \u00b7 interior (NVR ch7)"
+      },
+      {
+       "entity": "camera.cam_front_hallway_main",
+       "name": "Front hallway (NVR ch6)"
+      },
+      {
+       "entity": "camera.cam_waiting_room_main",
+       "name": "Waiting room (NVR ch5)"
+      },
+      {
+       "entity": "camera.reolink_video_doorbell_poe_clear",
+       "name": "Doorbell (Reolink)"
+      }
+     ]
+    },
+    {
+     "type": "markdown",
+     "title": "The two entries that can never show a picture",
+     "content": "`camera.cam_larry_s_interior_main` (NVR **ch2**) and `camera.cam_larry_s_exit_main_2` (NVR **ch3**) are deliberately *not* shown as entity rows above: the NVR has no camera on those channels, so every render attempt is a 500 and floods the browser console. They are listed here for the record only. Disable or delete the two config entries to get rid of them."
+    },
+    {
+     "type": "markdown",
+     "title": "Notes",
+     "content": "`HTTP 400 Bad Request` from the NVR's `snapshot.cgi` means *authenticated, but no camera on that channel* \u2014 an empty channel, not a broken camera. The two `Larry's` entries point at NVR channels 2 and 3; they were re-enabled on 2026-09-16 and should be disabled or deleted, not debugged."
+    }
+   ]
+  }
+ ]
+}

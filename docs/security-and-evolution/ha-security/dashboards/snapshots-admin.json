@@ -1,0 +1,462 @@
+{
+ "title": "Snapshots (Admin)",
+ "views": [
+  {
+   "title": "Entry",
+   "path": "entry",
+   "icon": "mdi:cctv",
+   "type": "masonry",
+   "visible": [
+    {
+     "user": "15be5af167934aaca1e48935abfab237"
+    }
+   ],
+   "badges": [],
+   "cards": [
+    {
+     "type": "markdown",
+     "title": "Entry snapshots - freshness audit",
+     "content": "{% set tiles = [\n     ('Doorbell Ring (Doorbell)',        'latest_doorbell_ring_doorbell.jpg'),\n     ('Doorbell Ring (Hallway)',         'latest_doorbell_ring_hallway.jpg'),\n     ('Doorbell Ring (Waiting Room)',    'latest_doorbell_ring_waiting_room.jpg'),\n     ('Strike Unlock +2s (Doorbell)',    'latest_strike_unlock_doorbell.jpg'),\n     ('Strike Unlock +2s (Hallway)',     'latest_strike_unlock_hallway.jpg'),\n     ('Strike Unlock +2s (Waiting Room)','latest_strike_unlock_waiting_room.jpg'),\n     ('CR Exterior Open +3s (Doorbell)', 'latest_control_room_open_doorbell.jpg'),\n     ('CR Exterior Open +3s (Hallway)',  'latest_control_room_open_hallway.jpg'),\n     ('CR Exterior Open +3s (Waiting Room)','latest_control_room_open_waiting_room.jpg'),\n     ('Person (Doorbell)',               'latest_person_doorbell.jpg'),\n     ('Person (Hallway)',                'latest_person_hallway.jpg'),\n     ('Person (Waiting Room)',           'latest_person_waiting_room.jpg'),\n     ('CR Presence (Doorbell)',          'latest_control_room_presence_doorbell.jpg'),\n     ('CR Presence (Hallway)',           'latest_control_room_presence_hallway.jpg'),\n     ('CR Presence (Waiting Room)',      'latest_control_room_presence_waiting_room.jpg'),\n     ('CR Interior Open +2s (Doorbell)', 'latest_control_room_interior_open_doorbell.jpg'),\n     ('CR Interior Open +2s (Hallway)',  'latest_control_room_interior_open_hallway.jpg'),\n     ('CR Interior Open +2s (Waiting Room)','latest_control_room_interior_open_waiting_room.jpg') ] %}\n{% set stale_after = 36 %} {% set ns = namespace(ok=0, missing=0, stale=0) %} {% for label, f in tiles %}\n  {% set raw = state_attr('/local/snapshots/' ~ f, 'last-modified') %}\n  {% if raw is none %}{% set ns.missing = ns.missing + 1 %}\n  {% else %}\n    {% set ns.ok = ns.ok + 1 %}\n    {% if ((as_timestamp(now()) - as_timestamp(raw)) / 3600) > stale_after %}\n      {% set ns.stale = ns.stale + 1 %}{% endif %}\n  {% endif %}\n{% endfor %} **{{ ns.ok }} of {{ tiles | length }} tiles exist** &middot; **{{ ns.stale }} stale** (older than {{ stale_after }} h) &middot; **{{ ns.missing }} missing entirely**\n| Tile | Captured | Age | |---|---|---| {% for label, f in tiles %}\n  {% set raw = state_attr('/local/snapshots/' ~ f, 'last-modified') %}\n  {% if raw is none %}\n| {{ label }} | **NO FILE** | \u2014 |\n  {% else %}\n  {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %}\n| {{ label }} | {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M') }} | {% if hrs > stale_after %}**STALE \u2014 {{ hrs }} h**{% else %}{{ hrs }} h{% endif %} |\n  {% endif %}\n{% endfor %}\nTiles with **NO FILE** will render blank or broken below - that is the file pipeline, not the dashboard. On 2026-09-16 the live check found the entry-camera loop writing only `doorbell`, `hallway` and `waiting_room` suffixes, so `latest_*_front_hallway.jpg` never exists and the `waiting_room` variants stop after March."
+    },
+    {
+     "type": "grid",
+     "columns": 3,
+     "square": false,
+     "cards": [
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_doorbell_ring_doorbell.jpg",
+       "title": "Doorbell Ring (Doorbell)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_doorbell_ring_doorbell.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_doorbell_ring_hallway.jpg",
+       "title": "Doorbell Ring (Hallway)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_doorbell_ring_hallway.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_doorbell_ring_waiting_room.jpg",
+       "title": "Doorbell Ring (Waiting Room)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_doorbell_ring_waiting_room.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_strike_unlock_doorbell.jpg",
+       "title": "Strike Unlock +2s (Doorbell)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_strike_unlock_doorbell.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_strike_unlock_hallway.jpg",
+       "title": "Strike Unlock +2s (Hallway)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_strike_unlock_hallway.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_strike_unlock_waiting_room.jpg",
+       "title": "Strike Unlock +2s (Waiting Room)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_strike_unlock_waiting_room.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_open_doorbell.jpg",
+       "title": "CR Exterior Open +3s (Doorbell)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_open_doorbell.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_open_hallway.jpg",
+       "title": "CR Exterior Open +3s (Hallway)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_open_hallway.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_open_waiting_room.jpg",
+       "title": "CR Exterior Open +3s (Waiting Room)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_open_waiting_room.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_person_doorbell.jpg",
+       "title": "Person (Doorbell)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_person_doorbell.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_person_hallway.jpg",
+       "title": "Person (Hallway)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_person_hallway.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_person_waiting_room.jpg",
+       "title": "Person (Waiting Room) \u2014 NO FILE",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_person_waiting_room.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_presence_doorbell.jpg",
+       "title": "CR Presence (Doorbell)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_presence_doorbell.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_presence_hallway.jpg",
+       "title": "CR Presence (Hallway)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_presence_hallway.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_presence_waiting_room.jpg",
+       "title": "CR Presence (Waiting Room)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_presence_waiting_room.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_interior_open_doorbell.jpg",
+       "title": "CR Interior Open +2s (Doorbell)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_interior_open_doorbell.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_interior_open_hallway.jpg",
+       "title": "CR Interior Open +2s (Hallway)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_interior_open_hallway.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_interior_open_waiting_room.jpg",
+       "title": "CR Interior Open +2s (Waiting Room)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_interior_open_waiting_room.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "type": "markdown",
+     "title": "Hallway loop - freshness",
+     "content": "{% set tiles = [\n     ('Hallway Periodic (Front Hallway)', 'latest_hallway_periodic_front_hallway.jpg'),\n     ('Hallway Periodic (Waiting Room)',  'latest_hallway_periodic_waiting_room.jpg') ] %}\n{% for label, f in tiles %}\n  {% set raw = state_attr('/local/snapshots/' ~ f, 'last-modified') %}\n  {% if raw is none %}\n- **{{ label }}** \u2014 NO FILE\n  {% else %}\n  {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %}\n- **{{ label }}** \u2014 captured\n  {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M') }}\n  ({{ hrs }} h ago){% if hrs > 36 %} \u2014 **STALE**{% endif %}\n  {% endif %}\n{% endfor %}\nThe 1/min hallway loop is what keeps these current. A tile measured months old means the loop has not run: check `automation.snapshot_hallway_loop_start_ha_start` and `script.hallway_snapshot_loop`."
+    },
+    {
+     "type": "grid",
+     "columns": 2,
+     "square": false,
+     "cards": [
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_hallway_periodic_front_hallway.jpg",
+       "title": "Hallway Periodic (Front Hallway)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_hallway_periodic_front_hallway.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_hallway_periodic_waiting_room.jpg",
+       "title": "Hallway Periodic (Waiting Room)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_hallway_periodic_waiting_room.jpg"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Intrusion Evidence",
+   "path": "intrusion",
+   "icon": "mdi:shield-alert",
+   "type": "masonry",
+   "visible": [
+    {
+     "user": "15be5af167934aaca1e48935abfab237"
+    }
+   ],
+   "badges": [],
+   "cards": [
+    {
+     "type": "markdown",
+     "title": "Intrusion Evidence",
+     "content": "{% set tiles = [\n     ('Control room (interior cam)', 'control_room_interior'),\n     ('Control room (exit cam)',     'control_room_exit'),\n     ('Outside doorbell',            'doorbell'),\n     ('Front hallway',               'hallway'),\n     ('Waiting room',                'waiting_room') ] %}\n{% set ns = namespace(found=0) %} {% for label, cam in tiles %}\n  {% set raw = state_attr('/local/snapshots/latest_intrusion_' ~ cam ~ '.jpg', 'last-modified') %}\n  {% if raw is not none %}{% set ns.found = ns.found + 1 %}{% endif %}\n{% endfor %} {% if ns.found == 0 %} <div style=\"padding:18px;border-radius:10px;border:2px dashed #f57c00;\n            background:#f57c001a;\">\n  <b>No intrusion evidence has been captured yet.</b><br><br>\n  This is the expected state until a real intrusion fires, or until\n  <code>script.phoenix_test_intrusion_sequence</code> is run on\n  purpose. All five cameras are already wired to write these files, so\n  evidence appears here automatically the first time one does.\n</div> {% else %} **{{ ns.found }} of {{ tiles | length }} cameras have intrusion evidence.** {% endif %}"
+    },
+    {
+     "type": "vertical-stack",
+     "cards": [
+      {
+       "type": "markdown",
+       "content": "{% set raw = state_attr('/local/snapshots/latest_intrusion_control_room_interior.jpg', 'last-modified') %} {% if raw is not none %} {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %} <div style=\"background:#d32f2f;color:#fff;padding:8px 10px;border-radius:8px 8px 0 0;\n            font-weight:700;\">\nControl room (interior cam) &middot; {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M:%S') }} &middot; {{ hrs }} h ago </div> <a href=\"/local/snapshots/latest_intrusion_control_room_interior.jpg\" target=\"_blank\" rel=\"noopener\">\n  <img src=\"/local/snapshots/latest_intrusion_control_room_interior.jpg\"\n       style=\"display:block;width:100%;border:2px solid #d32f2f;border-top:0;\">\n</a> {% else %} <div style=\"padding:16px;border-radius:10px;border:2px dashed #999;background:#99999914;\">\n  <b>Control room (interior cam)</b> \u2014 no evidence file yet\n  (<code>latest_intrusion_control_room_interior.jpg</code>).\n</div> {% endif %}"
+      },
+      {
+       "type": "markdown",
+       "content": "{% set raw = state_attr('/local/snapshots/latest_intrusion_control_room_exit.jpg', 'last-modified') %} {% if raw is not none %} {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %} <div style=\"background:#d32f2f;color:#fff;padding:8px 10px;border-radius:8px 8px 0 0;\n            font-weight:700;\">\nControl room (exit cam) &middot; {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M:%S') }} &middot; {{ hrs }} h ago </div> <a href=\"/local/snapshots/latest_intrusion_control_room_exit.jpg\" target=\"_blank\" rel=\"noopener\">\n  <img src=\"/local/snapshots/latest_intrusion_control_room_exit.jpg\"\n       style=\"display:block;width:100%;border:2px solid #d32f2f;border-top:0;\">\n</a> {% else %} <div style=\"padding:16px;border-radius:10px;border:2px dashed #999;background:#99999914;\">\n  <b>Control room (exit cam)</b> \u2014 no evidence file yet\n  (<code>latest_intrusion_control_room_exit.jpg</code>). The exit\n  camera's config entry is disabled, so this one cannot fill in\n  until that entry is re-enabled.\n</div> {% endif %}"
+      },
+      {
+       "type": "markdown",
+       "content": "{% set raw = state_attr('/local/snapshots/latest_intrusion_doorbell.jpg', 'last-modified') %} {% if raw is not none %} {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %} <div style=\"background:#d32f2f;color:#fff;padding:8px 10px;border-radius:8px 8px 0 0;\n            font-weight:700;\">\nOutside doorbell &middot; {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M:%S') }} &middot; {{ hrs }} h ago </div> <a href=\"/local/snapshots/latest_intrusion_doorbell.jpg\" target=\"_blank\" rel=\"noopener\">\n  <img src=\"/local/snapshots/latest_intrusion_doorbell.jpg\"\n       style=\"display:block;width:100%;border:2px solid #d32f2f;border-top:0;\">\n</a> {% else %} <div style=\"padding:16px;border-radius:10px;border:2px dashed #999;background:#99999914;\">\n  <b>Outside doorbell</b> \u2014 no evidence file yet\n  (<code>latest_intrusion_doorbell.jpg</code>).\n</div> {% endif %}"
+      },
+      {
+       "type": "markdown",
+       "content": "{% set raw = state_attr('/local/snapshots/latest_intrusion_hallway.jpg', 'last-modified') %} {% if raw is not none %} {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %} <div style=\"background:#d32f2f;color:#fff;padding:8px 10px;border-radius:8px 8px 0 0;\n            font-weight:700;\">\nFront hallway &middot; {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M:%S') }} &middot; {{ hrs }} h ago </div> <a href=\"/local/snapshots/latest_intrusion_hallway.jpg\" target=\"_blank\" rel=\"noopener\">\n  <img src=\"/local/snapshots/latest_intrusion_hallway.jpg\"\n       style=\"display:block;width:100%;border:2px solid #d32f2f;border-top:0;\">\n</a> {% else %} <div style=\"padding:16px;border-radius:10px;border:2px dashed #999;background:#99999914;\">\n  <b>Front hallway</b> \u2014 no evidence file yet\n  (<code>latest_intrusion_hallway.jpg</code>).\n</div> {% endif %}"
+      },
+      {
+       "type": "markdown",
+       "content": "{% set raw = state_attr('/local/snapshots/latest_intrusion_waiting_room.jpg', 'last-modified') %} {% if raw is not none %} {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %} <div style=\"background:#d32f2f;color:#fff;padding:8px 10px;border-radius:8px 8px 0 0;\n            font-weight:700;\">\nWaiting room &middot; {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M:%S') }} &middot; {{ hrs }} h ago </div> <a href=\"/local/snapshots/latest_intrusion_waiting_room.jpg\" target=\"_blank\" rel=\"noopener\">\n  <img src=\"/local/snapshots/latest_intrusion_waiting_room.jpg\"\n       style=\"display:block;width:100%;border:2px solid #d32f2f;border-top:0;\">\n</a> {% else %} <div style=\"padding:16px;border-radius:10px;border:2px dashed #999;background:#99999914;\">\n  <b>Waiting room</b> \u2014 no evidence file yet\n  (<code>latest_intrusion_waiting_room.jpg</code>). This camera's\n  config entry is disabled, so it cannot capture evidence until\n  that entry is re-enabled.\n</div> {% endif %}"
+      }
+     ]
+    },
+    {
+     "type": "markdown",
+     "title": "Filename convention (so this panel can be maintained)",
+     "content": "```text latest_intrusion_<cam>.jpg\n    <cam> = doorbell | hallway | waiting_room            (entry cameras)\n            control_room_interior | control_room_exit    (control room)\n``` Written by `script.snapshot_entry_cameras` and `script.snapshot_control_room_cameras` when they are called with `event_name: intrusion`, which is exactly what `script.phoenix_intrusion_initial_response` does as its FIRST step - before the lights and siren give the intruder a reason to move.\nLonger history is written to `/config/www/snapshots/history/<timestamp>_intrusion_<cam>.jpg` and purged after 25 days by `shell_command.purge_old_snapshots`. **This panel could not be built over that history directory**: this host has no read access to `/config` (probed 2026-09-16 - `/config` does not exist here), and Home Assistant's `/local/` static mount does not expose directory listings, so the history files cannot be enumerated by filename. See docs/DASHBOARD-VERIFICATION.md for the exact limitation and what would unblock it."
+    },
+    {
+     "type": "entities",
+     "title": "Intrusion state",
+     "show_header_toggle": false,
+     "entities": [
+      {
+       "entity": "input_boolean.phoenix_intrusion_active",
+       "name": "Intrusion Active"
+      },
+      {
+       "entity": "input_boolean.phoenix_intrusion_test_mode",
+       "name": "Test Mode"
+      },
+      {
+       "entity": "binary_sensor.phoenix_everyone_away",
+       "name": "Everyone Away"
+      },
+      {
+       "entity": "timer.phoenix_intrusion_loop_timer",
+       "name": "Loop Timer"
+      },
+      {
+       "type": "section",
+       "label": "Scripts (run only on purpose)"
+      },
+      {
+       "entity": "script.phoenix_intrusion_initial_response",
+       "name": "Initial Response"
+      },
+      {
+       "entity": "script.phoenix_intrusion_reset",
+       "name": "Reset"
+      },
+      {
+       "entity": "script.phoenix_test_intrusion_sequence",
+       "name": "TEST Intrusion Sequence"
+      }
+     ]
+    },
+    {
+     "type": "logbook",
+     "title": "Intrusion logbook (7 days)",
+     "hours_to_show": 168,
+     "entities": [
+      "input_boolean.phoenix_intrusion_active",
+      "input_boolean.phoenix_intrusion_test_mode",
+      "script.phoenix_intrusion_initial_response",
+      "script.phoenix_intrusion_loop",
+      "script.phoenix_intrusion_reset",
+      "binary_sensor.phoenix_outside_door_contact",
+      "binary_sensor.phoenix_control_room_exterior_door_contact",
+      "binary_sensor.phoenix_control_room_interior_door_contact",
+      "binary_sensor.zone_hallway_active",
+      "binary_sensor.zone_control_room_active"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Control Room (Private)",
+   "path": "control-room",
+   "icon": "mdi:cctv-off",
+   "type": "masonry",
+   "visible": [
+    {
+     "user": "15be5af167934aaca1e48935abfab237"
+    }
+   ],
+   "badges": [],
+   "cards": [
+    {
+     "type": "markdown",
+     "content": "Private control-room stills. **Boss only** - this view is absent from the worker view entirely, per docs/DASHBOARD_AND_SECURITY_DECISIONS.md line 49."
+    },
+    {
+     "type": "markdown",
+     "title": "Control room - freshness audit",
+     "content": "{% set tiles = [\n     ('CR Exterior Open +3s (Interior Cam)',  'latest_control_room_open_control_room_interior.jpg'),\n     ('CR Exterior Open +3s (Exit Cam)',      'latest_control_room_open_control_room_exit.jpg'),\n     ('CR Presence (Interior Cam)',           'latest_control_room_presence_control_room_interior.jpg'),\n     ('CR Presence (Exit Cam)',               'latest_control_room_presence_control_room_exit.jpg'),\n     ('CR Interior Open +2s (Interior Cam)',  'latest_control_room_interior_open_control_room_interior.jpg'),\n     ('CR Interior Open +2s (Exit Cam)',      'latest_control_room_interior_open_control_room_exit.jpg'),\n     ('CR Periodic (Interior Cam)',           'latest_control_room_periodic_control_room_interior.jpg'),\n     ('CR Periodic (Exit Cam)',               'latest_control_room_periodic_control_room_exit.jpg'),\n     ('CR Security (Interior Cam)',           'latest_control_room_security_control_room_interior.jpg'),\n     ('CR Security (Exit Cam)',               'latest_control_room_security_control_room_exit.jpg'),\n     ('Intrusion (Interior Cam)',             'latest_intrusion_control_room_interior.jpg'),\n     ('Intrusion (Exit Cam)',                 'latest_intrusion_control_room_exit.jpg') ] %}\n| Tile | Captured | Age | |---|---|---| {% for label, f in tiles %}\n  {% set raw = state_attr('/local/snapshots/' ~ f, 'last-modified') %}\n  {% if raw is none %}\n| {{ label }} | **NO FILE** | \u2014 |\n  {% else %}\n  {% set hrs = ((as_timestamp(now()) - as_timestamp(raw)) / 3600) | round(1) %}\n| {{ label }} | {{ as_timestamp(raw) | timestamp_custom('%Y-%m-%d %H:%M') }} | {% if hrs > 36 %}**STALE \u2014 {{ hrs }} h**{% else %}{{ hrs }} h{% endif %} |\n  {% endif %}\n{% endfor %}"
+    },
+    {
+     "type": "grid",
+     "columns": 2,
+     "square": false,
+     "cards": [
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_intrusion_control_room_interior.jpg",
+       "title": "Intrusion (Interior Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_intrusion_control_room_interior.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_open_control_room_interior.jpg",
+       "title": "CR Exterior Open +3s (Interior Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_open_control_room_interior.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_open_control_room_exit.jpg",
+       "title": "CR Exterior Open +3s (Exit Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_open_control_room_exit.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_presence_control_room_interior.jpg",
+       "title": "CR Presence (Interior Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_presence_control_room_interior.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_presence_control_room_exit.jpg",
+       "title": "CR Presence (Exit Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_presence_control_room_exit.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_interior_open_control_room_interior.jpg",
+       "title": "CR Interior Open +2s (Interior Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_interior_open_control_room_interior.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_interior_open_control_room_exit.jpg",
+       "title": "CR Interior Open +2s (Exit Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_interior_open_control_room_exit.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_periodic_control_room_interior.jpg",
+       "title": "CR Periodic (Interior Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_periodic_control_room_interior.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_periodic_control_room_exit.jpg",
+       "title": "CR Periodic (Exit Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_periodic_control_room_exit.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_security_control_room_interior.jpg",
+       "title": "CR Security (Interior Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_security_control_room_interior.jpg"
+       }
+      },
+      {
+       "type": "picture",
+       "image": "/local/snapshots/latest_control_room_security_control_room_exit.jpg",
+       "title": "CR Security (Exit Cam)",
+       "tap_action": {
+        "action": "url",
+        "url_path": "/local/snapshots/latest_control_room_security_control_room_exit.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "type": "markdown",
+     "title": "Why these are stale",
+     "content": "The control-room tiles that read months old are the ones written by the **periodic / security loop** (`script.control_room_snapshot_loop`), which is what refreshes `latest_control_room_periodic_*` and `latest_control_room_security_*`. The event-driven tiles (open, presence, intrusion) are current, so the cameras themselves are fine - the recovery point is the loop automation, not the camera."
+    }
+   ]
+  }
+ ]
+}

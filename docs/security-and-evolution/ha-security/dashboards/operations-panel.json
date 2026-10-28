@@ -1,0 +1,242 @@
+{
+ "title": "Operations",
+ "views": [
+  {
+   "title": "Control Room",
+   "path": "control-room",
+   "icon": "mdi:shield-account",
+   "type": "masonry",
+   "visible": [
+    {
+     "user": "15be5af167934aaca1e48935abfab237"
+    },
+    {
+     "user": "2269e9ed4f324ceaa6e014759428898d"
+    }
+   ],
+   "badges": [],
+   "cards": [
+    {
+     "type": "custom:mushroom-title-card",
+     "title": "Control Room Operations",
+     "subtitle": "Worker access"
+    },
+    {
+     "type": "entities",
+     "title": "My Status",
+     "show_header_toggle": false,
+     "entities": [
+      {
+       "entity": "input_boolean.phoenix_worker_is_here",
+       "name": "I Am Here",
+       "icon": "mdi:account-check"
+      },
+      {
+       "entity": "input_select.phoenix_security_mode",
+       "name": "Security Mode"
+      }
+     ]
+    },
+    {
+     "type": "entities",
+     "title": "Door Status",
+     "show_header_toggle": false,
+     "entities": [
+      {
+       "entity": "binary_sensor.phoenix_outside_door_contact",
+       "name": "Outside Door",
+       "secondary_info": "last-changed"
+      },
+      {
+       "entity": "binary_sensor.phoenix_control_room_exterior_door_contact",
+       "name": "Control Room Exterior Door",
+       "secondary_info": "last-changed"
+      }
+     ]
+    },
+    {
+     "type": "markdown",
+     "content": "The control-room **interior** door is not listed here. Use **Settings \u2192 Devices & Services \u2192 Dahua** if a camera is missing."
+    },
+    {
+     "type": "custom:mushroom-title-card",
+     "title": "Buzz In",
+     "subtitle": "Outside + control room exterior"
+    },
+    {
+     "type": "grid",
+     "columns": 2,
+     "square": false,
+     "cards": [
+      {
+       "type": "button",
+       "entity": "script.buzz_in_strike",
+       "name": "Outside Door",
+       "icon": "mdi:door",
+       "show_state": false,
+       "tap_action": {
+        "action": "call-service",
+        "service": "script.buzz_in_strike",
+        "confirmation": {
+         "text": "Release the outside door strike?"
+        }
+       }
+      },
+      {
+       "type": "button",
+       "entity": "script.buzz_in_maglock",
+       "name": "Control Room Door",
+       "icon": "mdi:door",
+       "show_state": false,
+       "tap_action": {
+        "action": "call-service",
+        "service": "script.buzz_in_maglock",
+        "confirmation": {
+         "text": "Release the control-room exterior maglock?"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "custom:mushroom-title-card",
+     "title": "Security Cameras",
+     "subtitle": "Outside, front hallway, waiting room"
+    },
+    {
+     "type": "vertical-stack",
+     "cards": [
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "camera.video_doorbell_fluent",
+         "state": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "<div style=\"padding:16px;border-radius:10px;border:2px solid #d32f2f;background:#d32f2f14;text-align:center;\"> <ha-icon icon=\"mdi:cctv-off\"></ha-icon> <b>CAMERA DISABLED \u2014 Front Door</b><br> <code>camera.video_doorbell_fluent</code> has no live state. </div>"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "camera.video_doorbell_fluent",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "picture-entity",
+        "entity": "camera.video_doorbell_fluent",
+        "camera_view": "auto",
+        "name": "Front Door",
+        "show_name": true,
+        "show_state": true
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "camera.cam_front_hallway_main",
+         "state": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "<div style=\"padding:16px;border-radius:10px;border:2px solid #d32f2f;background:#d32f2f14;text-align:center;\"> <ha-icon icon=\"mdi:cctv-off\"></ha-icon> <b>CAMERA DISABLED \u2014 Front Hallway</b><br> <code>camera.cam_front_hallway_main</code> has no live state. </div>"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "camera.cam_front_hallway_main",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "picture-entity",
+        "entity": "camera.cam_front_hallway_main",
+        "camera_view": "auto",
+        "name": "Front Hallway",
+        "show_name": true,
+        "show_state": true
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "camera.cam_waiting_room_main",
+         "state": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "<div style=\"padding:16px;border-radius:10px;border:2px solid #d32f2f;background:#d32f2f14;text-align:center;\"> <ha-icon icon=\"mdi:cctv-off\"></ha-icon> <b>CAMERA DISABLED \u2014 Waiting Room</b><br> <code>camera.cam_waiting_room_main</code> has no live state because its Dahua config entry <b>\u201cCam Waiting Room\u201d</b> is disabled.<br> Re-enable it in <i>Settings \u2192 Devices &amp; Services \u2192 Dahua</i> and this tile becomes the live feed with no further change. </div>"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "camera.cam_waiting_room_main",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "picture-entity",
+        "entity": "camera.cam_waiting_room_main",
+        "camera_view": "auto",
+        "name": "Waiting Room",
+        "show_name": true,
+        "show_state": true
+       }
+      }
+     ]
+    },
+    {
+     "type": "markdown",
+     "title": "Recent Activity",
+     "content": "{{ states('input_text.phoenix_door_activity_log') | replace('\\n', '  \\n') }}"
+    },
+    {
+     "type": "history-graph",
+     "title": "Door activity (last 8 h)",
+     "hours_to_show": 8,
+     "refresh_interval": 60,
+     "entities": [
+      {
+       "entity": "binary_sensor.phoenix_outside_door_contact",
+       "name": "Outside"
+      },
+      {
+       "entity": "binary_sensor.phoenix_control_room_exterior_door_contact",
+       "name": "CR exterior"
+      }
+     ]
+    },
+    {
+     "type": "logbook",
+     "title": "Logbook (last 12 h)",
+     "hours_to_show": 12,
+     "entities": [
+      "binary_sensor.phoenix_outside_door_contact",
+      "binary_sensor.phoenix_control_room_exterior_door_contact",
+      "script.buzz_in_strike",
+      "script.buzz_in_maglock"
+     ]
+    }
+   ]
+  }
+ ]
+}
