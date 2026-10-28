@@ -206,16 +206,15 @@ def config(use_target: bool = False) -> dict:
         # with NO refresh interval. A dead camera and a live one look identical, and the state
         # text that would say "unavailable" is hidden. `picture-entity` with the camera as its
         # own entity polls the still every ~10 s, so a frozen frame cannot masquerade as live.
-        # THE DOOR LIST, WITH TIMES (2026-10-28). The graph above shows WHEN a door was open as
-        # a band, but not the exact time. The logbook renders each row as
-        # "<friendly name> was opened - 15:36", which is the literal "who came and when"
-        # question -- the audit corrected my earlier assumption that these rows are bare
-        # on/off. It sits BELOW the fold on purpose: the glance above answers "is anything open
-        # now", this answers "when did it happen". Two doors only, measured at ~10 rows a day;
-        # the doorbell person detector adds 126 and would drown it.
-        {"type": "logbook", "title": "Door opens - last 12 hours",
-         "hours_to_show": 12,
-         "target": {"entity_id": [DOORS[0], DOORS[1]]}},
+        # THE LOGBOOK CARD IS GONE (2026-10-28) -- it renders NOTHING on this instance.
+        # Rendered headless at 390 px and looked at: with `target.entity_id` AND with the
+        # deprecated `entities` form it drew a 479 px EMPTY white card, no rows, and no
+        # console error. The backend is not the problem -- a direct `logbook/get_events` call
+        # for the same two entities and the same 12-hour window returns rows. So the card is
+        # dead here for a reason I could not find from the outside, and a half-screen of
+        # blank white is worse than no list at all.
+        # What replaces it: the graph above already shows WHEN (a band with a start and an
+        # end), and the keypad card shows WHO. Those two answer the question between them.
         # FOUR cameras, 2x2 (2026-10-28). The outside doorbell was dropped in the relayout and
         # the preflight caught it: the view referenced four cameras, not five, so the one camera
         # that sees a person BEFORE they reach the door had no view at all. It is first in this

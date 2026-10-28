@@ -979,3 +979,41 @@ readback `7 cards`; standalone checker exit **0** with all five cameras live.
 **The lesson worth keeping:** the entity-existence gate was built to catch a typo, and instead caught an absence —
 which is the harder case, because nothing errors. A missing card does not break a save, does not log a warning, and
 leaves a dashboard that looks complete.
+
+## 28. Round 8: it is now RENDERED and LOOKED AT — and the empty card was real — 2026-10-28
+
+This closes the one item I had repeatedly said needed the owner's eyes. It did not: it needed a browser on the right
+host.
+
+**How, without leaking a credential.** Home Assistant answers 401 from the office network, so there is no
+trusted-network bypass and a browser needs a token. A credential value must never be printed into a session
+transcript — so the browser runs **on the authority**, where it reads `HA_TOKEN` from `/opt/company/.env` itself. The
+secret never leaves the machine; only the screenshot does. `scripts/render-shop.py`: Playwright with system **Chrome
+155**, a **390×844** viewport, the auth store seeded the way the companion app does, then the page is **scrolled the
+full height** before capture.
+
+**What the render exposed, none of which any readback could show:**
+
+1. **The door-opens card was 479 px of empty white.** It rendered nothing, with `target.entity_id` *and* with the
+   deprecated `entities` form, and with **zero console errors** — while a direct `logbook/get_events` call for the
+   same two entities and the same window returned rows. A half-screen blank is worse than no list, so the card is
+   **deleted**; the graph shows *when* and the keypad shows *who*, which answers the question between them. The page
+   went from **3,394 px to 2,420 px**.
+2. **The four camera tiles were NOT broken** — they were showing loaders because my first capture never scrolled. Once
+   the page is scrolled, all four render real frames (outside stairwell, drop-off shelves, control room, bench).
+   Changing the dashboard would have "fixed" a defect that did not exist; the capture method was the bug.
+
+**What the render confirms works, on a phone-width screen:**
+- the banner, in bold, wrapping to two lines: **DOOR OPEN WHILE AWAY** — siren live · shop door open 13 minutes · no
+  doorbell · everyone away
+- the shop-door camera with a live frame and its "Main Entrance" overlay
+- **both doors in words**: `Shop door / Open`, `Apartment / Closed`
+- the keypad list, four bullets with times
+- the 24-hour band graph with an `Open`/`Closed` axis
+- the 2×2 camera grid, four live stills
+
+**And a live alarm state caught in the act:** while this was being rendered the building flipped to
+`everyone_away` with the shop door open, and the banner correctly escalated from `DOORS OPEN` to
+**`DOOR OPEN WHILE AWAY`** without anyone touching it. That is the round-1 branch doing its job on real data.
+
+**Screenshot:** `dashboards/shop-view-390.png` (780×2420 at 2× DPR).
