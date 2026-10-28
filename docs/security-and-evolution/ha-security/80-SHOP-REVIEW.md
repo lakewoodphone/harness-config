@@ -133,3 +133,37 @@ correct local time). Two consequences, both now requirements:
 
 This is the second time in this estate that a camera's honest-looking timestamp was wrong; the first cost a whole
 morning of confusion about whether NTP was on.
+
+## Round 2: clips — what is possible, proven, and what is honestly not
+
+**The constraint, first:** `camera.record` records **from the moment it is called**. It cannot go back in time. So a
+clip can exist only for a visit that is happening now. An event from this morning can never have one, and the page
+will say so rather than showing a player that fails.
+
+**Built:** `scripts/shop-clip.py`. It finds person-visits young enough for the clip to actually cover them, picks the
+camera that would have seen them (the shop-door threshold for a shop-door visit, the outside doorbell otherwise),
+records 25 seconds into `/media/shop/<visit_id>.mp4`, and records the outcome in `shop_visit_media` with
+`kind='clip'`.
+
+**The rule that keeps it honest.** The first version selected any visit that was "open or recently ended" — which
+matched the 17:15 visit, twenty minutes old. Recording then would have produced a video of an **empty hallway attached
+to someone else's arrival**. The window is now: the visit must have **started** inside the last
+`CLIP_SECONDS + 90s`, so the clip genuinely covers it. Run against the current moment it correctly selects **0
+visits** — nobody had arrived in the last two minutes.
+
+**The storage and serving path, verified end to end:**
+
+```
+camera.record -> /media/shop/proof_….mp4
+media_source browse -> 1 file, can_play: True
+media_source resolve -> /media/local/shop/proof_….mp4?authSig=…
+fetch that URL     -> 200  video/mp4  2,382,160 bytes
+```
+
+So a clip is recordable, storable, resolvable and fetchable as a real video file with no camera credential — the
+Reolink and NVR routes (researched in full: `/cam/playback` with underscore timestamps, realtime-paced;
+`File[].name` and `Download` for Reolink) stay available if the owner ever supplies a password, and are not needed for
+this to work.
+
+**Consequence for the page:** every event card carries one of three honest clip states — *plays*, *no clip because it
+is older than the recorder*, *no clip because nothing was recorded* — and only the first gets a play button.
