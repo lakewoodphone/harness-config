@@ -126,7 +126,8 @@ def is_trigger(entity: str) -> bool:
     return any(t in e for t in TRIGGERS)
 
 
-def shoot(conn: sqlite3.Connection, ha: str, token: str, when: str, why: str) -> int:
+def shoot(conn: sqlite3.Connection, ha: str, token: str, when: str, why: str,
+          dry: bool = False) -> int:
     vid = visit_for(conn, when)
     if not vid:
         return 0
@@ -134,7 +135,12 @@ def shoot(conn: sqlite3.Connection, ha: str, token: str, when: str, why: str) ->
         "SELECT COUNT(1) FROM shop_visit_media WHERE visit_id=? AND kind='still' "
         "AND captured_at > datetime('now','-1 hour')", (vid,)).fetchone()[0]
     if recent >= MAX_PER_VISIT_HOUR * 3:
+        if dry:
+            print('  [dry] %s -> visit %s: at ceiling, would skip' % (why[:40], vid))
         return 0
+    if dry:
+        print('  [dry] %s -> visit %s: WOULD CAPTURE %d camera(s)' % (why[:40], vid, len(CAMERAS)))
+        return len(CAMERAS)
     day = when[:10]
     outdir = os.path.join(MEDIA_ROOT, day)
     os.makedirs(outdir, exist_ok=True)
@@ -167,6 +173,7 @@ def shoot(conn: sqlite3.Connection, ha: str, token: str, when: str, why: str) ->
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--replay', type=int, default=0)
+    ap.add_argument('--dry', action='store_true', help='report what would be captured, write nothing')
     args = ap.parse_args()
 
     ha = (env('HA_URL') or '').rstrip('/')
@@ -191,7 +198,7 @@ def main() -> int:
             t = datetime.fromisoformat(when.replace('Z', '+00:00')).timestamp()
             if t - last < COOLDOWN_S:
                 continue
-            shoot(conn, ha, token, when, entity.replace('binary_sensor.', ''))
+            shoot(conn, ha, token, when, entity.replace('binary_sensor.', ''), dry=args.dry)
             last = t
         conn.close()
         return 0
@@ -213,7 +220,7 @@ def main() -> int:
                 if t - last_shot < COOLDOWN_S:
                     continue
                 last_shot = t
-                shoot(conn, ha, token, when, entity.replace('binary_sensor.', ''))
+                shoot(conn, ha, token, when, entity.replace('binary_sensor.', ''), dry=False)
         except Exception as exc:
             print('watch error: %s %s' % (type(exc).__name__, exc), flush=True)
         time.sleep(POLL_S)

@@ -826,3 +826,34 @@ All three reconcile exactly.
 be opaque; it is now solid (`#3a1418`), and nothing shows through it.
 
 Gate after the change: **17 checks, 17 passed.**
+
+## Round 22 (final): the watcher proven by observation, and the surface handed over
+
+**The watcher had fired zero times** since deployment, which could equally mean "nobody came" or "the loop is broken".
+Neither may be assumed, so I added `--dry` — it reports what it would photograph and writes nothing — and ran it against
+an hour of real recorded events:
+
+```
+[dry] control_room_hub_control_room_presence      -> visit 20261028T180136: WOULD CAPTURE 3 camera(s)
+[dry] video_doorbell_person                       -> visit 20261028T181845: WOULD CAPTURE 3 camera(s)
+[dry] phoenix_control_room_exterior_door_contact  -> visit 20261028T181845: WOULD CAPTURE 3 camera(s)
+```
+
+It sees the signals, attributes them to the right visit, and would photograph. What is **not** yet proven is a capture
+at the moment a real person arrives — that needs one person to walk in, and the honest statement is that it is unproven,
+not that it works.
+
+**Final gate, with a browser render: 20 checks, 20 passed.**
+
+```
+page answers 58,707 bytes        wrong token 404           42 cards, 7 day sections
+alert freshness                  local clock plausible      no empty image boxes
+4 tiles: 7.0-22.3 KB, brightness 107-128
+clip: video/mp4 3,492,110 bytes, codec h264, HTTP 206 on range, 2 in the record
+clips view 15,481 bytes          cycle active, exit 0      5,078 px, no JS errors, no overflow
+```
+
+The whole build — every decision, every trap and the evidence behind it — is in `80-SHOP-REVIEW.md` and handoff
+`H14391`, including the three things left undone: the cameras' one-hour clock skew (needs their credentials), the record
+starting at Sunday 21:53 (older footage exists only on the NVR), and the confirmation that waits on the next person
+through the door.
