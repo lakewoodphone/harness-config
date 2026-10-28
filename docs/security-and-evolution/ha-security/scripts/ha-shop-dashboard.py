@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render and apply ONE shop dashboard to Home Assistant, idempotently.
+"""Render and apply ONE Shop dashboard to Home Assistant, idempotently.
 
 Why a generator and not a JSON blob: the dashboard is applied over the websocket API
 (`lovelace/dashboards/create` + `lovelace/config/save`) because this machine has no file
@@ -9,21 +9,24 @@ what the owner's phone shows.
 
 Design rules (owner: "way too complex … i don't need the whole backend data dump", and
 "one clear simplified view"):
-  * ONE view, one column, readable on a phone.
-  * The first thing on the screen is one honest sentence about the building.
-  * A calm sentence can never appear while the siren is muted — guaranteed by branch
-    POSITION, not by remembering to check (the three test-mode branches exhaust test==on
-    before any calm branch is reachable).
-  * It says "No alerts", never "safe": every input is a flag, and none of them is panel
-    health, armed state or siren continuity. A disarmed panel, a cut siren wire and a quiet
-    building all look identical from here.
-  * The three cameras that see something useful, in the order a person arrives.
-  * The timeline last, because it is for looking back, not for a glance.
-  * Sensor health last, small: a frozen last_changed is the only way this view can show a
-    sensor that died without going `unavailable`.
+  * ONE view, one column, readable on a phone. The first screen is what matters.
+  * Two hero cameras only — the shop door (best face view) and the street door. The other
+    three are one-tap shortcuts, not full-width pictures, so the timeline is not pushed off
+    the first screen.
+  * The timeline filters to `on` transitions, so it reads as arrivals and detections
+    rather than an open/close state table.
+  * The banner is always rendered (never conditional, so it cannot silently disappear) and
+    leads with a status word in capitals. A calm sentence can never appear while the siren
+    is muted: "SIREN MUTED" is the headline whenever test mode is on, unless an intrusion is
+    already active.
+  * No switches and no mode toggles on this page. An accidental tap on test mode, guest mode
+    or lockdown is worse than the convenience of having it here.
+  * Sensor health sits last and small: a frozen `last-changed` is the only way this view can
+    show a sensor that stopped talking *without* going `unavailable`.
 
-Banner credit: designed 2026-10-28, 18 state rows rendered through Jinja2 3.1.6 with stubbed
-states()/is_state(), so the sentences are literal output rather than intention.
+Credits: layout and banner designed 2026-10-28 by fanned-out analyses; the 18-state banner
+table was rendered through Jinja2 with stubbed states()/is_state(), and this template was
+re-rendered through Home Assistant itself before being applied.
 
 usage:  PYTHONPATH=/opt/company python3 ha-shop-dashboard.py [--url-path shop-view] [--dry]
 """
@@ -36,54 +39,98 @@ import sys
 
 ENV = '/opt/company/.env'
 
-# `<br>` because markdown eats bare newlines inside a paragraph.
-BANNER = """{%- set intr = is_state('input_boolean.phoenix_intrusion_active','on') -%}
-{%- set test = is_state('input_boolean.phoenix_intrusion_test_mode','on') -%}
-{%- set lock = is_state('input_boolean.phoenix_access_control_lockdown','on') -%}
-{%- set away = is_state('binary_sensor.phoenix_everyone_away','on') -%}
-{%- set here = is_state('input_boolean.phoenix_user_is_here','on') -%}
-{%- set work = is_state('input_boolean.phoenix_worker_is_here','on') -%}
-{%- set guest = is_state('input_boolean.phoenix_house_guest_mode_active','on') -%}
-{%- set motion = is_state('binary_sensor.control_room_hub_control_room_presence','on') -%}
-{%- set shop = is_state('binary_sensor.phoenix_control_room_interior_door_contact','on') -%}
-{%- set apt = is_state('binary_sensor.phoenix_control_room_exterior_door_contact','on') -%}
-{%- set bell = is_state('binary_sensor.video_doorbell_person','on') -%}
-{%- set unknown = states('input_boolean.phoenix_intrusion_active') in ['unknown','unavailable']
-   or states('input_boolean.phoenix_intrusion_test_mode') in ['unknown','unavailable']
-   or states('binary_sensor.phoenix_everyone_away') in ['unknown','unavailable']
-   or states('binary_sensor.phoenix_control_room_interior_door_contact') in ['unknown','unavailable']
-   or states('binary_sensor.phoenix_control_room_exterior_door_contact') in ['unknown','unavailable'] -%}
-{%- set doors = 'Both doors' if shop and apt else ('Shop door' if shop else 'Apartment door') -%}
-{%- set who = 'You are in the building.' if here else ('A worker is in the building.' if work else 'No one is flagged as present.') -%}
-{%- if intr and test -%}
-**ALARM TRIPPED, SIREN SILENCED.**<br>Test mode is on. Turn it off to hear the siren.
-{%- elif intr -%}
-**ALARM GOING OFF NOW.**<br>Check cameras.
-{%- elif test and unknown -%}
-**CANNOT CONFIRM, SIREN SILENCED.**<br>Test mode is on and a sensor is offline.
-{%- elif test -%}
-**SIREN SILENCED — TEST MODE ON.**<br>No alarm will sound. Turn test mode off when done.
-{%- elif unknown -%}
-**CANNOT CONFIRM THE BUILDING.**<br>A sensor is offline. This card cannot see the building.
-{%- elif away and (here or work or motion) -%}
-**CANNOT TELL IF ANYONE IS HOME.**<br>Away flag and presence sensors disagree. Check cameras.
-{%- elif away and (shop or apt) -%}
-**DOOR OPEN, NOBODY HOME.**<br>{{ doors }} open.
-{%- elif guest and away -%}
-**GUEST MODE ON, NOBODY HOME.**<br>Alarm cannot arm. Turn guest mode off.
-{%- elif lock -%}
-**ACCESS CONTROL LOCKED DOWN.**<br>Doors stay locked until it is cleared.
-{%- elif guest -%}
-**GUEST MODE ON.**<br>Alarm cannot arm. Turn it off when the guest leaves.
-{%- elif motion and not here and not work -%}
-**MOVEMENT IN THE CONTROL ROOM.**<br>No one is flagged as present.
-{%- elif shop or apt -%}
-**{{ doors }} open.**<br>{{ who }}
-{%- elif bell -%}
-**SOMEONE AT THE OUTER DOOR.**
+BANNER = """{%- set test = states('input_boolean.phoenix_intrusion_test_mode') -%}
+{%- set guest = states('input_boolean.phoenix_house_guest_mode_active') -%}
+{%- set intr = states('input_boolean.phoenix_intrusion_active') -%}
+{%- set lock = states('input_boolean.phoenix_access_control_lockdown') -%}
+{%- set away_state = states('binary_sensor.phoenix_everyone_away') -%}
+{%- set away = away_state == 'on' -%}
+{%- set shop = states('binary_sensor.phoenix_control_room_interior_door_contact') -%}
+{%- set apt = states('binary_sensor.phoenix_control_room_exterior_door_contact') -%}
+{%- set street = states('binary_sensor.phoenix_outside_door_contact') -%}
+{%- set bell_person = states('binary_sensor.video_doorbell_person') -%}
+{%- set bell_visitor = states('binary_sensor.video_doorbell_visitor') -%}
+{%- set guest_hours = (as_timestamp(now()) - as_timestamp(states.input_boolean.phoenix_house_guest_mode_active.last_changed)) / 3600 -%}
+{%- set guest_latched = guest == 'on' and guest_hours >= 8 -%}
+{%- set any_open = shop == 'on' or apt == 'on' or street == 'on' -%}
+{%- set bell = bell_person == 'on' or bell_visitor == 'on' -%}
+{%- set unknown_core = intr not in ['on', 'off'] or lock not in ['on', 'off'] or guest not in ['on', 'off'] or test not in ['on', 'off'] or away_state not in ['on', 'off'] or bell_person not in ['on', 'off'] or bell_visitor not in ['on', 'off'] -%}
+{%- set ns = namespace(parts=[]) -%}
+{%- if test == 'on' -%}
+  {%- set ns.parts = ns.parts + ['siren muted ' ~ relative_time(states.input_boolean.phoenix_intrusion_test_mode.last_changed) ~ ' ago, no auto-expiry'] -%}
+{%- elif test == 'off' -%}
+  {%- set ns.parts = ns.parts + ['siren live'] -%}
 {%- else -%}
-**No alerts.**
-{%- endif -%}"""
+  {%- set ns.parts = ns.parts + ['siren unverified (' ~ test ~ ')'] -%}
+{%- endif -%}
+{%- if intr not in ['on', 'off'] -%}
+  {%- set ns.parts = ns.parts + ['intrusion ' ~ intr] -%}
+{%- endif -%}
+{%- if lock == 'on' -%}
+  {%- set ns.parts = ns.parts + ['lockdown on'] -%}
+{%- elif lock not in ['off'] -%}
+  {%- set ns.parts = ns.parts + ['lockdown ' ~ lock] -%}
+{%- endif -%}
+{%- if guest == 'on' -%}
+  {%- set ns.parts = ns.parts + ['guest mode on for ' ~ relative_time(states.input_boolean.phoenix_house_guest_mode_active.last_changed) ~ (', latched, arming blocked' if guest_latched else ', arming blocked')] -%}
+{%- elif guest not in ['off'] -%}
+  {%- set ns.parts = ns.parts + ['guest mode ' ~ guest ~ ', arming unverified'] -%}
+{%- endif -%}
+{%- set all_closed = shop == 'off' and apt == 'off' and street == 'off' -%}
+{%- if shop == 'on' -%}
+  {%- set ns.parts = ns.parts + ['shop door open ' ~ relative_time(states.binary_sensor.phoenix_control_room_interior_door_contact.last_changed)] -%}
+{%- elif shop not in ['off'] -%}
+  {%- set ns.parts = ns.parts + ['shop-door sensor ' ~ shop] -%}
+{%- endif -%}
+{%- if apt == 'on' -%}
+  {%- set ns.parts = ns.parts + ['apartment door open ' ~ relative_time(states.binary_sensor.phoenix_control_room_exterior_door_contact.last_changed)] -%}
+{%- elif apt not in ['off'] -%}
+  {%- set ns.parts = ns.parts + ['apartment-door sensor ' ~ apt] -%}
+{%- endif -%}
+{%- if street == 'on' -%}
+  {%- set ns.parts = ns.parts + ['street door open ' ~ relative_time(states.binary_sensor.phoenix_outside_door_contact.last_changed)] -%}
+{%- elif street not in ['off'] -%}
+  {%- set ns.parts = ns.parts + ['street-door sensor ' ~ street] -%}
+{%- endif -%}
+{%- if all_closed -%}
+  {%- set ns.parts = ns.parts + ['doors closed'] -%}
+{%- endif -%}
+{%- if bell_person == 'on' -%}
+  {%- set ns.parts = ns.parts + ['person at door'] -%}
+{%- elif bell_visitor == 'on' -%}
+  {%- set ns.parts = ns.parts + ['visitor at door'] -%}
+{%- elif bell_person == 'off' and bell_visitor == 'off' -%}
+  {%- set ns.parts = ns.parts + ['no doorbell'] -%}
+{%- else -%}
+  {%- set ns.parts = ns.parts + ['doorbell unverified'] -%}
+{%- endif -%}
+{%- if away_state == 'on' -%}
+  {%- set ns.parts = ns.parts + ['everyone away'] -%}
+{%- elif away_state not in ['off'] -%}
+  {%- set ns.parts = ns.parts + ['occupancy ' ~ away_state] -%}
+{%- endif -%}
+{%- set prefix -%}
+{%- if intr == 'on' -%}INTRUSION ACTIVE
+{%- elif test == 'on' -%}SIREN MUTED
+{%- elif test not in ['on', 'off'] -%}SIREN UNVERIFIED
+{%- elif lock == 'on' -%}LOCKDOWN ON
+{%- elif away and any_open -%}DOOR OPEN WHILE AWAY
+{%- elif bell -%}SOMEONE AT THE DOOR
+{%- elif guest_latched -%}ARMING BLOCKED
+{%- elif guest == 'on' -%}GUEST MODE ON
+{%- elif unknown_core or shop not in ['on','off'] or apt not in ['on','off'] or street not in ['on','off'] -%}STATUS UNVERIFIED
+{%- else -%}BUILDING QUIET
+{%- endif -%}
+{%- endset -%}
+**{{ prefix }}** — {{ ns.parts | join(' · ') }}."""
+
+DOORS = [
+    "binary_sensor.phoenix_control_room_interior_door_contact",
+    "binary_sensor.phoenix_control_room_exterior_door_contact",
+    "binary_sensor.phoenix_outside_door_contact",
+    "binary_sensor.video_doorbell_person",
+    "binary_sensor.video_doorbell_visitor",
+]
 
 SAFETY = [
     "input_boolean.phoenix_intrusion_active",
@@ -94,7 +141,18 @@ SAFETY = [
 ]
 
 
-def config() -> dict:
+def config(use_target: bool = False) -> dict:
+    logbook: dict = {
+        "type": "logbook",
+        "title": "Doors and doorbell — last 12 hours",
+        "hours_to_show": 12,
+        "state_filter": ["on"],
+    }
+    if use_target:
+        logbook["target"] = {"entity_id": DOORS}
+    else:
+        logbook["entities"] = DOORS
+
     return {
         "title": "Shop",
         "views": [
@@ -104,26 +162,41 @@ def config() -> dict:
                 "icon": "mdi:storefront",
                 "cards": [
                     {"type": "markdown", "content": BANNER},
-                    {"type": "custom:mushroom-title-card", "title": "Cameras"},
-                    {"type": "picture-glance", "title": "Shop door",
-                     "camera_image": "camera.cam_front_hallway_main",
-                     "camera_view": "auto", "entities": []},
-                    {"type": "picture-glance", "title": "Drop-off and pickup",
-                     "camera_image": "camera.cam_waiting_room_main",
-                     "camera_view": "auto", "entities": []},
-                    {"type": "picture-glance", "title": "Outside",
-                     "camera_image": "camera.reolink_video_doorbell_poe_clear",
-                     "camera_view": "auto", "entities": []},
-                    {"type": "custom:mushroom-title-card", "title": "Today"},
-                    {"type": "logbook", "hours_to_show": 24,
-                     "entities": [
-                         "binary_sensor.phoenix_control_room_interior_door_contact",
-                         "binary_sensor.phoenix_control_room_exterior_door_contact",
-                         "binary_sensor.video_doorbell_person",
-                         "input_boolean.phoenix_house_guest_mode_active",
-                     ]},
+                    {
+                        "type": "picture-glance",
+                        "title": "Shop door — tap for live",
+                        "camera_image": "camera.cam_front_hallway_main",
+                        "camera_view": "auto",
+                        "entities": [
+                            {"entity": DOORS[0], "show_state": False},
+                            {"entity": DOORS[3], "show_state": False},
+                            {"entity": DOORS[4], "show_state": False},
+                        ],
+                    },
+                    {
+                        "type": "picture-glance",
+                        "title": "Street door — outside stairwell",
+                        "camera_image": "camera.reolink_video_doorbell_poe_clear",
+                        "camera_view": "auto",
+                        "entities": [
+                            {"entity": DOORS[2], "show_state": False},
+                            {"entity": DOORS[3], "show_state": False},
+                        ],
+                    },
+                    logbook,
+                    {
+                        "type": "glance",
+                        "title": "More cameras — tap for live",
+                        "columns": 3,
+                        "show_state": False,
+                        "entities": [
+                            {"entity": "camera.cam_waiting_room_main", "name": "Drop-off"},
+                            {"entity": "camera.cam_deserted_exit_main", "name": "Control room"},
+                            {"entity": "camera.cam_deserted_interior_main", "name": "Bench"},
+                        ],
+                    },
                     {"type": "custom:mushroom-title-card", "title": "Sensor health",
-                     "subtitle": "a frozen time here means the sensor has stopped talking"},
+                     "subtitle": "an old time here means the sensor stopped talking"},
                     {"type": "entities", "state_color": True,
                      "entities": [{"entity": e, "secondary_info": "last-changed"} for e in SAFETY]},
                 ],
@@ -147,14 +220,13 @@ def env(key: str) -> str | None:
     return None
 
 
-async def apply(url_path: str, dry: bool) -> int:
+async def _connect():
     import websockets
 
     ha = (env('HA_URL') or '').rstrip('/')
     token = env('HA_TOKEN')
     if not ha or not token:
-        print('HA_URL or HA_TOKEN missing from', ENV)
-        return 1
+        raise SystemExit('HA_URL or HA_TOKEN missing from ' + ENV)
     ws_url = ha.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/websocket'
     _kw: dict = {"max_size": 64 * 1024 * 1024}
     if ws_url.startswith('wss://'):
@@ -162,34 +234,37 @@ async def apply(url_path: str, dry: bool) -> int:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         _kw['ssl'] = ctx
+    ws = await websockets.connect(ws_url, **_kw)
+    await ws.recv()
+    await ws.send(json.dumps({'type': 'auth', 'access_token': token}))
+    if json.loads(await ws.recv()).get('type') != 'auth_ok':
+        raise SystemExit('auth failed')
+    return ha, token, ws
 
-    cfg = config()
+
+async def apply(url_path: str, dry: bool, use_target: bool) -> int:
+    cfg = config(use_target)
     if dry:
         cards = cfg['views'][0]['cards']
-        print('dry run: %d cards, %d bytes of config' % (len(cards), len(json.dumps(cfg))))
+        print('dry run: %d cards, %d bytes' % (len(cards), len(json.dumps(cfg))))
         for c in cards:
             print('  -', c.get('type'), c.get('title') or '')
         return 0
 
-    async with websockets.connect(ws_url, **_kw) as ws:
-        await ws.recv()
-        await ws.send(json.dumps({'type': 'auth', 'access_token': token}))
-        if json.loads(await ws.recv()).get('type') != 'auth_ok':
-            print('auth failed')
-            return 1
+    ha, token, ws = await _connect()
+    counter = {'id': 1}
 
-        counter = {'id': 1}
+    async def call(payload: dict) -> dict:
+        payload = dict(payload)
+        payload['id'] = counter['id']
+        counter['id'] += 1
+        await ws.send(json.dumps(payload))
+        while True:
+            raw = json.loads(await ws.recv())
+            if raw.get('id') == payload['id']:
+                return raw
 
-        async def call(payload: dict) -> dict:
-            payload = dict(payload)
-            payload['id'] = counter['id']
-            counter['id'] += 1
-            await ws.send(json.dumps(payload))
-            while True:
-                raw = json.loads(await ws.recv())
-                if raw.get('id') == payload['id']:
-                    return raw
-
+    try:
         have = {d.get('url_path') for d in ((await call({'type': 'lovelace/dashboards/list'})).get('result') or [])}
         if url_path not in have:
             made = await call({'type': 'lovelace/dashboards/create', 'url_path': url_path,
@@ -204,6 +279,8 @@ async def apply(url_path: str, dry: bool) -> int:
         kinds = [c.get('type') for c in (views[0].get('cards') if views else [])]
         print('readback: %d view(s); %d cards: %s' % (len(views), len(kinds), ', '.join(kinds)))
         return 0 if saved.get('success') else 1
+    finally:
+        await ws.close()
 
 
 if __name__ == '__main__':
@@ -211,4 +288,4 @@ if __name__ == '__main__':
     path = 'shop-view'
     if '--url-path' in argv:
         path = argv[argv.index('--url-path') + 1]
-    sys.exit(asyncio.run(apply(path, '--dry' in argv)))
+    sys.exit(asyncio.run(apply(path, '--dry' in argv, '--target' in argv)))

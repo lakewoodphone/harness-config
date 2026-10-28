@@ -548,3 +548,57 @@ Sensor health (5 entities with last-changed). `save: True`, readback confirms th
 **What the analysis says this banner cannot do, and I agree:** it cannot answer "is the alarm armed" (no such entity is
 in the input set), it cannot say "safe", and where two occupancy sources disagree it must refuse to choose. If the
 armed question matters, it needs an armed/panel-health entity — the template cannot derive one.
+
+## 18. Rebuilt to the design analysis — 7 cards, two hero cameras, arrivals-only timeline — 2026-10-28 16:45Z
+
+The phone-first design analysis came back and cut the view from nine cards to seven, on sound reasoning: *"three equal
+camera cards bury the door, and the history graph is a tinkerer's view."* Its four changes were all adopted.
+
+**1. Two hero cameras, not three.** The shop door (`cam_front_hallway_main`, the best face view) and the street door
+(doorbell) get full width, because those are the two frames that answer "who is that". The other three became **one
+`glance` row** — Drop-off, Control room, Bench — one tap each, so they exist without pushing the timeline below the
+fold.
+
+**2. The timeline filters to `on`.** `state_filter: ['on']` on the logbook means it reads as **arrivals and
+detections** instead of an open/close state table, and the window dropped from 24 h to **12 h**. This is the single
+biggest readability change of the round.
+
+**3. Door and doorbell contacts ride on the pictures.** Each picture-glance carries its door contact and the two
+doorbell sensors as icon buttons with the state hidden — so the door's state is attached to the picture of the door,
+instead of living in a separate entity list.
+
+**4. No switches anywhere on the page.** Not test mode, not guest mode, not lockdown. An accidental tap on any of those
+is worse than the convenience of having them here.
+
+**The banner changed shape.** It is now a status word in capitals followed by a factual list, with **relative times**
+that did not exist before:
+
+```
+**BUILDING QUIET** — siren live · doors closed · no doorbell · everyone away.
+```
+
+Rendered through Home Assistant's own `/api/template` before applying. The other states read like
+`**SIREN MUTED** — siren muted 7 minutes ago, no auto-expiry · doors closed · no doorbell` and
+`**ARMING BLOCKED** — siren live · guest mode on for 9 hours, latched, arming blocked · …`. It still never says "all
+good", and `SIREN MUTED` is the headline whenever the drill switch is on unless an intrusion is already active.
+
+**Verified, card by card, from what Home Assistant stored** (not from what I sent):
+
+```
+view: Shop | cards: 7
+  - markdown
+  - picture-glance Shop door — tap for live      camera=camera.cam_front_hallway_main
+  - picture-glance Street door — outside stairwell camera=camera.reolink_video_doorbell_poe_clear
+  - logbook Doors and doorbell — last 12 hours   entities=5 state_filter=['on'] hours=12
+  - glance More cameras — tap for live           columns=3
+  - custom:mushroom-title-card Sensor health
+  - entities
+```
+
+**Kept against the design's advice, deliberately:** the sensor-health card stays at the bottom. The design wanted five
+cards and no presence list; the banner analysis argued that a sensor which dies *without* going `unavailable` is
+invisible without a `last-changed` row somewhere. It sits last and small, so the first screen is still four things.
+
+**Still outstanding:** the card-mechanics analysis (exact schemas, `logbook` `target` vs `entities`, whether
+`state_filter` is honoured or silently ignored, and which properties fail quietly). `state_filter` and `hours_to_show`
+round-tripped through the API — that proves they were **stored**, not that the card honours them.
