@@ -774,3 +774,28 @@ Gate: 17 checks, 17 passed.
 page (a DST fault on the camera, not on this server). Correcting it needs the camera's own credentials, which this
 environment does not have. Until then the page must not pretend otherwise, and the honest presentation is the two
 times side by side in the expanded card: *when the camera says*, and *when we fetched it*.
+
+## Round 20: the watcher's trigger list was too loose, and too fast
+
+Deployed the event-driven watcher, then checked whether it had actually fired. **Zero captures in ten minutes** — which
+could mean "nobody came" or "the filter matches nothing". It matched, but only after I looked at the real entity names:
+
+| entity | fires/hour | triggered? |
+|---|---|---|
+| `video_doorbell_person` | 62 | yes |
+| `control_room_hub_control_room_presence` | 60 | yes |
+| `phoenix_outside_door_contact` | 30 | yes |
+| `phoenix_control_room_interior_door_contact` | 9 | yes |
+| `event.esphome.access_control_keypad_entry` | 12 | yes |
+| `automation.phoenix_access_control_master_presence` | 25 | **yes — wrong** |
+| `automation.phoenix_keypad_event_handler` | 25 | **yes — wrong** |
+
+An automation firing is a *consequence* of a signal, not the signal. Counting it would photograph the same moment twice
+and fill the record with pictures of nothing happening. Automations, scripts, scenes and `input_*` are now refused.
+
+**And the rate.** The presence sensor alone fires about **60 times an hour**. At the original 20-second cooldown that is
+up to 540 pictures an hour from one sensor, and a visit that stays "open" would accumulate them all. Cooldown is now
+**45 s** with a hard ceiling of **8 capture rounds per visit per hour** (24 files), so a busy afternoon cannot quietly
+fill the disk.
+
+Verified after the change: the filter accepts exactly the six person-capable sensors and no automation.

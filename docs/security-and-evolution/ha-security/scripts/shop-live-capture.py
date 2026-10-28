@@ -50,7 +50,9 @@ CAMERAS = [
 # a zone going "occupied" can be a fan or a shadow, and one arrival would fire four cameras.
 TRIGGERS = ('_smart_motion_human', '_person', '_visitor', 'door_contact', 'keypad', 'presence')
 
-COOLDOWN_S = 20          # one arrival, one round of pictures
+COOLDOWN_S = 45          # one arrival, one round of pictures
+MAX_PER_VISIT_HOUR = 8   # an occupancy sensor alone fires ~60 times an hour; without this cap one
+                         # afternoon would write hundreds of near-identical pictures
 POLL_S = 3.0
 
 SCHEMA = """
@@ -108,8 +110,18 @@ def visit_for(conn: sqlite3.Connection, when: str) -> str | None:
 
 
 def is_trigger(entity: str) -> bool:
+    """A sensor or an event, never an automation.
+
+    Measured against an hour of record: the substring list matched
+    `automation.phoenix_access_control_master_presence` and `automation.phoenix_keypad_event_handler` as
+    well as the real sensors. An automation firing is a consequence of a signal, not the signal, so
+    counting it would take the same photograph twice and inflate the record with moments nothing
+    happened in.
+    """
     e = entity.lower()
     if any(bad in e for bad in ('pin_code', 'password', 'token', 'secret')):
+        return False
+    if e.startswith(('automation.', 'input_', 'script.', 'scene.')):
         return False
     return any(t in e for t in TRIGGERS)
 
@@ -117,6 +129,11 @@ def is_trigger(entity: str) -> bool:
 def shoot(conn: sqlite3.Connection, ha: str, token: str, when: str, why: str) -> int:
     vid = visit_for(conn, when)
     if not vid:
+        return 0
+    recent = conn.execute(
+        "SELECT COUNT(1) FROM shop_visit_media WHERE visit_id=? AND kind='still' "
+        "AND captured_at > datetime('now','-1 hour')", (vid,)).fetchone()[0]
+    if recent >= MAX_PER_VISIT_HOUR * 3:
         return 0
     day = when[:10]
     outdir = os.path.join(MEDIA_ROOT, day)
