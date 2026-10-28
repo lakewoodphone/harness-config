@@ -1797,14 +1797,24 @@ def cmd_refund(args) -> int:
         note = " || REFUNDED %s by %s: %s (%s -> %s of %s)" % (
             now(), by, why, before, after, ceiling)
         new_state = row["state"]
-        reopen = row["state"] in ("failed", "expired") and after < ceiling
+        # A CLAIMED ROW PUT BACK MUST BECOME AVAILABLE NOW, NOT IN 20 MINUTES (2026-10-28). The
+        # tree lock puts a row back when another shift already holds the project's checkout, and the
+        # first version of this only reopened failed/expired rows: the row came back with attempts
+        # 0/2 but state still `claimed`, so it was invisible to `_candidates` until its 1200 s lease
+        # expired and reap released it. "Put back" has to mean back in the queue.
+        reopen = ((row["state"] in ("failed", "expired") and after < ceiling)
+                  or row["state"] in ("claimed", "running"))
         if reopen:
             new_state = "new"
         conn.execute(
             """UPDATE wake SET attempts=?, state=?,
                    not_before=CASE WHEN ? THEN NULL ELSE not_before END,
                    finished_at=CASE WHEN ? THEN NULL ELSE finished_at END
-               WHERE id=?""", (after, new_state, 1 if reopen else 0, 1 if reopen else 0, args.id))
+                   , claimed_by=CASE WHEN ? THEN NULL ELSE claimed_by END
+                   , claimed_at=CASE WHEN ? THEN NULL ELSE claimed_at END
+                   , lease_until=CASE WHEN ? THEN NULL ELSE lease_until END
+               WHERE id=?""", (after, new_state, 1 if reopen else 0, 1 if reopen else 0,
+                               1 if reopen else 0, 1 if reopen else 0, 1 if reopen else 0, args.id))
         # The outcome append is its own statement: it must never be lost to a CASE expression.
         conn.execute("UPDATE wake SET outcome=COALESCE(outcome,'') || ? WHERE id=?", (note, args.id))
         fresh = row_dict(conn.execute(

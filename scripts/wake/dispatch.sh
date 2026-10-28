@@ -337,6 +337,60 @@ say_aim() {
 oneline() { printf '%s' "$1" | tr '\t\r\n' '   '; }
 # bound a blob to N characters, single line, for the store's outcome column
 bounded() { local t; t=$(printf '%s' "$1" | tr '\t\r\n' '   '); printf '%s' "${t:0:$OUTCOME_BYTES}"; }
+# WHAT THE SESSION ACTUALLY REPORTED.
+# The answer is a NAMED SECTION of the out-file, not its last 2000 bytes.
+# Measured 2026-10-18: `outcome` was `tail -c 2000` of a 70-130 KB transcript,
+# which is the model's chain-of-thought TRAILER, so `wake.py list` showed the
+# shift thinking instead of what it reported. The runner already marks the real
+# answer between two banners, so that section is the primary source.
+#
+# A NO-ANSWER OUT-FILE IS NOT A SHORT OUT-FILE. Measured 2026-10-27: seven
+# releases (16:41-19:08Z) exited 1 on `npm error could not determine executable
+# to run`, which sits AFTER the runner header. `bounded(tail -c 2000)` kept only
+# the header's first 600 characters, so a launch failure was recorded as "ssh hop
+# failed" and item 1330's premise guessed host-asleep. The no-answer path now
+# reads the failure vocabulary out of the whole file; the tail stays only as the
+# last resort, so an unfamiliar format degrades to bytes rather than to silence.
+answer_head() {
+  awk '
+    /^--- stdout \(final answer\) ---[[:space:]]*$/ { inans=1; next }
+    /^--- stderr \(provider reasoning\) ---[[:space:]]*$/ { inans=0; next }
+    inans { print }
+  ' "$1" 2>/dev/null
+}
+no_answer_excerpt() {
+  local f=$1 out
+  # 1. The launcher's/engine's own failure vocabulary, anchored at line start.
+  out=$(grep -aE '^[[:space:]]*(npm (error|ERR!)|WAKE_(FAIL_REASON|NOT_STARTED_REASON|EMPTY_ANSWER)=)' "$f" 2>/dev/null | head -8)
+  # 2. A recognisable failure line anywhere in the file (an older runner, a
+  #    traceback, a resolver refusal), before falling back to the header.
+  if [ -z "$out" ]; then
+    out=$(grep -aiE 'error|exception|traceback|fatal|panic|could not|not found|no such file|refus(ed|ing) to boot|failed' "$f" 2>/dev/null | head -8)
+  fi
+  # 3. Never return nothing for a file that has bytes.
+  [ -n "$out" ] || out=$(tail -c 2000 "$f" 2>/dev/null)
+  printf '%s' "$out"
+}
+extract_result_text() {
+  local f=$1
+  RESULT_TEXT=""
+  RESULT_PRESENT=0
+  ANSWER_TEXT=""
+  ANSWER_PRESENT=0
+  [ -f "$f" ] || return 0
+  ANSWER_TEXT=$(answer_head "$f" | sed -e '/./,$!d' | head -c 6000)
+  if [ -n "$(printf '%s' "$ANSWER_TEXT" | tr -d '[:space:]')" ]; then
+    ANSWER_PRESENT=1
+  fi
+  if [ "$ANSWER_PRESENT" = 1 ]; then
+    RESULT_TEXT=$(bounded "$(printf '%s' "$ANSWER_TEXT" | head -c 2000)")
+  else
+    RESULT_TEXT=$(bounded "$(no_answer_excerpt "$f")")
+  fi
+  # Non-empty bytes in THIS session's out-file are the session's own output.
+  [ -n "$RESULT_TEXT" ] && RESULT_PRESENT=1
+  return 0
+}
 # Shell-quote an argument the way a human would write it: bare when it is plain,
 # single-quoted when it holds spaces (so a dry run prints something readable AND
 # copy-pasteable), %q only when a single quote makes that unsafe.
@@ -923,6 +977,40 @@ else
   esac
   IFS=$'\t' read -r ID SUBJ PRIORITY <<<"$SELECTED"
   CLAIMED_ID=$ID
+  # ---------------------------------------------------------------------------
+  # 4b. ONE SHIFT PER PROJECT TREE (added 2026-10-28).
+  # MEASURED with where-are-shifts-overlapping.py over 7 days: 111 same-project overlaps, including
+  # #1597 (project:lpt-website:20261027) overlapping #1622 (project:lpt-website:20261028) by 3544 s -
+  # two sessions inside /root/repos/phone-and-tech-full at once, a 1.6 GB checkout with 25 linked
+  # worktrees. The estate's own rule is one owner per shared resource per fleet, and the fan-out
+  # deliberately runs several releases at a time, so this is a measured collision, not a theory: a
+  # branch switch or a `git checkout test` under another session's feet loses work that no proof
+  # line can recover.
+  #
+  # The lock is keyed on the subject's PROJECT, held on fd 8 for the life of this dispatcher, and so
+  # released the moment the process exits (including a kill -9). A row whose project is busy is PUT
+  # BACK rather than spent: `refund` returns it to `new` with its attempt given back, which is the
+  # same vocabulary the launcher-fault path uses, so an unavailable tree never costs an item a try.
+  PROJECT_KEY=$(printf '%s' "$SUBJ" | awk -F: '{ if ($1=="project" || $1=="checkout-health") print $2; else print $1 }')
+  if [ -n "$PROJECT_KEY" ]; then
+    TREE_LOCK_DIR=${WAKE_TREE_LOCK_DIR:-$HOME/.sms-inbox/tree-lock}
+    mkdir -p "$TREE_LOCK_DIR" 2>/dev/null
+    TREE_LOCK="$TREE_LOCK_DIR/$PROJECT_KEY.lock"
+    # >> not >: opening with > truncates the file even when another process holds the lock, which
+    # would erase the holder's name exactly when it is needed.
+    exec 8>>"$TREE_LOCK" 2>/dev/null
+    if ! flock -n 8; then
+      HOLDER=$(head -1 "$TREE_LOCK" 2>/dev/null)
+      log "wake #$ID ($SUBJ): the $PROJECT_KEY tree is held by another shift${HOLDER:+ [$HOLDER]} - putting the row back, no attempt spent"
+      [ "$DRY_RUN" = 1 ] && say "dry-run: the $PROJECT_KEY tree is busy - a real run would put this row back"
+      "$PY" "$WAKE_CLI" refund "$ID" --by "$CALLSIGN" \
+        --why "another shift was already working the $PROJECT_KEY tree; no session was started and no attempt was spent" \
+        >/dev/null 2>&1 || log "ERROR could not refund wake #$ID; the lease will expire and reap will recover it"
+      CLAIMED_ID=""
+      exit 0
+    fi
+    printf '%s %s wake #%s %s\n' "$(date -u +%FT%TZ)" "$CALLSIGN" "$ID" "$(printf '%s' "$SUBJ" | cut -c1-80)" > "$TREE_LOCK"
+  fi
   # The lease ran from the moment the claim wrote it. From here the session may run
   # until this deadline minus the margin; every successful heartbeat moves it.
   LEASE_DEADLINE=$(( $(date -u +%s) + LEASE ))
@@ -1369,37 +1457,9 @@ if [ -f "$LOCAL_OUT" ]; then
   fi
   COST=$(grep -o 'WAKE_COST_USD=[0-9][0-9.]*' "$LOCAL_OUT" 2>/dev/null | tail -1 | cut -d= -f2)
 fi
-RESULT_TEXT=""
-RESULT_PRESENT=0
-ANSWER_TEXT=""
-ANSWER_PRESENT=0
-# THE ANSWER IS A NAMED SECTION OF THE OUT-FILE, NOT ITS LAST 2000 BYTES.
-# Measured 2026-10-18: `outcome` was `tail -c 2000` of a 70-130 KB transcript, which is the
-# model's chain-of-thought TRAILER. `wake.py list` therefore never showed what a shift actually
-# reported -- it showed the shift thinking -- and the head of every real answer was always lost
-# (verified byte-for-byte against wake #1168: the stored outcome reproduces the tail verbatim).
-# The runner already marks the real answer between two banners, so take that section, and keep
-# the tail as a fallback so an unfamiliar format degrades instead of failing a good session.
-answer_head() {
-  awk '
-    /^--- stdout \(final answer\) ---[[:space:]]*$/ { inans=1; next }
-    /^--- stderr \(provider reasoning\) ---[[:space:]]*$/ { inans=0; next }
-    inans { print }
-  ' "$1" 2>/dev/null
-}
-if [ -f "$LOCAL_OUT" ]; then
-  ANSWER_TEXT=$(answer_head "$LOCAL_OUT" | sed -e '/./,$!d' | head -c 6000)
-  if [ -n "$(printf '%s' "$ANSWER_TEXT" | tr -d '[:space:]')" ]; then
-    ANSWER_PRESENT=1
-  fi
-  if [ "$ANSWER_PRESENT" = 1 ]; then
-    RESULT_TEXT=$(bounded "$(printf '%s' "$ANSWER_TEXT" | head -c 2000)")
-  else
-    RESULT_TEXT=$(bounded "$(tail -c 2000 "$LOCAL_OUT")")
-  fi
-  # Non-empty bytes in THIS session's out-file are the session's own output.
-  [ -n "$RESULT_TEXT" ] && RESULT_PRESENT=1
-fi
+# The extractor is defined above the WAKE_LIB_ONLY guard, so a test can prove
+# what THIS file returns without running the dispatcher.
+extract_result_text "$LOCAL_OUT"
 
 # ---------------------------------------------------------------------------
 # 9. Decide success. ssh rc alone is not enough: the runner reports the exit
