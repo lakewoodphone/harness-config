@@ -1,0 +1,4 @@
+# Branches the lander must not open a PR for. One name per line; '#' starts a comment.
+# Put the reason AND the item that owns the decision, so the next reader knows how to clear it.
+lpt/1052-price-change-20261025   # custom/max-file-lines 504>500 and the split hits the primitive guard; needs a decision on the primitives Button or the guard baseline - item 1348, lesson L13569
+  

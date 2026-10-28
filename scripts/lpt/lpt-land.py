@@ -31,6 +31,7 @@ WHAT IT WILL NEVER DO:
 from __future__ import annotations
 
 import json
+import pathlib
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -161,8 +162,33 @@ def main() -> int:
     prs = open_prs()
     print("lpt-land: %d done-but-unlanded branch(es); %d open PR(s) into test" % (len(rows), len(prs)))
 
+    # ARM AUTO-MERGE (2026-10-28). Without this a landing costs two check cycles: the PR goes green, merging it
+    # moves `test`, so it must be updated and re-run, and only a LATER tick merges it. With auto-merge armed,
+    # GitHub merges the instant the required checks pass - the same gate, no idle tick. Idempotent.
+    if not dry:
+        for br, pr in prs.items():
+            if not any((r.get("branch") or "").replace("origin/", "") == br for r in rows):
+                continue
+            sh([sys.executable, "/root/bin/auto-merge.py", str(pr["number"])], timeout=120)
+
     # Prefer closing out an existing PR whose checks are already green: it is the cheapest landing
     # and it is the one a human has already had a chance to see.
+    # HOLD LIST (2026-10-28). A branch that cannot pass CI is not a landing candidate: closing its PR only
+    # makes D4 list it again, so the lander would reopen a doomed PR every tick. /root/.lpt-land-hold.txt names
+    # those branches and says why. One name per line; `#` starts a comment.
+    held = set()
+    try:
+        for line in pathlib.Path("/root/.lpt-land-hold.txt").read_text().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if line:
+                held.add(line)
+    except FileNotFoundError:
+        pass
+    if held:
+        rows = [r for r in rows
+                if (r.get("branch") or "").replace("origin/", "") not in held]
+        print("lpt-land: %d branch(es) on the hold list are skipped" % len(held))
+
     for row in rows:
         branch = (row.get("branch") or "").replace("origin/", "")
         pr = prs.get(branch)
