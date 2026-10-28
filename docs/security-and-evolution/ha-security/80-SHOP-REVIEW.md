@@ -857,3 +857,31 @@ The whole build — every decision, every trap and the evidence behind it — is
 `H14391`, including the three things left undone: the cameras' one-hour clock skew (needs their credentials), the record
 starting at Sunday 21:53 (older footage exists only on the NVR), and the confirmation that waits on the next person
 through the door.
+
+## Round 23: the same view, inside Home Assistant
+
+The owner asked for the review view **in HA**, not beside it. Built as a dashboard rather than a second
+implementation, so there is one page to maintain and no drift:
+
+- dashboard **`shop-review`** (title "Shop review", icon `mdi:storefront-outline`, in the sidebar),
+- a single **panel** view whose one card is an **`iframe`** pointing at
+  `https://api.abletelsolutions.com/webhook/ha/shop/r/<SHOP_REVIEW_TOKEN>`,
+- so the live tiles, the alert, the day gallery, the visit cards and the clips are the *same* page, with the same
+  refresh, the same honesty and no duplicate code.
+
+**Three attempts, because the card fought back — recorded so nobody repeats them:**
+
+1. `aspect_ratio: "250%"` inside a sections grid — stored correctly, rendered no differently. HA's iframe card does not
+   grow past its default in a grid.
+2. `card_mod` with `iframe{height:1150px}` — silently ignored; card-mod cannot reach the iframe card's shadow root with a
+   plain selector.
+3. **`type: panel`** — one card, the whole viewport. This is the one that works, and it is the right shape for a
+   full-screen gallery anyway.
+
+**Verified by rendering the dashboard in a browser at 390×844**, logged in: the frame shows the Shop header, *All events
+/ Clips (2)*, the red **DOOR OPEN WHILE AWAY** bar, all four live tiles, *"snapshots read at 14:43:36 · refreshing every
+30s"*, the three most recent captures, and `Today · Wed 28 Oct — 11 visits · 6 with a person` with the first card's
+picture, person badge and clip badge.
+
+The definition is committed as `dashboards/shop-review-dashboard.json` with the token redacted, so it can be recreated
+from the repo.

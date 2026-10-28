@@ -1,0 +1,15 @@
+{
+  "views": [
+    {
+      "title": "Shop review",
+      "path": "main",
+      "type": "panel",
+      "cards": [
+        {
+          "type": "iframe",
+          "url": "https://api.abletelsolutions.com/webhook/ha/shop/r/<SHOP_REVIEW_TOKEN>"
+        }
+      ]
+    }
+  ]
+}
