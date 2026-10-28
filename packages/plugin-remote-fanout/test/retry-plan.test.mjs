@@ -180,3 +180,53 @@ test('the reporting lines name the node, the verdict and the action', () => {
   assert.match(policyLine, /NEVER re-dispatched/);
   assert.match(policyLine, /3 transport attempt/);
 });
+
+// ── THE WRAPPER'S MARKERS ARE NOT THE CHILD'S WORK ──────────────────────────────
+// Measured 2026-10-28 14:49Z, ZABZ-TECH. A mesh child died in its MCP/TLS init
+// (`getaddrinfo ENOTFOUND mcp.jina.ai`, `dsh: TRANSPORT: DeepSeek Messages transport
+// failed`) having taken no step at all. Its stdout was the wrapper's own block and
+// nothing else. Because `emittedMarkers` matched `FANOUT_BEGIN`/`FANOUT_TRANSPORT_HOST=`,
+// and because `framed` was true, it was classified `structural` — "the child ran and its
+// outcome is its own" — so the delegation was spent and never rerouted.
+//
+// FANOUT_BEGIN / FANOUT_TRANSPORT_HOST / FANOUT_END are printed by remote-script.js
+// BEFORE the child is launched. Only `MESH-HOST:` is the child's own word.
+
+const deadBeforeFirstStep = {
+  exitCode: 1,
+  ms: 149_334,
+  stdout: 'FANOUT_TRANSPORT_HOST_4e6b29cf=ZABZ-TECH\nFANOUT_TRANSPORT_CWD_4e6b29cf=C:\\Users\\ezabz\nFANOUT_BEGIN_4e6b29cf\n\nFANOUT_END_4e6b29cf=1\n',
+  stderr: 'Error: getaddrinfo ENOTFOUND mcp.jina.ai\n  at fetchWithMcpHeaders (mcp-remote/dist/chunk-UZ6Y4QJH.js)\n',
+};
+
+test('a child that died before its first step is rerouted, not filed as a decided outcome', () => {
+  // The frame is present and empty — remote-script wrote it around nothing.
+  const klass = classifyFailure({ outcome: deadBeforeFirstStep, parsed: { framed: true, host: 'ZABZ-TECH', answer: '' } });
+  assert.equal(klass, 'node-specific', 'wrapper markers and an empty frame must not read as the child having worked');
+
+  const plan = planFor(klass, 0, { random: () => 0.5 });
+  assert.equal(plan.action, 'reroute');
+  assert.ok(plan.delayMs >= 10_000, 'reroute must outlive the broker capacity cache');
+  assert.doesNotMatch(plan.reason, /decided work/, 'this child decided nothing');
+});
+
+test('but a child that DID answer keeps its answer, whatever its exit code', () => {
+  const klass = classifyFailure({
+    outcome: { ...deadBeforeFirstStep, stdout: 'MESH-HOST: zabz-tech\n\nFANOUT_END_x=1\n' },
+    parsed: { framed: true, host: 'ZABZ-TECH', answer: 'MESH-HOST: zabz-tech\nI could not finish: the repo is dirty.' },
+  });
+  assert.equal(klass, 'structural');
+  assert.equal(planFor(klass, 0, {}).action, 'fail');
+});
+
+test('a child that started and then died unanswered is still harvested, never re-run', () => {
+  // startedEvidence is the independent proof that the child began, and it outranks
+  // the absence of an answer — this is the anti-duplication rule and it must hold.
+  const klass = classifyFailure({
+    outcome: deadBeforeFirstStep,
+    parsed: { framed: true, host: 'ZABZ-TECH', answer: '' },
+    startedEvidence: true,
+  });
+  assert.equal(klass, 'child-ran-transport-fault');
+  assert.equal(planFor(klass, 0, {}).action, 'harvest');
+});

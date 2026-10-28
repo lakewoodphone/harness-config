@@ -135,14 +135,45 @@ export function classifyFailure({ outcome, parsed, startedEvidence, aborted, hos
   // fell back to doing its work on the laptop the owner was trying to work on.
   //
   // THE ANTI-DUPLICATION GUARD IS PRESERVED, and that is what the stdout test is for:
-  // a child that emitted ANY of its own markers (the transport block, FANOUT_BEGIN,
-  // a MESH-HOST line) may already have done work, and the very next branch harvests
-  // it instead. Only a child that produced *nothing whatsoever* is re-routed, so this
-  // never duplicates an effect — it recovers from a node that cannot start one.
-  const emittedMarkers = /FANOUT_BEGIN|FANOUT_TRANSPORT_HOST=|MESH-HOST:/.test(String(outcome.stdout ?? ''));
-  if (!emittedMarkers && startedEvidence !== true
+  // a child that emitted anything of its OWN beyond the wrapper's fixed block may
+  // already have done work, and the very next branch harvests it instead. Only a child
+  // that produced *nothing whatsoever* is re-routed, so this never duplicates an
+  // effect — it recovers from a node that cannot start one.
+  //
+  // CORRECTED 2026-10-28 — THE WRAPPER'S OWN MARKERS ARE NOT THE CHILD'S WORK.
+  //
+  // This test used to match `FANOUT_BEGIN` and `FANOUT_TRANSPORT_HOST=` as well, and
+  // that is backwards: `remote-script.js` prints both BEFORE it launches the child, so
+  // they prove only that the wrapper started. Measured 2026-10-28 14:49Z on ZABZ-TECH:
+  // a mesh child emitted exactly
+  //     FANOUT_TRANSPORT_HOST_4e6b29cf=ZABZ-TECH / FANOUT_BEGIN_4e6b29cf /
+  //     FANOUT_END_4e6b29cf=1
+  // and nothing else — it had died in its MCP/TLS init on
+  // `getaddrinfo ENOTFOUND mcp.jina.ai` and `dsh: TRANSPORT: DeepSeek Messages
+  // transport failed` — yet those wrapper markers set `emittedMarkers`, skipped this
+  // branch, and it was filed as `structural`. `planFor` then said "the child ran and its
+  // outcome is its own; retrying would re-run decided work" and the delegation was
+  // spent, although the child never took a step.
+  //
+  // THE RULE, and it is the one the two measurements support in both directions:
+  // `remote-script.js` prints a FIXED block of its own before the child is launched —
+  // FANOUT_TRANSPORT_HOST=…, FANOUT_TRANSPORT_CWD=…, FANOUT_BEGIN, and (if it got that
+  // far) FANOUT_END=<code>. Every other non-blank line is the child speaking: a
+  // MESH-HOST line, a sentence of reasoning, a tool result. So "the child said
+  // something" is `stdout has any line that is not a wrapper line`, which keeps the
+  // 2026-09-30 case (FANOUT_BEGIN + `PARTIAL REASONING THAT SURVIVED`) harvested and
+  // makes the 2026-10-28 case (wrapper block only) re-routable.
+  //
+  // `framed` is corrected the same way below: a frame with no answer is the transport
+  // speaking, not the child answering.
+  const childSaidSomething = String(outcome.stdout ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .some((line) => !/^FANOUT_(TRANSPORT_HOST|TRANSPORT_CWD|BEGIN|END)(_[0-9a-f]+)?(=.*)?$/.test(line));
+  if (!childSaidSomething && startedEvidence !== true
       && outcome.exitCode !== undefined && outcome.exitCode !== 0
-      && !framed && !producedAnswer && !transportFault && !sshRefused) {
+      && !producedAnswer && !transportFault && !sshRefused) {
     return 'node-specific';
   }
 
@@ -153,14 +184,22 @@ export function classifyFailure({ outcome, parsed, startedEvidence, aborted, hos
 
   if (outcome.timedOut === true) return 'child-ran-transport-fault';
 
-  // A non-zero exit WITH a frame and an answer is the child's own outcome. If the
-  // child reasoned, that is its answer and it is structural.
+  // A non-zero exit WITH an answer is the child's own outcome. If the child
+  // reasoned and answered, that is its answer and it is structural.
+  //
+  // CORRECTED 2026-10-28: `framed` alone is NOT an answer. The frame is written by
+  // `remote-script.js` around whatever the child produced, so a child that died before
+  // it could speak still leaves a well-formed frame with an empty body (measured that
+  // day: `FANOUT_BEGIN` … `FANOUT_END=1`, no answer, exit 1). Calling that "structural"
+  // told the parent the child had decided something, when in fact it had produced
+  // nothing. Only `producedAnswer` makes it the child's own outcome.
   if (outcome.exitCode !== 0 && outcome.exitCode !== undefined) {
-    if (framed || producedAnswer) return 'structural';
-    // NO FRAME, NO ANSWER, and the transport faulted: the child's last moment was
-    // never captured and it may still be running, so this is harvest-or-report and
-    // never a re-dispatch. (A non-zero exit with NO transport fault was already
-    // claimed above, because in that shape the process is provably gone.)
+    if (producedAnswer) return 'structural';
+    // NO ANSWER: whatever the frame says, the child's last moment was never captured
+    // and it may still be running, so this is harvest-or-report and never a
+    // re-dispatch. (A non-zero exit with NO answer and no transport fault was already
+    // claimed above as node-specific, because in that shape the process is provably
+    // gone and the node cannot start one.)
     return 'child-ran-transport-fault';
   }
 
