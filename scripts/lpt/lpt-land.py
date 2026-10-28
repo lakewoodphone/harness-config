@@ -30,6 +30,7 @@ WHAT IT WILL NEVER DO:
 """
 from __future__ import annotations
 
+import datetime
 import json
 import pathlib
 import subprocess
@@ -189,6 +190,7 @@ def main() -> int:
                 if (r.get("branch") or "").replace("origin/", "") not in held]
         print("lpt-land: %d branch(es) on the hold list are skipped" % len(held))
 
+    auto_held = False
     for row in rows:
         branch = (row.get("branch") or "").replace("origin/", "")
         pr = prs.get(branch)
@@ -199,6 +201,31 @@ def main() -> int:
         print("  PR #%s (%s): %s" % (pr["number"], branch, (p.stdout.strip().splitlines() or [""])[-1][:160]))
         if p.returncode == 0 and not dry:
             return 0
+        # AUTO-HOLD (2026-10-28). A PR that is RED for code reasons never leaves the slot, and the cap means it
+        # blocks every later branch. Hold it once, with the failing checks on the PR and the branch on the hold
+        # list, so the slot frees and the reason is written down. Transient states (PENDING, BILLING) keep their
+        # slot - those are time, not defects. At most one hold per tick.
+        out = p.stdout or ""
+        if (not dry and not auto_held and "checks are RED" in out and "BILLING" not in out):
+            import re
+            m = re.search(r"REFUSED: checks are RED: (.+)", out)
+            why = (m.group(1) if m else "checks are RED")[:200]
+            sh([sys.executable, "/root/bin/pr-comment.py", str(pr["number"]),
+                "Held by lpt-land: this branch cannot pass its checks as it stands, so the slot is being "
+                "freed rather than blocked.\n\nFailing: `%s`\n\nThe branch is on "
+                "/root/.lpt-land-hold.txt with this reason. Remove that line to let the lander try again."
+                % why], timeout=120)
+            sh([sys.executable, "/root/bin/pr-close.py", str(pr["number"])], timeout=120)
+            try:
+                with open("/root/.lpt-land-hold.txt", "a", encoding="utf-8") as fh:
+                    fh.write("%s   # RED: %s (auto-held %s)\n"
+                             % (branch, why, datetime.datetime.now(datetime.timezone.utc)
+                                .strftime("%Y-%m-%dT%H:%MZ")))
+            except OSError:
+                pass
+            print("  -> held: %s (%s)" % (branch, why[:90]))
+            auto_held = True
+            continue
         if p.returncode not in (0, 3):
             print("  -> not mergeable now; will try another branch next tick")
 
