@@ -31,10 +31,14 @@ from zoneinfo import ZoneInfo
 # reading 17:15 next to a camera frame stamped 12:40, with no timezone stated anywhere — so the page
 # looked five hours wrong. Everything the owner reads is now local, labelled once, and days are cut
 # at local midnight rather than UTC midnight (which was putting evening activity in the wrong day).
+# The zone is a literal, not a lookup: resolving it through env() at import time failed silently
+# (env is defined further down), the except branch caught it, and the page spent an hour claiming
+# "times are local" while printing UTC. A fallback that changes the meaning of every number on the
+# screen must not be reachable by an import-order accident.
 try:
-    LOCAL_TZ = ZoneInfo(env('SHABBAT_TIMEZONE') or 'America/New_York')
+    LOCAL_TZ = ZoneInfo('America/New_York')          # the building's zone
 except Exception:                                    # pragma: no cover - defensive
-    LOCAL_TZ = ZoneInfo('UTC')
+    LOCAL_TZ = timezone.utc
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -222,7 +226,7 @@ INSIDE = 'camera.cam_front_hallway_main'          # the shop door, from inside
 OUTSIDE = 'camera.reolink_video_doorbell_poe_clear'  # the street, from outside
 
 
-def camera_priority(doors: list[str], has_person: int) -> list[str]:
+def camera_priority(doors: list[str], has_person: int, subjects: list | None = None) -> list[str]:
     """Which camera to show for this visit, best first.
 
     The owner's correction, verbatim: *"most recent capture should include in the shop, not just
@@ -238,6 +242,13 @@ def camera_priority(doors: list[str], has_person: int) -> list[str]:
         street door / person-> outside, then inside (the inside shot is the arrival)
         nothing known       -> inside
     """
+    # A TITLE SAYS INTERIOR, THE PICTURE MUST TOO (2026-10-28). A keypad entry logged "at Interior"
+    # was showing the street because the visit had no door signal, only a person. The credential is
+    # the strongest evidence of where someone went, so it decides the camera.
+    for sub in (subjects or []):
+        where = (sub.get('where') if isinstance(sub, dict) else '') or ''
+        if where.lower().startswith('int'):
+            return [INSIDE, OUTSIDE]
     if 'shop_door' in doors:
         return [INSIDE, OUTSIDE]
     if 'apartment_door' in doors:
@@ -247,8 +258,8 @@ def camera_priority(doors: list[str], has_person: int) -> list[str]:
     return [INSIDE, OUTSIDE]
 
 
-def preferred_camera(doors: list[str], has_person: int) -> str:
-    return camera_priority(doors, has_person)[0]
+def preferred_camera(doors: list[str], has_person: int, subjects: list | None = None) -> str:
+    return camera_priority(doors, has_person, subjects)[0]
 
 
 def still_for(conn: sqlite3.Connection, visit_id: str,
@@ -269,6 +280,33 @@ def clip_for(conn: sqlite3.Connection, visit_id: str) -> sqlite3.Row | None:
     return conn.execute(
         "SELECT camera_id, path, result, error FROM shop_visit_media "
         "WHERE visit_id=? AND kind='clip' LIMIT 1", (visit_id,)).fetchone()
+
+
+CLIP_GRACE_S = 120        # a clip starting later than this after a visit began is not that visit
+
+
+def clip_state(v: sqlite3.Row, cl: sqlite3.Row | None) -> str:
+    """'playable', 'failed' or 'too_old' -- decided server-side, each with its own sentence.
+
+    Recording can only start when a visit starts, so an older event can never have a clip. Saying
+    "no clip" without saying why invites the owner to think the system is broken.
+    """
+    if cl and cl['result'] == 'ok' and cl['path']:
+        return 'playable'
+    if cl:
+        return 'failed'
+    started = to_local(v['started_at'])
+    old_enough = started and (datetime.now(LOCAL_TZ) - started).total_seconds() > CLIP_GRACE_S
+    if not old_enough:
+        return 'failed'          # young enough that a recording may still be on its way
+    # a visit that has not ended is not "too old": someone is in the shop now, and saying "too old"
+    # about an event that is still happening is the sort of sentence that makes a page untrustworthy
+    return 'open_no_clip' if not v['ended_at'] else 'too_old'
+
+
+def mmss(total: float) -> str:
+    total = int(max(0, total))
+    return '%d:%02d' % (total // 60, total % 60)
 
 
 def visit_title(v: sqlite3.Row) -> str:
@@ -320,14 +358,22 @@ def duration(v: sqlite3.Row) -> str:
     return '%dh %02dm' % (m // 60, m % 60)
 
 
-def clock(iso: str | None) -> str:
+def to_local(iso: str | None) -> datetime | None:
+    """UTC in the record, local on the screen. The building's clock, not the server's."""
     if not iso:
-        return '--:--'
+        return None
     try:
-        return datetime.fromisoformat(iso.replace('Z', '+00:00')).strftime('%H:%M')
+        return datetime.fromisoformat(iso.replace('Z', '+00:00')).astimezone(LOCAL_TZ)
     except Exception:
-        return '--:--'
+        return None
 
+
+def clock(iso: str | None, with_seconds: bool = False) -> str:
+    """Every time the owner reads is the building's local time, not the record's UTC."""
+    d = to_local(iso)
+    if not d:
+        return '--:--'
+    return d.strftime('%H:%M:%S' if with_seconds else '%H:%M')
 
 def local_day(iso: str) -> str:
     d = to_local(iso)
@@ -350,7 +396,11 @@ def day_label(d: str) -> str:
 
 
 def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
-    order = camera_priority(json.loads(v['doors'] or '[]'), v['has_person'])
+    try:
+        _subs = json.loads(v['subjects'] or '[]')
+    except Exception:
+        _subs = []
+    order = camera_priority(json.loads(v['doors'] or '[]'), v['has_person'], _subs)
     st = still_for(conn, v['id'], order)
     cl = clip_for(conn, v['id'])
     if st:
@@ -374,15 +424,34 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
 
     # the expanded body
     parts = []
-    if cl and cl['result'] == 'ok':
-        parts.append('<video controls preload="none" poster="/webhook/ha/shop/r/%s/img/%s" '
-                     'src="/webhook/ha/shop/r/%s/clip/%s"></video>' % (token, v['id'], token, v['id']))
-    elif cl:
-        parts.append('<p class="warnbox">A clip was attempted and failed: %s</p>'
-                     % html.escape(str(cl['error'] or 'unknown reason')))
+    state = clip_state(v, cl)
+    visit_span = 0.0
+    if v['ended_at']:
+        visit_span = (to_local(v['ended_at']) - to_local(v['started_at'])).total_seconds()
+    if state == 'playable':
+        # NO POSTER AND NO AUTOPLAY (2026-10-28): a poster is a claim about footage, the stills
+        # below already carry the picture, and 2-4 MB must not start on its own. preload=none
+        # means a card that is never opened never requests the file.
+        parts.append('<video controls playsinline preload="none" width="358" height="201" '
+                     'aria-label="Clip: %s, %s" src="/webhook/ha/shop/r/%s/clip/%s"></video>'
+                     % (html.escape(visit_title(v)), clock(v['started_at']), token, v['id']))
+        secs = cl['clip_seconds'] if 'clip_seconds' in cl.keys() else None
+        if secs and visit_span:
+            parts.append('<p class="note">Clip %s of a %s visit. This is not the whole visit; the '
+                         'rest is not on video.</p>' % (mmss(secs), mmss(visit_span)))
+        else:
+            parts.append('<p class="note">This clip covers only part of the visit — recording '
+                         'starts when a visit begins.</p>')
+        parts.append('<p class="note">Clip links expire. If it will not play, reload the page.</p>')
+    elif state == 'open_no_clip':
+        parts.append('<p class="note">No clip for this visit — recording did not start when it '
+                     'began. This visit is still open.</p>')
+    elif state == 'failed':
+        parts.append('<p class="warnbox">Recording failed. A recording was attempted but no clip '
+                     'was saved. A clip cannot be recorded after the visit.</p>')
     else:
-        parts.append('<p class="note">No clip for this event — recording starts only when a visit '
-                     'begins, so older events will never have one.</p>')
+        parts.append('<p class="note">No clip — this visit is too old. Clips can only be recorded '
+                     'when a visit starts.</p>')
 
     shots = conn.execute("SELECT camera_id, path FROM shop_visit_media WHERE visit_id=? AND "
                          "kind='still' AND result='ok' ORDER BY camera_id", (v['id'],)).fetchall()
@@ -426,7 +495,7 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                     '' if v['signal_count'] == 1 else 's',
                     ', '.join(d.replace('_', ' ') for d in doors) or 'none'))
 
-    return ('<details class="ev"><summary>%s<div class="meta"><div class="t">%s</div>'
+    return ('<details class="ev" name="event"><summary>%s<div class="meta"><div class="t">%s</div>'
             '<div class="s">%s · %s</div><div class="badges">%s</div></div></summary>'
             '<div class="body">%s</div></details>'
             % (thumb, visit_title(v), clock(v['started_at']), duration(v),
@@ -482,7 +551,11 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
         recent_rows = recent_rows[:3]
         def _recent_card(v):
             # name a camera that actually has a still for this visit, inside first
-            order = camera_priority(json.loads(v['doors'] or '[]'), v['has_person'])
+            try:
+                _subs = json.loads(v['subjects'] or '[]')
+            except Exception:
+                _subs = []
+            order = camera_priority(json.loads(v['doors'] or '[]'), v['has_person'], _subs)
             st = still_for(conn, v['id'], order)
             if not st:
                 return ''
@@ -654,4 +727,8 @@ async def shop_clip(token: str, visit_id: str) -> RedirectResponse:
         raise HTTPException(404, 'clip not resolvable')
     if url.startswith('/'):
         url = ha + url
-    return RedirectResponse(url, status_code=302)
+    # 302 WITH NO-STORE: a cached redirect makes the browser reuse an expired signature and the
+    # fresh signing this route performs is never reached. The link is signed HERE, at media
+    # request time, never at page render, so a page left open for an hour still plays.
+    return RedirectResponse(url, status_code=302,
+                            headers={'Cache-Control': 'no-store, must-revalidate'})

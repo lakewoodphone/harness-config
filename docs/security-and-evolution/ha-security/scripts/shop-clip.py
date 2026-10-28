@@ -133,9 +133,10 @@ async def main() -> int:
                 err = None if ok else str((r.get('error') or {}).get('message', 'call failed'))
                 conn.execute(
                     "INSERT OR REPLACE INTO shop_visit_media (visit_id, camera_id, kind, path, "
-                    "sha256, bytes, captured_at, result, error) VALUES (?,?,?,?,?,?,?,?,?)",
+                    "sha256, bytes, captured_at, result, error, clip_seconds) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (vid, cam, 'clip', target, None, None, now,
-                     'ok' if ok else 'failed', err))
+                     'ok' if ok else 'failed', err, CLIP_SECONDS if ok else None))
                 print('  %s -> %s : %s' % (vid, cam.split('.')[-1], 'recording' if ok else err))
                 # Home Assistant needs the recording to finish before the file exists
                 await asyncio.sleep(CLIP_SECONDS + 6)

@@ -486,3 +486,45 @@ the evidence that it is.
 **What is still unproven, precisely:** that the 3-minute cycle records a clip at the moment a visit begins. That needs
 traffic. The selection window is built and refuses correctly (`0 person-visit(s) in range` when nothing is young
 enough), and the recorder itself is now proven.
+
+## Round 12: clip states with their reasons — and the clock that was lying after all
+
+A design pass on clip playback produced the three states, and implementing them exposed two defects of my own that the
+page had been hiding.
+
+### The clip states, each with a reason
+
+| state | what the card says |
+|---|---|
+| playable | player, plus **"Clip 0:20 of a 5:00 visit. This is not the whole visit; the rest is not on video."** |
+| too old | **"No clip — this visit is too old. Clips can only be recorded when a visit starts."** |
+| still open | **"No clip for this visit — recording did not start when it began. This visit is still open."** |
+| failed | **"Recording failed. A recording was attempted but no clip was saved."** |
+
+The third row exists because the first version called an **open** visit "too old" — someone was in the shop at that
+moment, and the page said the event was history. A sentence like that teaches the owner to distrust the page.
+
+Also: **no poster** (a poster is a claim about footage the clip may not contain), **no autoplay** (2–4 MB of mostly
+empty shop), `preload="none"` so a card that is never opened never requests the file, `playsinline`, `aria-label`, and
+`<details name="event">` so only one card is open at a time. The clip recorder now stores its own length
+(`shop_visit_media.clip_seconds`) so the coverage sentence can carry real numbers.
+
+**The redirect is signed at media request and sent `no-store`.** Signing at page render would have put 41 signed URLs
+in one page, all dead after the TTL; a cacheable 302 would make the browser reuse an expired signature and never reach
+the fresh one.
+
+### Two defects I introduced and then found
+
+1. **The page returned 502 for several minutes.** My clip-state patch left a second `else:` orphaned under the new
+   `if/elif/else` chain. A syntax error, immediately visible, fixed by deleting four lines — but the page was down
+   while it existed.
+2. **The clock was still lying, and the fix was the lie.** `LOCAL_TZ = ZoneInfo(env('SHABBAT_TIMEZONE') …)` ran at
+   import time, before `env` exists, so the `except` branch silently set **UTC** — and `clock()` was never converted at
+   all. The page was printing UTC while a footer said *"times are local"*. Now the zone is a literal
+   (`America/New_York`), `clock()` converts, and 17:47 UTC renders as **13:47**, which is what the building's wall clock
+   says.
+3. **A card titled "Owner access at interior" showed the street.** The visit had a credential but no door signal, so
+   the camera order fell to "person outside". The credential is the strongest evidence of where a person went, so it
+   now decides the camera.
+
+**Verified:** page 200, 48,772 bytes, 41 cards at local times, 1 open visit with its own wording, 40 with "too old".
