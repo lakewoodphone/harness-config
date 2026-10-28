@@ -628,3 +628,34 @@ The checks that matter, and why each exists:
 **A failure of its own, found immediately:** the first run answered **403 Forbidden** — Cloudflare refuses a
 Python-urllib user agent, though curl was fine. It now presents the same agent the owner's phone would, which is
 also the honest client for this surface.
+
+## Round 16: five visits were filed under the wrong day
+
+The gallery said "Today · Wed 28 Oct — 15 visits". It was wrong, and the way it was wrong is the exact defect this
+build keeps meeting.
+
+**The buckets were keyed on UTC; the headers and the window were local.** `by_day.setdefault(v['started_at'][:10])`
+takes the first ten characters of a UTC timestamp, so a visit recorded at **00:42 UTC** — which is **8:42 PM the
+previous evening** in the building — was counted as the next day. Two halves of one page disagreeing about what "today"
+means, and nothing on screen said so.
+
+**After the fix, measured on the same record:**
+
+| header | before | after |
+|---|---|---|
+| Today · Wed 28 Oct | 15 visits | **10 visits** |
+| Yesterday · Tue 27 Oct | 23 visits | **26 visits** |
+| Mon 26 Oct | 3 visits | **5 visits** |
+
+Five visits moved to the evening they belong to. The card that moved now reads `20:42 · 10 min` where it used to sit
+under the next morning.
+
+### Also this round
+
+- **A week by default** instead of four days, with a `Show earlier days` link that asks for more.
+- **A quiet day is now visible as a quiet day.** Rendering only the days that have visits makes "nothing happened"
+  indistinguishable from "nothing was kept" — the same blank this build exists to avoid. Every day in the window gets
+  a header, and the ones with no visits say either *"No visits recorded on this day"* or, where the record does not
+  reach, *"The record starts later than this day — nothing was kept for it."*
+
+**Re-verified with the gate afterwards:** 20 checks, 20 passed, 4,588 px tall, no JS errors.

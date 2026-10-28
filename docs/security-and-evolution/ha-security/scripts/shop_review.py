@@ -517,7 +517,7 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
 
 
 @router.get('/webhook/ha/shop/r/{token}', response_class=HTMLResponse)
-async def shop_review(token: str, days: int = 4, clips: int = 0) -> HTMLResponse:
+async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse:
     require(token)
     conn = db()
     try:
@@ -594,10 +594,28 @@ async def shop_review(token: str, days: int = 4, clips: int = 0) -> HTMLResponse
                                   "ORDER BY started_at DESC", (since,)).fetchall()
         by_day: dict[str, list] = {}
         for v in visits:
-            by_day.setdefault(v['started_at'][:10], []).append(v)
+            # LOCAL DAY, NOT UTC (2026-10-28). The bucket key was the first ten characters of the
+            # UTC timestamp, while the headers and the window were local -- so an 8:42 PM visit sat
+            # under the next day, and the two halves of the page disagreed about what "today" means.
+            by_day.setdefault(local_day(v['started_at']), []).append(v)
+        # A QUIET DAY IS INFORMATION (2026-10-28). Rendering only the days that have visits makes a
+        # day with nothing in it indistinguishable from a day the record does not cover -- the same
+        # class of blank this build exists to avoid. Every day in the window gets a header; the ones
+        # with nothing say so, and say whether the record even reaches that far.
+        first_visit = conn.execute("SELECT MIN(started_at) FROM shop_visit").fetchone()[0]
+        window = [(datetime.now(LOCAL_TZ).date() - timedelta(days=n)).isoformat()
+                  for n in range(days)]
         blocks = []
-        for day in sorted(by_day, reverse=True):
-            vs = by_day[day]
+        for day in window:
+            vs = by_day.get(day, [])
+            if not vs:
+                covered = bool(first_visit and first_visit[:10] <= day)
+                note = ('No visits recorded on this day.' if covered
+                        else 'The record starts later than this day — nothing was kept for it.')
+                blocks.append('<section class="day"><div class="hdr"><b>%s</b>'
+                              '<i>no visits</i></div><p class="note">%s</p></section>'
+                              % (day_label(day), note))
+                continue
             people = sum(1 for v in vs if v['has_person'])
             cards = ''.join(render_visit(conn, v, token) for v in vs[:40])
             more = ('<p class="note">%d more on this day</p>' % (len(vs) - 40)) if len(vs) > 40 else ''
