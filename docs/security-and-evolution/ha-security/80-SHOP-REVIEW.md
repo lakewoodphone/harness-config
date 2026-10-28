@@ -597,3 +597,34 @@ were not: the JPEG measures **mean brightness 124.7** against the upstream frame
 screenshot fired the moment the images *decoded*, before the compositor painted them. Decoded is not painted, in the
 same way that written is not applied and exit 0 is not success — the fourth time this session an instrument reported a
 fault that was its own timing.
+
+## Round 15: one command that proves the whole surface — 20 checks, 20 passing
+
+Everything in this build was verified by hand, and the hand made five mistakes along the way: a page read as empty
+that was serving a redirect stub, a grep -c that counted lines instead of cards, a clip called broken because it was
+HEVC, thumbnails called broken because a screenshot caught them mid-load, tiles called black because they had decoded
+but not painted. Each of those cost a cycle.
+
+scripts/verify-shop-review.py replaces the hand. It looks at **substance**, not status codes:
+
+`
+$ out
+`
+
+The checks that matter, and why each exists:
+
+| check | the failure it would have caught |
+|---|---|
+| wrong token refuses (404) | a page that answers to anyone |
+| alert states its freshness | a green "No alerts" with no time on it |
+| clock plausible for the building | the footer saying "local" while printing UTC |
+| no empty image boxes | 53 blank 88×66 frames that look like broken images |
+| tile brightness > 15, width < 1000 | an all-black frame; a resize that silently did nothing |
+| clip codec is h264 | HEVC that returns 200 ideo/mp4 and will not play |
+| clip byte ranges (206) | the same clip failing on iOS only |
+| cycle timer active, exit 0 | a page that quietly stops updating |
+| renders < 20 000 px, no overflow, no JS errors | a card rendering at 2560 px |
+
+**A failure of its own, found immediately:** the first run answered **403 Forbidden** — Cloudflare refuses a
+Python-urllib user agent, though curl was fine. It now presents the same agent the owner's phone would, which is
+also the honest client for this surface.
