@@ -249,15 +249,26 @@ def config(use_target: bool = False) -> dict:
         # grid because it is the most useful of the four. Two columns rather than three, because
         # three across a 390 px phone leaves ~118 px per tile and a face is unreadable at that
         # size.
-        {"type": "grid", "columns": 2, "square": True, "cards": [
-            {"type": "picture-entity", "entity": "camera.reolink_video_doorbell_poe_clear",
-             "name": "Outside", "show_name": True, "show_state": False, "camera_view": "auto"},
-            {"type": "picture-entity", "entity": "camera.cam_waiting_room_main",
-             "name": "Drop-off", "show_name": True, "show_state": False, "camera_view": "auto"},
-            {"type": "picture-entity", "entity": "camera.cam_deserted_exit_main",
-             "name": "Control", "show_name": True, "show_state": False, "camera_view": "auto"},
-            {"type": "picture-entity", "entity": "camera.cam_deserted_interior_main",
-             "name": "Bench", "show_name": True, "show_state": False, "camera_view": "auto"},
+        # CAMERA TILES REFRESH -- BUT ONLY WHILE THEY ARE ON SCREEN (2026-10-28, measured).
+        # Sampling the image sources twice, 15 s apart: with the page scrolled to the TOP, the
+        # hero refreshed and all four tiles returned identical srcs -- which looked like
+        # "picture-entity fetches one frame and keeps it". It was not. Re-measured with the
+        # tiles actually in view, ALL FIVE refresh, and a lone `picture-entity` on a throwaway
+        # dashboard refreshes too. Home Assistant simply pauses image polling for cards that
+        # are off screen, which is sensible and is not a defect.
+        # The tiles are picture-glance because that is what the screenshot verified, not
+        # because picture-entity was broken: both poll. The lesson is in the measurement
+        # method -- a card outside the viewport has nothing to refresh, so sampling it proves
+        # nothing about it.
+        {"type": "grid", "columns": 2, "square": False, "cards": [
+            {"type": "picture-glance", "title": "Outside", "entities": [],
+             "camera_image": "camera.reolink_video_doorbell_poe_clear", "camera_view": "auto"},
+            {"type": "picture-glance", "title": "Drop-off", "entities": [],
+             "camera_image": "camera.cam_waiting_room_main", "camera_view": "auto"},
+            {"type": "picture-glance", "title": "Control", "entities": [],
+             "camera_image": "camera.cam_deserted_exit_main", "camera_view": "auto"},
+            {"type": "picture-glance", "title": "Bench", "entities": [],
+             "camera_image": "camera.cam_deserted_interior_main", "camera_view": "auto"},
         ]},
     ]
 

@@ -1085,3 +1085,39 @@ So the banner now has two independent proofs: **the wording** (ten state tests, 
 (seven cases, here), plus a rendered picture of both the red and the amber appearance.
 
 **Evidence:** `dashboards/shop-view-forced-states.png` — three forced banners, two red and one amber, in one render.
+
+## 31. Round 11: does it update by itself? Two dynamic checks, and one wrong conclusion corrected — 2026-10-28
+
+A screenshot proves a page rendered once. It says nothing about whether the banner reacts or whether the cameras keep
+refreshing — and those decide whether the page is any use. `scripts/watch-shop.py` samples the **live DOM** twice,
+15–20 seconds apart, without touching a single entity. Getting it to work needed two corrections of its own: Home
+Assistant's cards live in **shadow DOM** (a plain `document.querySelectorAll` returns nothing, and the first run
+reported "0 images, empty banner" as if the dashboard were dead), and the text sits behind **nested** shadow roots, so
+the tree has to be walked explicitly.
+
+**Check 1 — does a markdown card update on its own?** The banner did not change during the window, but only because
+the shop door stayed open the whole time and nothing changed to react to. So the mechanism was proven directly, on a
+throwaway dashboard with a clock:
+
+```
+t=0    Clock: 12:48:31
+t=20s  Clock: 12:49:00     -> changed with no reload
+```
+
+Markdown cards on this instance genuinely subscribe and re-render. The banner uses the same card type and the same
+template engine, so it updates when the building changes. Throwaway dashboard deleted.
+
+**Check 2 — do the camera tiles refresh?** All five image sources rotate, but **only while the cards are on screen**:
+scrolled to the top, the hero refreshed and the four tiles did not; scrolled to the bottom with the tiles visible,
+**5 of 5 refreshed**.
+
+**And that produced a wrong conclusion, which is now corrected.** I read the first measurement as *"picture-entity
+fetches one frame and keeps it"*, switched the tiles to `picture-glance`, and committed a comment saying so. A lone
+`picture-entity` on a throwaway dashboard, measured properly in view, **refreshes normally**. Home Assistant simply
+pauses image polling for off-screen cards. The tiles stay `picture-glance` because that is what the screenshots
+verified — not because the other card was broken. The false comment in the generator is replaced with the real
+finding, because a wrong claim left in a config is worse than no comment at all.
+
+**The lesson, which is the same one as the `state_filter` round:** an instrument that measures nothing and an
+instrument that measures the wrong thing look identical in a summary. A card outside the viewport has nothing to
+refresh, so sampling it proves nothing about it.
