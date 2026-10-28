@@ -710,6 +710,11 @@ WAKE_PROMPT_CONTRACT=$(cat <<'CONTRACT'
        the deploy wait fail with "has no document for /path" (exit 2)
      - frontend/src/seo/publicRoutes.ts   PUBLIC_ROUTES if it is a marketing document a
        stranger should find, or APP_DOCUMENT_ROUTES if it renders the shell but takes input
+     - frontend/src/seo/useRouteMeta.ts   THE BROWSER HALF. The hook reads the table and writes
+       the title, canonical and robots tags. Until 2026-10-28 it read PUBLIC_ROUTES ONLY, so an
+       APP_DOCUMENT_ROUTES row still left the page with the homepage's title, canonical "/" and
+       robots "index, follow" - a private lookup page telling a crawler it was the homepage.
+       MEASURED on the live test host; fixed in the same PR as the row.
    Anchor text patches on a line unique to the block: "  '/kosher-waze'," appears in more
    than one list in route-decision.js and str.replace(..., 1) took the wrong one.
 10. A BILLING BLOCK IS NOT A CODE RED. If a check-run annotation reads "The job was not
