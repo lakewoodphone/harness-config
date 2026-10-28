@@ -355,3 +355,53 @@ running."*
 it is telling the truth. Pictures begin at the next visit. **Pictures for old events are only possible from the NVR**,
 which holds the actual recorded footage for those hours — and that needs the credential this environment does not have.
 That is the honest boundary, stated rather than papered over.
+
+## Round 8: a review of the live page, and the owner's own correction
+
+A fresh reviewer loaded the **applied page** — not a draft — and was blunt: *"not good enough to replace a glance at
+the camera app… a passable event log pretending to be a camera view."* Fifteen honesty defects listed, and it was
+right about most of them. The owner said the same thing more briefly: **"most recent capture should include in the shop,
+not just outside it."**
+
+### The owner's correction, fixed
+
+Most visits fire only the doorbell, so the gallery was wall-to-wall street views and never showed anyone inside. Camera
+choice is now an **ordered preference**, not a single pick:
+
+| visit | shows |
+|---|---|
+| shop door touched | **inside**, then outside |
+| apartment door | **inside**, then drop-off |
+| street door or a person outside | outside, then **inside** (the inside shot is the arrival) |
+| nothing known | inside |
+
+And the **Most recent strip is now one capture per place** — newest inside, newest outside, then newest anything — so
+it can never be three copies of the street. If a place has no capture the strip is shorter; it does not invent one.
+Verified: the strip now shows the 17:47 visit from the **inside** camera.
+
+### Fixed from the review
+
+- **"15 with a person" was false.** `has_person` was set for keypad presses as well as person detectors, so a day of
+  the owner typing his own code counted as sixteen people. A code is evidence a credential was used; only a detector is
+  evidence a person was there. Today now reads **11 with a person**, not 15.
+- **Times are the building's.** The page showed 17:15 next to a frame stamped 12:40 with no timezone stated anywhere.
+  Everything is now local, labelled *"times are local"*, and days are cut at **local midnight** instead of UTC — which
+  had been pushing evening activity into the wrong day.
+- **Day headers carry the date**: `Today · Wed 28 Oct` instead of a bare "Today".
+- **No more empty thumbnail boxes.** Fifty-three 88×66 frames reading "No image" looked like fifty-three broken images;
+  a card without a picture now has no picture column at all. Page dropped from 55,613 to **53,160 bytes**.
+- **No more 53 apologies.** The "no clip / no picture" paragraphs are gone from the body; absence is shown by the
+  absence of a player and a single short line.
+- **Truncation is admitted**: `showing 8 of 23 signals` instead of printing a total the table does not show.
+- **Grammar**: "1 signal", not "1 signals".
+
+### The honest capture is now working
+
+The 17:47 visit has three stills captured **one minute** after it began — the first pictures on this page that belong to
+their event. Everything before that has none, because capturing them now would be the lie fixed in round 7.
+
+### Still open from the review
+
+The live tiles are a snapshot taken at page load, with no timestamp and no refresh (and they are full-resolution
+2560 px JPEGs drawn into 179×101 boxes — 1.29 MB for four thumbnails). The alert bar is not sticky. Together those are
+the next round.

@@ -139,10 +139,15 @@ def build_visits(signals: list[dict], now: datetime) -> list[dict]:
         current['signals'].append(sig)
         if sig['kind'] == 'door':
             current['doors'].add(sig['label'])
-        elif sig['kind'] in ('person', 'credential'):
+        elif sig['kind'] == 'person':
+            # A KEYPAD PRESS IS NOT A PERSON DETECTED (2026-10-28). Counting credentials as people
+            # made the page claim "16 with a person" on a day when several visits were the owner
+            # typing a code and nothing else. A code is evidence that a credential was used; only a
+            # person detector is evidence that a person was there.
             current['has_person'] = True
-            if sig['kind'] == 'person':
-                current['cameras'].add(sig['label'])
+            current['cameras'].add(sig['label'])
+        elif sig['kind'] == 'credential':
+            current.setdefault('creds', set()).add(sig['label'])
         elif sig['kind'] == 'zone':
             current.setdefault('zones', set()).add(sig['label'])
     if current:

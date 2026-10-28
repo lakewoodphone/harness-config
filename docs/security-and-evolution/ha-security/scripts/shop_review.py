@@ -23,6 +23,16 @@ import os
 import sqlite3
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+# TIMES ARE THE BUILDING'S, NOT UTC (2026-10-28). A review of the live page found the newest event
+# reading 17:15 next to a camera frame stamped 12:40, with no timezone stated anywhere — so the page
+# looked five hours wrong. Everything the owner reads is now local, labelled once, and days are cut
+# at local midnight rather than UTC midnight (which was putting evening activity in the wrong day).
+try:
+    LOCAL_TZ = ZoneInfo(env('SHABBAT_TIMEZONE') or 'America/New_York')
+except Exception:                                    # pragma: no cover - defensive
+    LOCAL_TZ = ZoneInfo('UTC')
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -179,30 +189,49 @@ def require(token: str) -> None:
         raise HTTPException(status_code=404, detail='Not found')
 
 
-def preferred_camera(doors: list[str], has_person: int) -> str:
-    """Which camera would have seen this visit.
+INSIDE = 'camera.cam_front_hallway_main'          # the shop door, from inside
+OUTSIDE = 'camera.reolink_video_doorbell_poe_clear'  # the street, from outside
 
-    Sorting the stills alphabetically put the hallway camera on every card — including the one
-    labelled "Person outside" — because `cam_front_hallway_main` sorts first. A thumbnail that
-    shows the wrong room is worse than no thumbnail: it looks like evidence and is not.
+
+def camera_priority(doors: list[str], has_person: int) -> list[str]:
+    """Which camera to show for this visit, best first.
+
+    The owner's correction, verbatim: *"most recent capture should include in the shop, not just
+    outside it."* He was right — most visits fire only the doorbell, so the gallery was wall-to-wall
+    outside views of the street and never showed anyone actually inside the shop.
+
+    So the inside camera is preferred whenever the visit has one, and it is preferred FIRST for a
+    visit that came through the door. A thumbnail of the wrong room is still worse than none, so
+    the order is a preference over stills that exist, never an invention:
+
+        shop door touched   -> inside, then outside
+        apartment door      -> inside, then drop-off
+        street door / person-> outside, then inside (the inside shot is the arrival)
+        nothing known       -> inside
     """
     if 'shop_door' in doors:
-        return 'camera.cam_front_hallway_main'
-    if 'street_door' in doors or has_person:
-        return 'camera.reolink_video_doorbell_poe_clear'
+        return [INSIDE, OUTSIDE]
     if 'apartment_door' in doors:
-        return 'camera.cam_front_hallway_main'
-    return 'camera.cam_front_hallway_main'
+        return [INSIDE, 'camera.cam_waiting_room_main']
+    if 'street_door' in doors or has_person:
+        return [OUTSIDE, INSIDE]
+    return [INSIDE, OUTSIDE]
 
 
-def still_for(conn: sqlite3.Connection, visit_id: str, prefer: str | None = None) -> sqlite3.Row | None:
+def preferred_camera(doors: list[str], has_person: int) -> str:
+    return camera_priority(doors, has_person)[0]
+
+
+def still_for(conn: sqlite3.Connection, visit_id: str,
+              prefer: str | list[str] | None = None) -> sqlite3.Row | None:
     rows = conn.execute(
         "SELECT camera_id, path, sha256, result FROM shop_visit_media "
         "WHERE visit_id=? AND kind='still' ORDER BY (result='ok') DESC, camera_id", (visit_id,)).fetchall()
     ok = [r for r in rows if r['result'] == 'ok' and r['path']]
-    if prefer:
+    order = [prefer] if isinstance(prefer, str) else list(prefer or [])
+    for want in order:
         for r in ok:
-            if r['camera_id'] == prefer:
+            if r['camera_id'] == want:
                 return r
     return ok[0] if ok else None
 
@@ -271,25 +300,29 @@ def clock(iso: str | None) -> str:
         return '--:--'
 
 
+def local_day(iso: str) -> str:
+    d = to_local(iso)
+    return d.date().isoformat() if d else iso[:10]
+
+
 def day_label(d: str) -> str:
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(LOCAL_TZ).date()
     try:
         dd = datetime.fromisoformat(d).date()
     except Exception:
         return d
     delta = (today - dd).days
+    stamp = dd.strftime('%a %d %b')
     if delta == 0:
-        return 'Today'
+        return 'Today · ' + stamp
     if delta == 1:
-        return 'Yesterday'
-    if delta < 7:
-        return dd.strftime('%A')
-    return dd.strftime('%a, %d %b')
+        return 'Yesterday · ' + stamp
+    return stamp
 
 
 def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
-    want = preferred_camera(json.loads(v['doors'] or '[]'), v['has_person'])
-    st = still_for(conn, v['id'], want)
+    order = camera_priority(json.loads(v['doors'] or '[]'), v['has_person'])
+    st = still_for(conn, v['id'], order)
     cl = clip_for(conn, v['id'])
     if st:
         # WRAPPED IN THE SIZED BOX (2026-10-28). Without the wrapper the image is a direct child
@@ -298,7 +331,9 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
         thumb = ('<div class="thumb"><img loading="lazy" src="/webhook/ha/shop/r/%s/full/%s/%s" alt=""></div>'
                  % (token, v['id'], html.escape(st['camera_id'])))
     else:
-        thumb = '<div class="thumb">No image</div>'
+        # NO EMPTY BOX (2026-10-28). An 88x66 empty frame reads as a failed image; a review of the
+        # live page counted 53 of them. A card with no picture simply has no picture column.
+        thumb = ''
     badges = []
     if cl and cl['result'] == 'ok':
         badges.append('<span class="b clip">&#9654; clip</span>')
@@ -328,24 +363,38 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                            html.escape(s['camera_id'])) for s in shots)
         parts.append('<div class="shots">%s</div>' % cells)
     else:
-        parts.append('<p class="note">No picture for this event — stills are taken when a visit '
-                     'begins, and this one started before the camera capture was running.</p>')
+        parts.append('<p class="note">No picture — none was captured when this began.</p>')
 
+    total_sigs = conn.execute("SELECT COUNT(1) FROM shop_visit_signal WHERE visit_id=?",
+                               (v['id'],)).fetchone()[0]
     sigs = conn.execute("SELECT occurred_at, entity_id, new_state FROM shop_visit_signal WHERE "
-                        "visit_id=? ORDER BY occurred_at LIMIT 12", (v['id'],)).fetchall()
+                        "visit_id=? ORDER BY occurred_at LIMIT 8", (v['id'],)).fetchall()
     if sigs:
-        rows = ''.join(
-            '<tr><td class="n">%s</td><td>%s %s</td></tr>'
-            % (clock(s['occurred_at']),
-               html.escape(s['entity_id'].replace('binary_sensor.', '').replace('_', ' ')),
-               html.escape(str(s['new_state'] or '')))
-            for s in sigs)
-        parts.append('<table class="sig">%s</table>' % rows)
+        def plain(entity: str, state: str) -> str:
+            e = entity.replace('binary_sensor.', '').replace('input_boolean.', '')
+            e = e.replace('event.esphome.', '').replace('automation.phoenix_', '')
+            e = e.replace('phoenix_', '').replace('_', ' ').strip()
+            if 'keypad' in e:
+                return 'keypad entry'
+            if 'door contact' in e or e.endswith('door contact'):
+                return ('%s %s' % (e.replace(' control room', ''), 'opened' if state == 'on' else 'closed'))
+            if 'zone' in e or 'occupied' in e or 'business area' in e:
+                return '%s %s' % (e, state)
+            return '%s %s' % (e, state)
+        rows = ''.join('<tr><td class="n">%s</td><td>%s</td></tr>'
+                       % (clock(x['occurred_at']), html.escape(plain(x['entity_id'], str(x['new_state'] or ''))))
+                       for x in sigs)
+        more = ''
+        if total_sigs > len(sigs):
+            more = ('<tr><td class="n">…</td><td>showing %d of %d signals</td></tr>'
+                    % (len(sigs), total_sigs))
+        parts.append('<table class="sig">%s%s</table>' % (rows, more))
 
     doors = json.loads(v['doors'] or '[]')
-    parts.append('<p class="note">%s · %s · %d signals · doors: %s</p>'
+    parts.append('<p class="note">%s · %s · %d signal%s · doors: %s · times are local</p>'
                  % (clock(v['started_at']), duration(v), v['signal_count'],
-                    ', '.join(doors) or 'none'))
+                    '' if v['signal_count'] == 1 else 's',
+                    ', '.join(d.replace('_', ' ') for d in doors) or 'none'))
 
     return ('<details class="ev"><summary>%s<div class="meta"><div class="t">%s</div>'
             '<div class="s">%s · %s</div><div class="badges">%s</div></div></summary>'
@@ -369,15 +418,42 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
                         % (token, c, token, c, html.escape(n)) for c, n in live)
 
         # recent: the three newest visits that have a picture
-        recent_rows = conn.execute(
+        # MOST RECENT = THE THREE MOST RECENT *PLACES* (2026-10-28). Taking the three newest visits
+        # gave three outside shots, because the doorbell fires on every approach and the indoor
+        # camera only fires when a door opens. The owner asked for the shop to be included, so the
+        # strip deliberately takes the newest in-shop capture, the newest outside capture, and then
+        # the newest of anything else. If a place has no capture, the strip is shorter -- it never
+        # invents one.
+        candidates = conn.execute(
             "SELECT v.* FROM shop_visit v JOIN shop_visit_media m ON m.visit_id=v.id AND m.kind='still' "
-            "AND m.result='ok' GROUP BY v.id ORDER BY v.started_at DESC LIMIT 3").fetchall()
+            "AND m.result='ok' GROUP BY v.id ORDER BY v.started_at DESC LIMIT 40").fetchall()
+        recent_rows, used = [], set()
+        for wanted in ('inside', 'outside', None):
+            for v in candidates:
+                if v['id'] in used:
+                    continue
+                cams = {m['camera_id'] for m in conn.execute(
+                    "SELECT camera_id FROM shop_visit_media WHERE visit_id=? AND kind='still' "
+                    "AND result='ok'", (v['id'],))}
+                if wanted == 'inside' and INSIDE not in cams:
+                    continue
+                if wanted == 'outside' and OUTSIDE not in cams:
+                    continue
+                recent_rows.append(v)
+                used.add(v['id'])
+                break
+        recent_rows = recent_rows[:3]
         def _recent_card(v):
-            want = preferred_camera(json.loads(v['doors'] or '[]'), v['has_person'])
-            return ('<a href="#%s"><img loading="lazy" src="/webhook/ha/shop/r/%s/full/%s/%s">'
+            # name a camera that actually has a still for this visit, inside first
+            order = camera_priority(json.loads(v['doors'] or '[]'), v['has_person'])
+            st = still_for(conn, v['id'], order)
+            if not st:
+                return ''
+            return ('<a href="#%s"><img loading="lazy" '
+                    'src="/webhook/ha/shop/r/%s/full/%s/%s">'
                     '<span class="t">%s %s</span></a>'
-                    % (v['id'], token, v['id'], html.escape(want), clock(v['started_at']),
-                       html.escape(visit_title(v))))
+                    % (v['id'], token, v['id'], html.escape(st['camera_id']),
+                       clock(v['started_at']), html.escape(visit_title(v))))
         recent = ''.join(_recent_card(v) for v in recent_rows)
 
         # days
