@@ -11,7 +11,7 @@ Served server-side from the authority database, because that is where the visits
 clip references live. The browser never holds a Home Assistant token: cameras and clips are proxied
 through this module.
 
-The URL carries a long token (`/shop/r/<token>`) rather than a login. That is the same trust model as
+The URL carries a long token (`/webhook/ha/shop/r/<token>`) rather than a login. That is the same trust model as
 the MMS evidence host — unguessable rather than authenticated — and it is a deliberate, stated
 trade-off: it can be moved behind the dashboard's session later without changing anything below.
 """
@@ -213,7 +213,7 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
         # WRAPPED IN THE SIZED BOX (2026-10-28). Without the wrapper the image is a direct child
         # of <summary> and renders at its natural 2560 px: one event card filled an entire phone
         # screen. The box is what makes a thumbnail a thumbnail.
-        thumb = ('<div class="thumb"><img loading="lazy" src="/shop/r/%s/full/%s/%s" alt=""></div>'
+        thumb = ('<div class="thumb"><img loading="lazy" src="/webhook/ha/shop/r/%s/full/%s/%s" alt=""></div>'
                  % (token, v['id'], html.escape(st['camera_id'])))
     else:
         thumb = '<div class="thumb">No image</div>'
@@ -228,8 +228,8 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
     # the expanded body
     parts = []
     if cl and cl['result'] == 'ok':
-        parts.append('<video controls preload="none" poster="/shop/r/%s/img/%s" '
-                     'src="/shop/r/%s/clip/%s"></video>' % (token, v['id'], token, v['id']))
+        parts.append('<video controls preload="none" poster="/webhook/ha/shop/r/%s/img/%s" '
+                     'src="/webhook/ha/shop/r/%s/clip/%s"></video>' % (token, v['id'], token, v['id']))
     elif cl:
         parts.append('<p class="warnbox">A clip was attempted and failed: %s</p>'
                      % html.escape(str(cl['error'] or 'unknown reason')))
@@ -240,8 +240,8 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
     shots = conn.execute("SELECT camera_id, path FROM shop_visit_media WHERE visit_id=? AND "
                          "kind='still' AND result='ok' ORDER BY camera_id", (v['id'],)).fetchall()
     if shots:
-        cells = ''.join('<a href="/shop/r/%s/full/%s/%s"><img loading="lazy" '
-                        'src="/shop/r/%s/full/%s/%s"></a>'
+        cells = ''.join('<a href="/webhook/ha/shop/r/%s/full/%s/%s"><img loading="lazy" '
+                        'src="/webhook/ha/shop/r/%s/full/%s/%s"></a>'
                         % (token, v['id'], html.escape(s['camera_id']), token, v['id'],
                            html.escape(s['camera_id'])) for s in shots)
         parts.append('<div class="shots">%s</div>' % cells)
@@ -271,7 +271,7 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                ''.join(badges), ''.join(parts)))
 
 
-@router.get('/shop/r/{token}', response_class=HTMLResponse)
+@router.get('/webhook/ha/shop/r/{token}', response_class=HTMLResponse)
 async def shop_review(token: str, days: int = 4) -> HTMLResponse:
     require(token)
     conn = db()
@@ -281,8 +281,8 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
                 ('camera.reolink_video_doorbell_poe_clear', 'Outside'),
                 ('camera.cam_waiting_room_main', 'Drop-off'),
                 ('camera.cam_deserted_interior_main', 'Bench')]
-        tiles = ''.join('<a class="tile" href="/shop/r/%s/live/%s"><img loading="lazy" '
-                        'src="/shop/r/%s/cam/%s"><span class="lbl">%s</span></a>'
+        tiles = ''.join('<a class="tile" href="/webhook/ha/shop/r/%s/live/%s"><img loading="lazy" '
+                        'src="/webhook/ha/shop/r/%s/cam/%s"><span class="lbl">%s</span></a>'
                         % (token, c, token, c, html.escape(n)) for c, n in live)
 
         # recent: the three newest visits that have a picture
@@ -291,7 +291,7 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
             "AND m.result='ok' GROUP BY v.id ORDER BY v.started_at DESC LIMIT 3").fetchall()
         def _recent_card(v):
             want = preferred_camera(json.loads(v['doors'] or '[]'), v['has_person'])
-            return ('<a href="#%s"><img loading="lazy" src="/shop/r/%s/full/%s/%s">'
+            return ('<a href="#%s"><img loading="lazy" src="/webhook/ha/shop/r/%s/full/%s/%s">'
                     '<span class="t">%s %s</span></a>'
                     % (v['id'], token, v['id'], html.escape(want), clock(v['started_at']),
                        html.escape(visit_title(v))))
@@ -331,7 +331,7 @@ async def shop_review(token: str, days: int = 4) -> HTMLResponse:
         conn.close()
 
 
-@router.get('/shop/r/{token}/img/{visit_id}')
+@router.get('/webhook/ha/shop/r/{token}/img/{visit_id}')
 async def shop_img(token: str, visit_id: str, camera: str | None = None) -> Response:
     require(token)
     conn = db()
@@ -352,12 +352,12 @@ async def shop_img(token: str, visit_id: str, camera: str | None = None) -> Resp
                     headers={'Cache-Control': 'public, max-age=86400'})
 
 
-@router.get('/shop/r/{token}/full/{visit_id}/{camera}')
+@router.get('/webhook/ha/shop/r/{token}/full/{visit_id}/{camera}')
 async def shop_full(token: str, visit_id: str, camera: str) -> Response:
     return await shop_img(token, visit_id, camera)
 
 
-@router.get('/shop/r/{token}/cam/{camera}')
+@router.get('/webhook/ha/shop/r/{token}/cam/{camera}')
 async def shop_cam(token: str, camera: str) -> Response:
     """A live snapshot, proxied. The browser never sees the Home Assistant token."""
     require(token)
@@ -371,17 +371,17 @@ async def shop_cam(token: str, camera: str) -> Response:
                     headers={'Cache-Control': 'no-store'})
 
 
-@router.get('/shop/r/{token}/live/{camera}', response_class=HTMLResponse)
+@router.get('/webhook/ha/shop/r/{token}/live/{camera}', response_class=HTMLResponse)
 async def shop_live(token: str, camera: str) -> HTMLResponse:
     require(token)
     return HTMLResponse(
         '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<style>body{margin:0;background:#000}img{width:100%%;display:block}'
         'a{color:#9ad;font:14px sans-serif;display:block;padding:8px}</style>'
-        '<img src="/shop/r/%s/cam/%s"><a href="/shop/r/%s">back</a>' % (token, camera, token))
+        '<img src="/webhook/ha/shop/r/%s/cam/%s"><a href="/webhook/ha/shop/r/%s">back</a>' % (token, camera, token))
 
 
-@router.get('/shop/r/{token}/clip/{visit_id}')
+@router.get('/webhook/ha/shop/r/{token}/clip/{visit_id}')
 async def shop_clip(token: str, visit_id: str) -> RedirectResponse:
     """Resolve the stored clip to a Home Assistant signed URL, at request time.
 

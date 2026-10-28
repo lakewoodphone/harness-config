@@ -205,3 +205,20 @@ The URL carries a long random token (`SHOP_REVIEW_TOKEN` in `/opt/company/.env`)
 model as the MMS evidence host — unguessable rather than authenticated — and it is a stated trade-off, not an
 oversight: the page can be moved behind the dashboard's session later without touching anything below it. A wrong
 token returns **404**, verified.
+
+### The page is reachable from a phone
+
+`api.abletelsolutions.com` answers **401** for everything at the edge — a key, not a login — so a page served there is
+unopenable in a browser. The one path the edge lets through is **`/webhook/`**, which is where Twilio fetches MMS media
+(verified: a stored evidence JPEG returns 200 anonymously, and the alert endpoint answers 405, meaning it reached the
+app rather than the edge).
+
+So the review page moved under it: **`/webhook/ha/shop/r/<token>`**. Verified end to end from outside:
+
+```
+page   -> 200  63,551 bytes
+image  -> 200  image/jpeg  152,460 bytes
+live   -> 200  image/jpeg  152,643 bytes
+```
+
+That is the difference between a page that exists and a page the owner can open.
