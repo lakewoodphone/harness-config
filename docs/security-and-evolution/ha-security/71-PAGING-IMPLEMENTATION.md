@@ -694,3 +694,48 @@ sensor health header · sensor health rows.
 a readback of stored config, a template render, or a data query. The visual result on a narrow phone — whether three
 glance columns are cramped, whether the banner wraps — is unproven. That needs the owner's eyes, and it is the honest
 boundary of what this round can claim.
+
+## 21. Round 1 of 20: the banner is now tested, and the test found a lie — 2026-10-28
+
+The hardening goal was re-armed by the owner at **20 rounds from zero**, after I had wrongly closed the previous one
+after a single round. This round did the banner's untested states properly.
+
+**A real test, not a review.** `scripts/test-banner-states.py` loads the **BANNER constant from the deployed
+generator** — so it always tests what is live, never a copy that has drifted — and renders it through Jinja2 with
+stubbed `states()`, `is_state()`, `relative_time()`, `as_timestamp()` and `now()`. It needs no Home Assistant and
+touches none of the owner's live flags. Ten cases, each asserting the headline **and** what must not appear.
+
+**It immediately found a real defect.** With a worker inside and **both doors open**, the banner said
+**"BUILDING QUIET"**: `away` is false when someone is present, so `DOOR OPEN WHILE AWAY` could not fire, no other
+branch matched, and the fall-through claimed the building was quiet while two doors stood open. Fixed with a
+**`DOORS OPEN`** headline placed after the guest branches and before `STATUS UNVERIFIED`. Quiet is a claim about the
+building; it may not be made while a door is open.
+
+**It also found two flaws in my own test**, which is the point of running it:
+- every entity reported `last_changed = now`, so `guest_latched` (8 h) could never be true and the latched path was
+  never exercised — the stub now carries a per-entity change time, and the case renders *"guest mode on for 9 hours,
+  latched, arming blocked"*;
+- one assertion demanded the phrase "doors closed" never appear while muted, which is wrong: the guarantee is the
+  **headline**, not the absence of facts. Corrected to assert no calm headline and no "siren live".
+
+**Final run: 10 cases, 0 failures.**
+
+```
+ok  alarm + muted siren            **INTRUSION ACTIVE** — siren muted 1 seconds ago, no auto-expiry · …
+ok  muted siren alone              **SIREN MUTED** — siren muted … · doors closed · no doorbell · …
+ok  guest latched while away       **ARMING BLOCKED** — siren live · guest mode on for 9 hours, latched, …
+ok  both doors open, worker inside **DOORS OPEN** — siren live · shop door open … · apartment door open … ·
+ok  sensor unavailable             **STATUS UNVERIFIED** — … occupancy unavailable.
+ok  quiet                          **BUILDING QUIET** — siren live · doors closed · no doorbell · everyone away.
+ok  door open while away           **DOOR OPEN WHILE AWAY** — …
+ok  person at door                 **SOMEONE AT THE DOOR** — …
+ok  lockdown                       **LOCKDOWN ON** — …
+ok  guest on, owner present        **GUEST MODE ON** — … arming blocked · …
+```
+
+Applied and verified live: `save: True`, readback `8 cards`, and the live template renders
+`**BUILDING QUIET** — siren live · doors closed · no doorbell · everyone away.` for the building as it stands.
+
+**Why this matters more than it looks:** a markdown card's template errors are *suppressed* outside the editor — the
+card goes blank or stale rather than showing an error — so an untested banner fails silently. This test is now the only
+thing standing between a template edit and a card that quietly says nothing.

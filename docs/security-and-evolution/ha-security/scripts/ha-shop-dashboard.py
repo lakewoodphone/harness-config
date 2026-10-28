@@ -110,6 +110,10 @@ BANNER = """{%- set test = states('input_boolean.phoenix_intrusion_test_mode') -
   {%- set ns.parts = ns.parts + ['occupancy ' ~ away_state] -%}
 {%- endif -%}
 {%- set prefix -%}
+{# DOORS OPEN IS ITS OWN HEADLINE (2026-10-28). Found by the state tests: with a worker inside
+   and BOTH doors open, `away` is false, so DOOR OPEN WHILE AWAY cannot fire, no other branch
+   matched, and the banner said "BUILDING QUIET" while two doors stood open. Quiet is a claim
+   about the building; it must not be made while a door is open. #}
 {%- if intr == 'on' -%}INTRUSION ACTIVE
 {%- elif test == 'on' -%}SIREN MUTED
 {%- elif test not in ['on', 'off'] -%}SIREN UNVERIFIED
@@ -118,6 +122,7 @@ BANNER = """{%- set test = states('input_boolean.phoenix_intrusion_test_mode') -
 {%- elif bell -%}SOMEONE AT THE DOOR
 {%- elif guest_latched -%}ARMING BLOCKED
 {%- elif guest == 'on' -%}GUEST MODE ON
+{%- elif any_open -%}DOORS OPEN
 {%- elif unknown_core or shop not in ['on','off'] or apt not in ['on','off'] or street not in ['on','off'] -%}STATUS UNVERIFIED
 {%- else -%}BUILDING QUIET
 {%- endif -%}
