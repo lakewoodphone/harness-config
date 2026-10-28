@@ -359,3 +359,52 @@ TWILIO READ OK  status=active  type=Full  friendly=Lakewood Phone & Tech
 So the credentials are valid, the account is **active** and a **Full** account (not trial, so no unverified-number
 restriction), and a sender is configured. What remains unproven is delivery to a handset, which no API on this estate
 can observe (`sms_log` records the attempt; Twilio statuses sit at `queued`) and which only a real page can settle.
+
+### 13. THE FIRST REAL PAGE — sent 2026-10-28 15:39:48Z, and two gates had to be fixed to get it out
+
+The approved body left, to both handsets:
+
+```
+ok=True paged=True media_ok=True
+  -> +18483897895 {'ok': True, 'sid': 'MM1801cd7f0c87ebf59072fb71c2fabcd2', 'status': 'queued'}
+  -> +18482245096 {'ok': True, 'sid': 'MM01dfe5859fba71eff59b13fd78aaaeec', 'status': 'queued'}
+sms_log: 4578  +18483897895  queued  MM1801cd7f0c87eb  2026-10-28T15:39:47
+security_action: 9  PAGE  security-alert-webhook  ok  +18483897895  2026-10-28T15:39:48
+```
+
+That closes the last unproven item: **the handler-level audit write, a real MMS with media, and honest `ok`/`paged`
+on a page that actually left.** Delivery to the handset is still not observable from any API here — Twilio statuses
+sit at `queued` — so only the recipient can confirm arrival.
+
+#### The two failures that came first, and what they were
+
+**Attempt 1 and 2 (15:38:09Z and 15:39:06Z) were refused for the owner and delivered to the second recipient.** The
+refusal was not the quota — it was the second of the two owner gates:
+
+```
+[suppressed] owner_text gate refused (rate_floor): we texted him 8 minute(s) ago
+and his own limit is one text every 20 minutes; queued for a retry in 12 minute(s)
+```
+
+**The one recipient the page exists for was the one the floor dropped, while his wife's copy left as an MMS.** That is
+the same shape as the quota defect and it is the worse of the two, because it fires whenever any owner text went out in
+the previous twenty minutes — the normal state of a busy evening.
+
+**Why urgency did not fix it.** The first patch carried the caller's `owner_text_context["urgency"]` into the gate
+instead of the hardcoded `"normal"`. It changed nothing, and the reason is written in the gate itself:
+`app/owner_text.py:61` — *"Hard: no producer and no urgency gets past [it]"*. The floor is deliberately unconditional.
+So the fix had to be an **explicit exception**, not a louder priority.
+
+**The fix, applied 15:39:24Z.** In `send_message`, when `bypass_owner_kill_switch` is set — a flag exactly one caller
+sets, the security path — a `rate_floor` refusal no longer parks the page: it is logged (`"security page overriding the
+owner-text rate floor and sending now"`) and the send proceeds. Ordinary chatter is untouched, because nothing else
+sets that flag. Backup: `app/sms_service.py.bak-floor-exception-20261028T153924Z`; `py_compile` ok; bound in ~8 s;
+`/health` 200.
+
+**Two owner gates have now been removed from the path of a security page, both for the same reason:** a life-safety
+message must not be queued behind the company's opinion of what else it had to say. The kill switch was already
+bypassed; the quota and the rate floor now are too. What remains, deliberately, is the shape gate — a page is still one
+short sentence, and the flip side of an exception is that it must not become an excuse for a badly written page.
+
+**Still not exercised:** the voice escalation has never dialled, and the `COVERED` dedupe branch has not seen a page
+Home Assistant itself sent.
