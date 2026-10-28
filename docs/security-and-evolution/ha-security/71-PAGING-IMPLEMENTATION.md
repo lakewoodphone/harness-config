@@ -602,3 +602,41 @@ invisible without a `last-changed` row somewhere. It sits last and small, so the
 **Still outstanding:** the card-mechanics analysis (exact schemas, `logbook` `target` vs `entities`, whether
 `state_filter` is honoured or silently ignored, and which properties fail quietly). `state_filter` and `hours_to_show`
 round-tripped through the API — that proves they were **stored**, not that the card honours them.
+
+## 19. Version-pinned: the card mechanics analysis, and the property that did nothing — 2026-10-28 16:50Z
+
+The third analysis pinned the exact stack — **Home Assistant 2025.10.3 ships frontend `20251001.4`** — and read the
+card source at that tag rather than today's docs. It found one thing that invalidates a claim I made an hour earlier.
+
+**`state_filter` does not exist on 2025.10.3.** The logbook card gained it in a later release; on this instance the
+property is **silently ignored**. So the "arrivals only" timeline I described was never filtering anything: the config
+looked right, the card ignored it, and the screen showed every open/close pair. That is the worst shape of bug —
+it survives review and then lies to the eye. `name_detail` is in the same category.
+
+**What replaced it.** Noise is now cut by *fewer entities* rather than by a filter that does not exist: three instead
+of five (the two doors that matter plus the doorbell's person detector), and `target.entity_id` — the canonical form on
+this version — rather than the deprecated `entities:`.
+
+**Verified after the change:** the stored card reads back as
+`{"title": "Doors and doorbell — last 12 hours", "hours_to_show": 12, "target": {"entity_id": [...]}}`, and a direct
+`logbook/get_events` query for those same three entities over the last 12 hours returns **38 events**, so the timeline
+has real content rather than an empty window.
+
+**Other rules from the analysis that this config now respects:**
+- `entities` must be present on `picture-glance` even when empty (`[]` is valid; omitting it throws *"Invalid
+  configuration"*).
+- `camera_view: auto` is a ~10-second thumbnail and tapping opens more-info; `live` streams inline and is a battery
+  and data trap on cellular. Auto is the phone-friendly choice and is what is used.
+- A per-entity `show_state` label only renders when explicitly `true` on this version, whatever the docs say — hence
+  door icons are present with state hidden on purpose.
+- **`lovelace/config/save` performs no schema validation at all.** A bad card is stored exactly as sent and fails at
+  render time as a per-card error box. Nothing can be trusted to "save cleanly".
+- Markdown Jinja runtime errors are **suppressed** outside the editor preview: the card goes blank or stale rather than
+  showing an error. That is why every banner change is rendered through `/api/template` before it is applied.
+- `grid`/`glance` `columns` never collapse on a phone. The three camera shortcuts are short-named for that reason.
+- `conditional` on 2025.10.3 wants `entity:` (not the newer `entity_id:`) — moot here, since no conditional card
+  remains on the view.
+
+**The transferable lesson:** a dashboard property is not real until it is read at the version that runs. Both the design
+analysis and I assumed current-docs behaviour; only the analysis that pinned the tag caught it. This is the same defect
+as a hardcoded model name: the safety is in resolving against the thing that actually runs.
