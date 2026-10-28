@@ -1,0 +1,15 @@
+[Unit]
+Description=Guard the authority database's WAL: reap a hot orphan, unpin the WAL, checkpoint
+Documentation=file:/usr/local/bin/authority-wal-guard.py
+After=company-api.service
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/local/bin/authority-wal-guard.py
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# The guard samples CPU for 10 s and may SIGTERM a few processes with a 20 s grace each;
+# 180 s is ample. A guard that hangs must not become the thing that needs guarding.
+TimeoutStartSec=180
