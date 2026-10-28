@@ -89,8 +89,11 @@ def main() -> int:
         failing = [r["name"] for r in mine if r.get("status") == "completed" and r.get("conclusion") != "success"]
         pending = [r["name"] for r in mine if r.get("status") != "completed"]
         green = bool(mine) and not failing and not pending
+        # PENDING IS NOT RED (2026-10-28): a head whose runs are still going was printed as RED, the same
+        # two-causes-one-label mistake as BILLING hiding a code failure (L13559). Name the state that is true.
+        label = "GREEN" if green else ("PENDING" if (pending and not failing) else "RED")
         detail = ("%s %s on %d run(s)%s%s" % (
-            (sha or "?")[:10], "GREEN" if green else "RED",
+            (sha or "?")[:10], label,
             len(mine),
             ("; failing: " + ", ".join(failing[:3])) if failing else "",
             ("; pending: " + ", ".join(pending[:3])) if pending else ""))
@@ -152,13 +155,25 @@ def main() -> int:
         if existing:
             pr0 = sorted(existing, key=lambda p: p.get("created_at") or "")[0]
             st2, pr2 = api("/repos/%s/pulls/%d" % (REPO, pr0["number"]), tok)
+            # ANCESTOR IS REUSABLE (2026-10-28). A promotion PR whose head is behind the current test head is
+            # a valid smaller promotion - merge it and let the next run carry the rest. Only a DIVERGED head
+            # (the base moved under it) has to be closed and replaced.
+            head_sha2 = pr2.get("head", {}).get("sha") if st2 == 200 else None
+            want_sha = (test_head or {}).get("sha")
+            behind = False
+            if head_sha2 and want_sha and head_sha2 != want_sha:
+                try:
+                    _, cmp2 = api("/repos/%s/compare/%s...%s" % (REPO, head_sha2, want_sha), tok)
+                    behind = cmp2.get("status") in ("ahead", "identical")
+                except Exception:  # noqa: BLE001
+                    behind = False
             state2 = pr2.get("mergeable_state") if st2 == 200 else "unreadable"
             print("  open promotion PR #%s already exists (mergeable_state=%s) - not creating another"
                   % (pr0["number"], state2))
             # ASK GITHUB, DO NOT OUT-GUESS IT. `unstable` means a non-required or superseded check is
             # unhappy; branch protection judges the latest result per required context, so the API is
             # the authority on whether this may merge.
-            if st2 == 200 and pr2.get("mergeable"):
+            if st2 == 200 and (pr2.get("mergeable") and behind):
                 st3, res3 = api("/repos/%s/pulls/%d/merge" % (REPO, pr0["number"]), tok, "PUT",
                                 {"merge_method": "merge",
                                  "commit_title": "promote: test %s to production (#%d)"
@@ -167,6 +182,11 @@ def main() -> int:
                 prod_after = next((ln.strip() for ln in run([sys.executable, DEPLOY, "--live"]).splitlines()
                                    if "deployed production" in ln), "?")
                 print("  production after : %s" % prod_after)
+            elif st2 == 200 and not behind and head_sha2 != want_sha:
+                # diverged: the base moved under it, so it can never merge. Close it and make a fresh one.
+                api("/repos/%s/pulls/%d" % (REPO, pr0["number"]), tok, "PATCH", {"state": "closed"})
+                print("  PR #%s is diverged from the current test head - closed, creating a fresh one"
+                      % pr0["number"])
             else:
                 print("  it is not clean yet; a later tick will merge it. Not creating a duplicate.")
             return 0
