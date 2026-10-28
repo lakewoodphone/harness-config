@@ -328,7 +328,8 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                            html.escape(s['camera_id'])) for s in shots)
         parts.append('<div class="shots">%s</div>' % cells)
     else:
-        parts.append('<p class="note">No picture was saved for this event.</p>')
+        parts.append('<p class="note">No picture for this event — stills are taken when a visit '
+                     'begins, and this one started before the camera capture was running.</p>')
 
     sigs = conn.execute("SELECT occurred_at, entity_id, new_state FROM shop_visit_signal WHERE "
                         "visit_id=? ORDER BY occurred_at LIMIT 12", (v['id'],)).fetchall()

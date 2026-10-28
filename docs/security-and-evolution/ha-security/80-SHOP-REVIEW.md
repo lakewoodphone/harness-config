@@ -320,3 +320,38 @@ normalised to *interior* and *the maglock*, and a fragment shorter than five cha
 a typo — which is why *"Yocheved access"* carries no location; the only surviving fragment was `In`.
 
 **Verified:** local and public both **200**, 64,113 bytes, titles as listed above.
+
+## Round 7: I attached thirty pictures to the wrong moments, and removed every one
+
+**The defect, in my own pipeline.** The capture step ran with an **eight-hour window**, so it fetched whatever the
+cameras were showing *at the moment the script ran* and attached it to visits from up to eight hours earlier. Measured:
+
+| visit started | picture taken | minutes late |
+|---|---|---|
+| 13:47 | 17:26 | **219** |
+| 13:51 | 17:26 | 214 |
+| 14:51 | 17:26 | 154 |
+| 15:34 | 17:26 | 111 |
+| 15:53 | 17:26 | 92 |
+| 16:26 | 17:26 | 60 |
+
+All thirty stills were wrong. A picture of an empty room at 17:26 stapled to an event at 13:47 is not a thumbnail, it
+is a different moment wearing someone else's timestamp — the exact class of confident lie this system exists to
+prevent, and I built it.
+
+**The fix:** a still is captured only when a visit **started within ten minutes** (`CAPTURE_WINDOW_S = 600`). Beyond
+that the camera cannot be looking at the same room at the same time, so the visit keeps no picture. Verified: run
+against the current archive it selects **0 visits to capture**, which is correct — every visit is older than the
+window.
+
+**Every wrong picture deleted** — 30 rows and 30 files, not hidden behind a flag. Anything that survived would have
+been evidence of a moment that never happened.
+
+**The page now explains the absence rather than showing a blank:**
+*"No picture for this event — stills are taken when a visit begins, and this one started before the camera capture was
+running."*
+
+**What this means for the owner today:** the page currently shows no photographs for the two days of history, because
+it is telling the truth. Pictures begin at the next visit. **Pictures for old events are only possible from the NVR**,
+which holds the actual recorded footage for those hours — and that needs the credential this environment does not have.
+That is the honest boundary, stated rather than papered over.

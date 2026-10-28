@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 
 DB = '/root/authority.db'
 MEDIA_ROOT = '/root/shop-media'
+CAPTURE_WINDOW_S = 600      # a still is only honest this soon after a visit begins
 ENV = '/opt/company/.env'
 
 # which cameras to capture for a visit, and why each one earns its place
@@ -99,13 +100,21 @@ def main() -> int:
     conn = sqlite3.connect(DB)
     try:
         conn.executescript(SCHEMA)
+        # A PICTURE MUST BELONG TO ITS VISIT (2026-10-28). The first version captured with an
+        # eight-hour window, which attached frames taken at 17:26 to visits that began at 13:47 --
+        # measured up to 219 minutes late. That is not a thumbnail, it is a different moment
+        # wearing someone else's timestamp, and it is exactly the confident lie this system exists
+        # to avoid. A still can only be honest if the camera is looking at the same room at
+        # roughly the same time, so only visits younger than CAPTURE_WINDOW_S are captured; older
+        # ones keep no picture and the page says so.
         if args.visit:
             visits = conn.execute("SELECT id, started_at, has_person FROM shop_visit WHERE id=?",
                                   (args.visit,)).fetchall()
         else:
+            fresh = (datetime.now(timezone.utc) - timedelta(seconds=CAPTURE_WINDOW_S)).isoformat()
             visits = conn.execute(
                 "SELECT id, started_at, has_person FROM shop_visit WHERE started_at >= ? "
-                "ORDER BY started_at", (since,)).fetchall()
+                "AND started_at >= ? ORDER BY started_at", (since, fresh)).fetchall()
 
         # a visit that already has at least one good still is done
         done = {r[0] for r in conn.execute(
