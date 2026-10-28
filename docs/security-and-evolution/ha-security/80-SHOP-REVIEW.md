@@ -167,3 +167,41 @@ this to work.
 
 **Consequence for the page:** every event card carries one of three honest clip states — *plays*, *no clip because it
 is older than the recorder*, *no clip because nothing was recorded* — and only the first gets a play button.
+
+## Round 3: the page exists — live, recent, and the days back
+
+**Built:** `app/shop_review.py`, a FastAPI router serving one server-rendered page at
+`/shop/r/<token>`. Server-rendered on purpose: the visits, pictures and clip references all live on this host, so one
+HTML response is faster than a page that then fetches everything, and there is no client-side state to get wrong.
+
+**What it shows, in the owner's order:** a header with the visit count, **Live now** (four camera tiles), **Most
+recent** (the three newest visits that have a picture), then **Today**, **Yesterday** and the days before, each as a
+header with its counts and its visit cards. Every card expands in place — with `<details>`, so it works with no
+JavaScript — to show the pictures from every camera, the raw signals that formed the visit, its duration and doors, and
+a clip if one exists.
+
+**Measured after the last fix:** 5,611 px tall, 47 images, **27 decoded**, 53 event cards, **0 JavaScript errors**, at
+390 px wide.
+
+### Three defects the render caught, none of which a readback could
+
+1. **The thumbnail rendered at natural size.** The `<img>` was a direct child of `<summary>` with no wrapper, so a
+   2560 px frame filled an entire phone screen — one card per screen. The page was **19,351 px** tall. Wrapping it in
+   the sized box brought it to **5,611 px**.
+2. **Every "recent" card showed the hallway camera**, including the one labelled *Person outside*, because the still
+   picker sorted alphabetically and `cam_front_hallway_main` wins every time. A thumbnail showing the wrong room is
+   worse than none: it looks like evidence and is not. Stills are now chosen by what the visit actually was — shop door
+   → hallway, street door or a person → the doorbell.
+3. **The picture grid inside an expanded card was broken images**, because the `<img>` pointed at a route that does not
+   exist (`/img/<visit>/<camera>`); the working route is `/full/<visit>/<camera>`. The `<a href>` was already right,
+   which is exactly the kind of half-right that a readback would have called correct.
+
+**Honesty, as built:** a visit with no clip says *"No clip for this event — recording starts only when a visit begins,
+so older events will never have one."* A visit with no picture says so. Nothing shows a dead player or a blank frame.
+
+### Access
+
+The URL carries a long random token (`SHOP_REVIEW_TOKEN` in `/opt/company/.env`), not a login. That is the same trust
+model as the MMS evidence host — unguessable rather than authenticated — and it is a stated trade-off, not an
+oversight: the page can be moved behind the dashboard's session later without touching anything below it. A wrong
+token returns **404**, verified.
