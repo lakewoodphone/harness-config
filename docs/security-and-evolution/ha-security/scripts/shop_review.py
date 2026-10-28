@@ -81,6 +81,7 @@ h2 span{font-size:12px;color:var(--muted);font-weight:400}
 details.ev{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden}
 details.ev>summary{display:flex;gap:10px;align-items:center;padding:8px;cursor:pointer;list-style:none}
 details.ev>summary::-webkit-details-marker{display:none}
+.thumb.none{background:transparent;border:1px solid rgba(255,255,255,.06)}
 .thumb{width:88px;height:66px;border-radius:7px;overflow:hidden;background:#0f1420;flex:0 0 auto;display:grid;place-items:center;font-size:10px;color:var(--muted);text-align:center;line-height:1.15}
 .thumb img{width:100%;height:100%;object-fit:cover}
 .meta{min-width:0;flex:1}
@@ -89,6 +90,7 @@ details.ev>summary::-webkit-details-marker{display:none}
 .badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap}
 .b{font-size:10px;border-radius:999px;padding:1px 7px;border:1px solid var(--line);color:var(--muted)}
 .b.clip{color:#0b0d12;background:var(--accent);border-color:var(--accent);font-weight:600}
+.b.person{color:#bfe3ff;border-color:rgba(59,130,246,.5)}
 .b.warn{color:var(--warn);border-color:var(--warn)}
 .body{padding:0 10px 12px}
 .body video{width:100%;border-radius:8px;background:#000;margin:6px 0 8px}
@@ -108,7 +110,9 @@ table.sig td.n{white-space:nowrap;color:var(--txt);padding-right:8px}
 .alert .ts2{font-size:10px;opacity:.75}
 .alert.ok{border-left-color:var(--ok)}
 .alert.warn{border-left-color:var(--warn);background:rgba(255,152,0,.10)}
-.alert.bad{border-left-color:var(--bad);background:rgba(219,68,55,.18);
+/* an 18% wash let the day header show THROUGH the pinned alert (2026-10-28): two texts on top of
+   each other at the exact moment the alert matters most. A pinned bar must be opaque. */
+.alert.bad{border-left-color:var(--bad);background:#3a1418;
   position:sticky;top:0;z-index:20;border-radius:0;margin:0 -12px;padding:12px}
 .tile .ts{font-style:normal;color:#c9d2e0;margin-left:6px;font-size:10px}
 .alert.unknown{border-left-color:var(--muted)}
@@ -420,10 +424,13 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                  'src="/webhook/ha/shop/r/%s/full/%s/%s?w=176" alt=""></div>'
                  % (token, v['id'], html.escape(st['camera_id'])))
     else:
-        # NO EMPTY BOX (2026-10-28). An 88x66 empty frame reads as a failed image; a review of the
-        # live page counted 53 of them. A card with no picture simply has no picture column.
-        thumb = ''
+        # ONE ROW GEOMETRY (2026-10-28). Removing the empty box fixed the "broken image" look but
+        # left two row heights and two left edges in the same list. The slot now always exists and
+        # stays quiet: no border, no words, just an anchor point for the text.
+        thumb = '<div class="thumb none" aria-hidden="true"></div>'
     badges = []
+    if v['has_person']:
+        badges.append('<span class="b person">person</span>')
     if cl and cl['result'] == 'ok':
         badges.append('<span class="b clip">&#9654; clip</span>')
     elif cl:

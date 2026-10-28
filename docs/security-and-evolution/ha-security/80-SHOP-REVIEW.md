@@ -799,3 +799,30 @@ up to 540 pictures an hour from one sensor, and a visit that stays "open" would 
 fill the disk.
 
 Verified after the change: the filter accepts exactly the six person-capable sensors and no automation.
+
+## Round 21: one row geometry, a count you can check, and a pinned alert that bled
+
+Three fixes from the review, all about the list being scannable rather than merely correct.
+
+**Rows had two heights and two left edges.** Removing the empty "No image" box fixed the broken-image look but split
+the list in two: a row with a picture was 82 px with text at x=119, a row without was 60 px at x=21. The slot now always
+exists and stays quiet — no border, no words, no dashed frame — so every row in the list lines up.
+
+**"N with a person" could not be audited.** A day claiming *"6 with a person"* over four rows titled *Person* was a
+number you had to take on faith, because a visit that used a keypad **and** had a person was titled by the credential.
+Each card now carries a small **person** badge when a person detector fired, so the header can be checked against the
+rows. Measured after the change:
+
+| day | header | cards | badges |
+|---|---|---|---|
+| Today · Wed 28 Oct | 11 visits · 6 people | 11 | 6 |
+| Yesterday · Tue 27 Oct | 26 visits · 24 people | 26 | 24 |
+| Mon 26 Oct | 5 visits · 3 people | 5 | 3 |
+
+All three reconcile exactly.
+
+**And the pinned alert was translucent**, so once you scrolled into the day the header *"Today · Wed 28 Oct"* showed
+**through** the red bar — two texts on top of each other at the exact moment the alert mattered most. A pinned bar must
+be opaque; it is now solid (`#3a1418`), and nothing shows through it.
+
+Gate after the change: **17 checks, 17 passed.**
