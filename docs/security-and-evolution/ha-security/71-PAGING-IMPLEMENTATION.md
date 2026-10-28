@@ -945,3 +945,37 @@ So the refusal is real, the exit code is 1, and the live dashboard was left exac
 
 **Second artifact:** `scripts/check-shop-entities.py`, a standalone preflight that names *which card* each missing
 entity is used by, for diagnosis without applying anything. The generator's gate uses the same rule but runs inline.
+
+## 27. Round 7: the outside camera had silently disappeared, and every tile now proves it can render — 2026-10-28
+
+**A camera tile can be broken while the entity looks perfect.** All five cameras report `state: idle` with
+`last_changed` ~2,517 minutes old — about 42 hours. That is **normal**: a camera's state does not change while the
+stream is stopped, so neither existence nor freshness says anything about whether the tile will show a picture. This
+estate has already had a camera answer `idle` in the entity list while returning **HTTP 500** from its proxy.
+
+So the preflight now **fetches a frame from every referenced camera, twice, a second apart**:
+
+```
+camera.cam_deserted_exit_main             314,554 bytes  live
+camera.cam_deserted_interior_main         293,718 bytes  live
+camera.cam_front_hallway_main             153,993 bytes  live
+camera.cam_waiting_room_main              204,918 bytes  live
+camera.reolink_video_doorbell_poe_clear   687,397 bytes  live
+```
+
+Two different hashes a second apart mean the camera is re-encoding, so the still is not frozen. A dead camera now
+fails the preflight instead of failing quietly on the owner's phone.
+
+**And the check immediately found a regression I had introduced.** The first run reported *"cameras to fetch: 4"* —
+but the view has five. **The outside doorbell camera had been dropped entirely during the relayout** in round 3: the
+street-door picture-glance was removed to save 210 px, and nothing replaced it, so the one camera that sees a person
+**before** they reach the door had no view at all. It is now the first tile of a **2×2 grid** (outside, drop-off,
+control room, bench) — two columns rather than three, because three across a 390 px phone leaves about 118 px per tile
+and a face is unreadable at that size.
+
+**Verified after the fix:** preflight `16 entity ids all present, 0 custom card(s)`; `save: True`;
+readback `7 cards`; standalone checker exit **0** with all five cameras live.
+
+**The lesson worth keeping:** the entity-existence gate was built to catch a typo, and instead caught an absence —
+which is the harder case, because nothing errors. A missing card does not break a save, does not log a warning, and
+leaves a dashboard that looks complete.

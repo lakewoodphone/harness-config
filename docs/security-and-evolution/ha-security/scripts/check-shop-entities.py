@@ -120,7 +120,41 @@ async def main() -> int:
     custom = custom_cards(cfg)
     print('custom cards depended on: %s' % (', '.join(sorted(set(custom))) if custom else 'none'))
 
-    return 0 if not missing else 1
+    # A CAMERA TILE CAN BE BROKEN WHILE THE ENTITY LOOKS PERFECT (2026-10-28).
+    # `state: idle` with a two-day-old `last_changed` is NORMAL for a camera -- the state does
+    # not change while the stream is stopped, so neither existence nor freshness proves the
+    # tile renders. The only real test is to fetch a frame: this estate has already had a
+    # camera report `idle` in the entity list while returning HTTP 500 from its proxy. Two
+    # grabs a second apart also catch a frozen still, because a live camera re-encodes.
+    import hashlib
+    import time
+    import urllib.request
+
+    def grab(cam: str) -> bytes:
+        req = urllib.request.Request(ha + '/api/camera_proxy/' + cam,
+                                     headers={'Authorization': 'Bearer ' + token})
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            return resp.read()
+
+    cams = sorted(e for e in used if e.startswith('camera.'))
+    print('cameras to fetch: %d' % len(cams))
+    dead = []
+    for cam in cams:
+        try:
+            first = grab(cam)
+            time.sleep(1)
+            second = grab(cam)
+            same = hashlib.sha256(first).hexdigest() == hashlib.sha256(second).hexdigest()
+            print('  %-46s %7d bytes %s' % (cam, len(first),
+                                             '(identical frames)' if same else 'live'))
+        except Exception as exc:  # noqa: BLE001 - a dead camera is reported, never raised
+            dead.append(cam)
+            print('  %-46s FAILED %s: %s' % (cam, type(exc).__name__, str(exc)[:60]))
+
+    if dead:
+        print('DEAD CAMERAS: %s' % ', '.join(dead))
+
+    return 0 if (not missing and not dead) else 1
 
 
 if __name__ == '__main__':

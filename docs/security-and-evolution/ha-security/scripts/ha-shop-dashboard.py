@@ -216,7 +216,15 @@ def config(use_target: bool = False) -> dict:
         {"type": "logbook", "title": "Door opens - last 12 hours",
          "hours_to_show": 12,
          "target": {"entity_id": [DOORS[0], DOORS[1]]}},
-        {"type": "grid", "columns": 3, "square": True, "cards": [
+        # FOUR cameras, 2x2 (2026-10-28). The outside doorbell was dropped in the relayout and
+        # the preflight caught it: the view referenced four cameras, not five, so the one camera
+        # that sees a person BEFORE they reach the door had no view at all. It is first in this
+        # grid because it is the most useful of the four. Two columns rather than three, because
+        # three across a 390 px phone leaves ~118 px per tile and a face is unreadable at that
+        # size.
+        {"type": "grid", "columns": 2, "square": True, "cards": [
+            {"type": "picture-entity", "entity": "camera.reolink_video_doorbell_poe_clear",
+             "name": "Outside", "show_name": True, "show_state": False, "camera_view": "auto"},
             {"type": "picture-entity", "entity": "camera.cam_waiting_room_main",
              "name": "Drop-off", "show_name": True, "show_state": False, "camera_view": "auto"},
             {"type": "picture-entity", "entity": "camera.cam_deserted_exit_main",
