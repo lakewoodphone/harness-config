@@ -99,8 +99,11 @@ async def main() -> int:
                 window.scrollTo(0, y);
                 await new Promise(r => setTimeout(r, 600));
             }
-            window.scrollTo(0, 0);
-            await new Promise(r => setTimeout(r, 1200));
+            // STAY AT THE BOTTOM: sampling from the top measures cards that Home Assistant
+            // has paused because they are off screen, which reads as "the cameras froze" when
+            // they are fine. The measurement has to happen where the thing is visible.
+            window.scrollTo(0, document.body.scrollHeight);
+            await new Promise(r => setTimeout(r, 1500));
         }''')
 
         first = await sample(page)

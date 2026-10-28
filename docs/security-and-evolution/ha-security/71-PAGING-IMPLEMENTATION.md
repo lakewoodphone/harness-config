@@ -1200,3 +1200,34 @@ element than the one being queried, and only the screenshot showed the truth. Th
 instrument reported a failure which was an artefact of the instrument, and the third time the picture settled it.
 
 **Screenshot:** `dashboards/shop-view-camera-tap.png`.
+
+## 35. Round 16: one command that proves the dashboard is healthy — 2026-10-28
+
+The checks existed as five separate scripts somebody had to remember, in order, with the right arguments. That is how
+a check stops being run: `test-banner-states.py`, `check-shop-entities.py`, the colour conditions, `render-shop.py`,
+`watch-shop.py`. Now there is one command:
+
+```bash
+PYTHONPATH=/opt/company .venv/bin/python /root/verify-shop.py
+```
+
+```
+PASS entities and cameras exist and answer    present: 16 | MISSING: 0 | cameras to fetch: 5
+PASS banner wording, 10 states                10 case(s), 0 failure(s)
+PASS banner colour, 7 conditions              all correct
+PASS renders at phone size                    ha-card elements rendered: 9 | screenshot: /root/shop-390.png
+PASS cameras refresh, banner subscribed        refreshed: 5 of 5
+
+5 check(s), 0 failure(s)
+```
+
+It **applies nothing** — verification must be safe to run at any time — and exits non-zero with the failing detail if
+anything regresses. `--fast` skips the render and the 20-second watch when only the cheap checks are wanted.
+
+**The gate immediately improved an instrument.** Its first run reported *"refreshed: 3 of 5"* and passed, because the
+watch sampled from the top of the page where the tiles are off screen and Home Assistant has paused their polling —
+the same artefact found in §31, this time baked into the check that was supposed to catch it. The watch now leaves the
+page scrolled to the bottom before sampling, and reports **5 of 5**.
+
+That is the fourth time today an instrument reported a failure that was an artefact of the instrument rather than of
+its subject. Every one was caught because the output said *how many*, not just *whether*.
