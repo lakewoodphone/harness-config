@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import json
 import sqlite3
+import sys
 import ssl
 from datetime import datetime, timedelta, timezone
 
@@ -144,5 +145,67 @@ async def main() -> int:
     return 0
 
 
+async def selftest() -> int:
+    """Prove the whole clip chain on demand, without touching any visit.
+
+    Records a short clip, waits, then resolves it through media_source and fetches the signed URL
+    the way a browser would. Nothing is attached to a visit: this is a test of the plumbing, not
+    evidence about an event.
+    """
+    import time as _t
+
+    import websockets
+
+    ha = (env('HA_URL') or '').rstrip('/')
+    token = env('HA_TOKEN')
+    ws_url = ha.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/websocket'
+    kw: dict = {'max_size': 16 * 1024 * 1024}
+    if ws_url.startswith('wss://'):
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        kw['ssl'] = ctx
+    name = '%s/selftest_%d.mp4' % (MEDIA_DIR, int(_t.time()))
+    async with websockets.connect(ws_url, **kw) as ws:
+        await ws.recv()
+        await ws.send(json.dumps({'type': 'auth', 'access_token': token}))
+        await ws.recv()
+        ctr = {'id': 1}
+
+        async def call(payload):
+            payload = dict(payload)
+            payload['id'] = ctr['id']
+            ctr['id'] += 1
+            await ws.send(json.dumps(payload))
+            while True:
+                raw = json.loads(await ws.recv())
+                if raw.get('id') == payload['id']:
+                    return raw
+
+        r = await call({'type': 'call_service', 'domain': 'camera', 'service': 'record',
+                        'service_data': {'filename': name, 'duration': 6, 'lookback': 2},
+                        'target': {'entity_id': SHOP_DOOR_CAM}})
+        print('1. record requested :', r.get('success'))
+        await asyncio.sleep(11)
+        rel = name.replace('/media/', '')
+        mid = 'media-source://media_source/local/' + rel.lstrip('/')
+        res = await call({'type': 'media_source/resolve_media', 'media_content_id': mid})
+        url = (res.get('result') or {}).get('url')
+        print('2. resolved         :', bool(url), (url or '')[:60])
+        if not url:
+            return 1
+        full = url if url.startswith('http') else ha + url
+        import urllib.request as _u
+        with _u.urlopen(full, timeout=30) as resp:
+            body = resp.read()
+        head = body[4:8]
+        ok = resp.status == 200 and head == b'ftyp'
+        print('3. fetched          :', resp.status, resp.headers.get('Content-Type'),
+              '%d bytes  mp4 magic=%s' % (len(body), head == b'ftyp'))
+        return 0 if ok else 1
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        raise SystemExit(asyncio.run(selftest()))
     raise SystemExit(asyncio.run(main()))

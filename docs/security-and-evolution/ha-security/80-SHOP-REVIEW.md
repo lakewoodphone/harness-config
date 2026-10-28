@@ -458,3 +458,31 @@ the access log.
 
 **One measurement of my own to distrust:** my first card count said "1", because `grep -c` counts *lines* and this page
 is a single line of HTML. The real count is 40 — checked with `<details` occurrences rather than trusting the tool.
+
+## Round 11: the clip chain is provable on demand
+
+Clips cannot be manufactured for a past event — recording starts when it is told to — so "does the clip path actually
+work?" sat unproven while no traffic arrived. It is now a command:
+
+```
+PYTHONPATH=/opt/company .venv/bin/python /root/shop-clip.py --selftest
+```
+
+```
+1. record requested : True
+2. resolved         : True  /media/local/shop/selftest_….mp4?authSig=eyJhbGciOi…
+3. fetched          : 200  video/mp4  1,896,963 bytes   mp4 magic=True
+```
+
+It records six seconds from the shop-door camera, waits for the file to finalise, resolves it through
+`media_source`, and fetches the signed URL the way a browser would — then checks the bytes really are an MP4
+(`ftyp`) rather than a JSON error page wearing a 200. **Nothing is attached to any visit**: it proves the plumbing, not
+an event.
+
+**Why this matters more than a test:** the three states a card can be in — *has a clip*, *too old to ever have one*,
+*recording failed* — are only trustworthy if the first state is reachable at all. Until a real visit arrives, this is
+the evidence that it is.
+
+**What is still unproven, precisely:** that the 3-minute cycle records a clip at the moment a visit begins. That needs
+traffic. The selection window is built and refuses correctly (`0 person-visit(s) in range` when nothing is young
+enough), and the recorder itself is now proven.
