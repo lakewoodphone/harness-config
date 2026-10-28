@@ -122,8 +122,11 @@ def open_prs() -> dict[str, dict]:
         data = api("/repos/%s/pulls?state=open&base=test&per_page=100" % REPO, token())
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError("cannot list PRs: %s: %s" % (type(exc).__name__, exc))
+    # `created_at` MATTERS: the non-D4 merge queue skips a PR until it has been open QUIET_MIN minutes, and
+    # without this field that filter raised on every PR and silently considered none (measured 2026-10-28 - the
+    # queue never merged anything, which is why #716 and #718 sat green for an hour).
     return {pr["head"]["ref"]: {"number": pr["number"], "branch": pr["head"]["ref"],
-                               "title": pr["title"]} for pr in data}
+                               "title": pr["title"], "created_at": pr.get("created_at")} for pr in data}
 
 
 def body_for(row: dict) -> str:
@@ -229,6 +232,38 @@ def main() -> int:
         if p.returncode not in (0, 3):
             print("  -> not mergeable now; will try another branch next tick")
 
+    # ---------------------------------------------------------------------------------------
+    # THE QUEUE THAT IS NOT IN THE D4 LIST (2026-10-28). D4 covers `done` items whose branch never
+    # landed. It does NOT cover a pull request that was opened for another reason - a docs PR, or a
+    # fix a session wrote and opened by hand (#694, #697, #700 tonight). Nothing merged those, so
+    # they would wait for ever even once the base is green. Merge the OLDEST green PR that has been
+    # open for at least QUIET_MIN minutes and whose checks the repository itself calls green.
+    # lpt-pr-merge.py re-checks everything (base must be test, no draft, no do-not-merge, GREEN,
+    # clean), so this cannot merge anything the branch protection would refuse.
+    QUIET_MIN = 20
+    now = datetime.now(timezone.utc)
+    candidates = []
+    for branch, pr in prs.items():
+        if any(row for row in rows if (row.get("branch") or "").replace("origin/", "") == branch):
+            continue                      # already handled above
+        created = pr.get("created_at")
+        try:
+            opened = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except Exception:  # noqa: BLE001
+            continue
+        if (now - opened).total_seconds() < QUIET_MIN * 60:
+            continue
+        candidates.append((opened, pr))
+    for opened, pr in sorted(candidates):
+        args = [sys.executable, MERGE, str(pr["number"])] + ([] if dry else ["--yes"])
+        p = sh(args, timeout=300)
+        out = (p.stdout.strip().splitlines() or [""])[-1][:160]
+        print("  other green PR #%s (open %s min): %s" % (
+            pr["number"], int((now - opened).total_seconds() // 60), out))
+        if p.returncode == 0 and not dry:
+            return 0
+        if p.returncode not in (0, 3):
+            break
     # CAP ON D4 PRS IN FLIGHT (2026-10-28). One new PR per tick and no merges, because every landing moves
     # `test` and invalidates the other open PRs' checks. Two is the compromise: one that may be red and needs a
     # decision (like #703), one that is making progress. When a slot frees, the next branch is opened.
@@ -251,38 +286,6 @@ def main() -> int:
         print("  open PR for %s: %s" % (branch, out[:180]))
         if p.returncode in (0, 3):
             return 0
-    # ---------------------------------------------------------------------------------------
-    # THE QUEUE THAT IS NOT IN THE D4 LIST (2026-10-28). D4 covers `done` items whose branch never
-    # landed. It does NOT cover a pull request that was opened for another reason - a docs PR, or a
-    # fix a session wrote and opened by hand (#694, #697, #700 tonight). Nothing merged those, so
-    # they would wait for ever even once the base is green. Merge the OLDEST green PR that has been
-    # open for at least QUIET_MIN minutes and whose checks the repository itself calls green.
-    # lpt-pr-merge.py re-checks everything (base must be test, no draft, no do-not-merge, GREEN,
-    # clean), so this cannot merge anything the branch protection would refuse.
-    QUIET_MIN = 20
-    now = datetime.now(timezone.utc)
-    candidates = []
-    for branch, pr in prs.items():
-        if (row for row in rows if (row.get("branch") or "").replace("origin/", "") == branch):
-            continue                      # already handled above
-        created = pr.get("created_at")
-        try:
-            opened = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        except Exception:  # noqa: BLE001
-            continue
-        if (now - opened).total_seconds() < QUIET_MIN * 60:
-            continue
-        candidates.append((opened, pr))
-    for opened, pr in sorted(candidates):
-        args = [sys.executable, MERGE, str(pr["number"])] + ([] if dry else ["--yes"])
-        p = sh(args, timeout=300)
-        out = (p.stdout.strip().splitlines() or [""])[-1][:160]
-        print("  other green PR #%s (open %s min): %s" % (
-            pr["number"], int((now - opened).total_seconds() // 60), out))
-        if p.returncode == 0 and not dry:
-            return 0
-        if p.returncode not in (0, 3):
-            break
     print("lpt-land: no action this tick")
     return 0
 
