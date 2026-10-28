@@ -21,6 +21,7 @@ import html
 import io
 import json
 import os
+import re
 import time
 import sqlite3
 import urllib.request
@@ -192,6 +193,7 @@ def safety_state() -> dict:
 
 
 _TILE_CACHE: dict[str, tuple[float, bytes]] = {}
+_CLIP_URL_CACHE: dict[str, tuple[float, str]] = {}
 TILE_TTL_S = 5.0
 
 
@@ -278,7 +280,7 @@ def still_for(conn: sqlite3.Connection, visit_id: str,
 
 def clip_for(conn: sqlite3.Connection, visit_id: str) -> sqlite3.Row | None:
     return conn.execute(
-        "SELECT camera_id, path, result, error FROM shop_visit_media "
+        "SELECT camera_id, path, result, error, clip_seconds, clip_offset_s, local_path FROM shop_visit_media "
         "WHERE visit_id=? AND kind='clip' LIMIT 1", (visit_id,)).fetchone()
 
 
@@ -435,13 +437,21 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
         parts.append('<video controls playsinline preload="none" width="358" height="201" '
                      'aria-label="Clip: %s, %s" src="/webhook/ha/shop/r/%s/clip/%s"></video>'
                      % (html.escape(visit_title(v)), clock(v['started_at']), token, v['id']))
-        secs = cl['clip_seconds'] if 'clip_seconds' in cl.keys() else None
+        keys = cl.keys()
+        secs = cl['clip_seconds'] if 'clip_seconds' in keys else None
+        offset = cl['clip_offset_s'] if 'clip_offset_s' in keys else None
         if secs and visit_span:
             parts.append('<p class="note">Clip %s of a %s visit. This is not the whole visit; the '
                          'rest is not on video.</p>' % (mmss(secs), mmss(visit_span)))
+        elif secs:
+            parts.append('<p class="note">Clip %s. The visit had not finished when it was recorded, '
+                         'so this is part of it, not all of it.</p>' % mmss(secs))
         else:
-            parts.append('<p class="note">This clip covers only part of the visit — recording '
-                         'starts when a visit begins.</p>')
+            parts.append('<p class="note">This clip covers only part of the visit.</p>')
+        # A clip that began part-way through must say so, or it implies it caught the arrival
+        if offset and offset > 60:
+            parts.append('<p class="note">Clip starts %s into the visit — recording began after the '
+                         'visit did, so the arrival is not on it.</p>' % mmss(offset))
         parts.append('<p class="note">Clip links expire. If it will not play, reload the page.</p>')
     elif state == 'open_no_clip':
         parts.append('<p class="note">No clip for this visit — recording did not start when it '
@@ -457,7 +467,7 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                          "kind='still' AND result='ok' ORDER BY camera_id", (v['id'],)).fetchall()
     if shots:
         cells = ''.join('<a href="/webhook/ha/shop/r/%s/full/%s/%s"><img loading="lazy" '
-                        'src="/webhook/ha/shop/r/%s/full/%s/%s"></a>'
+                        'src="/webhook/ha/shop/r/%s/full/%s/%s?w=320"></a>'
                         % (token, v['id'], html.escape(s['camera_id']), token, v['id'],
                            html.escape(s['camera_id'])) for s in shots)
         parts.append('<div class="shots">%s</div>' % cells)
@@ -683,11 +693,17 @@ async def shop_live(token: str, camera: str) -> HTMLResponse:
 
 
 @router.get('/webhook/ha/shop/r/{token}/clip/{visit_id}')
-async def shop_clip(token: str, visit_id: str) -> RedirectResponse:
-    """Resolve the stored clip to a Home Assistant signed URL, at request time.
+async def shop_clip(token: str, visit_id: str, request: Request) -> Response:
+    """Stream one stored clip through THIS origin, with byte-range support.
 
-    Signatures expire, so they must never be stored — resolving on demand is what keeps a
-    week-old page from serving dead links.
+    A 302 to Home Assistant's signed URL does not work from a phone: the page is https and the
+    signature points at an http tailnet address, which the browser refuses as mixed content — the
+    first real clip failed with MEDIA_ERR_SRC_NOT_SUPPORTED for exactly that reason. iOS Safari also
+    requires byte-range support before it will play inline video at all.
+
+    So the bytes come through here. The signature is still minted at request time (never at page
+    render, or every URL on a page would be dead after the TTL) and cached briefly, and the client's
+    Range header is passed straight through so seeking works.
     """
     require(token)
     conn = db()
@@ -697,38 +713,85 @@ async def shop_clip(token: str, visit_id: str) -> RedirectResponse:
         conn.close()
     if not row or row['result'] != 'ok' or not row['path']:
         raise HTTPException(404, 'no clip')
-    import asyncio
-    import ssl
 
-    import websockets
+    # THE PLAYABLE COPY FIRST (2026-10-28). The camera records HEVC, which Chrome cannot decode —
+    # the first real clip failed with MEDIA_ERR_SRC_NOT_SUPPORTED while every check said it was
+    # fine. shop-clip-local.py pulls the file here and transcodes it to H.264; this serves that copy
+    # from disk with real byte ranges, which iOS also requires before it will play inline video.
+    local = row['local_path'] if 'local_path' in row.keys() else None
+    if local and os.path.exists(local):
+        size = os.path.getsize(local)
+        rng = request.headers.get('range') or ''
+        m = re.match(r'bytes=(\d*)-(\d*)', rng)
+        if m:
+            start = int(m.group(1) or 0)
+            end = int(m.group(2)) if m.group(2) else size - 1
+            end = min(end, size - 1)
+            if start > end:
+                raise HTTPException(416, 'bad range')
+            with open(local, 'rb') as fh:
+                fh.seek(start)
+                chunk = fh.read(end - start + 1)
+            return Response(chunk, status_code=206, headers={
+                'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes',
+                'Content-Range': 'bytes %d-%d/%d' % (start, end, size),
+                'Content-Length': str(len(chunk)), 'Cache-Control': 'no-store'})
+        with open(local, 'rb') as fh:
+            body = fh.read()
+        return Response(body, media_type='video/mp4', headers={
+            'Accept-Ranges': 'bytes', 'Content-Length': str(len(body)),
+            'Cache-Control': 'no-store'})
 
-    ha = ha_base()
-    ws_url = ha.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/websocket'
-    kw: dict = {'max_size': 8 * 1024 * 1024}
-    if ws_url.startswith('wss://'):
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        kw['ssl'] = ctx
-    rel = row['path'].replace('/media/', '')
-    media_id = 'media-source://media_source/local/' + rel.lstrip('/')
-    async with websockets.connect(ws_url, **kw) as ws:
-        await ws.recv()
-        await ws.send(json.dumps({'type': 'auth', 'access_token': env('HA_TOKEN')}))
-        await ws.recv()
-        await ws.send(json.dumps({'id': 1, 'type': 'media_source/resolve_media',
-                                  'media_content_id': media_id}))
-        while True:
-            raw = json.loads(await ws.recv())
-            if raw.get('id') == 1:
-                break
-    url = (raw.get('result') or {}).get('url')
-    if not url:
-        raise HTTPException(404, 'clip not resolvable')
-    if url.startswith('/'):
-        url = ha + url
-    # 302 WITH NO-STORE: a cached redirect makes the browser reuse an expired signature and the
-    # fresh signing this route performs is never reached. The link is signed HERE, at media
-    # request time, never at page render, so a page left open for an hour still plays.
-    return RedirectResponse(url, status_code=302,
-                            headers={'Cache-Control': 'no-store, must-revalidate'})
+    import urllib.request as _u
+
+    now = time.monotonic()
+    hit = _CLIP_URL_CACHE.get(visit_id)
+    if hit and (now - hit[0]) < 480:            # signatures are short-lived; refresh well inside
+        url = hit[1]
+    else:
+        import asyncio
+        import ssl
+
+        import websockets
+
+        ha = ha_base()
+        ws_url = ha.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/websocket'
+        kw: dict = {'max_size': 8 * 1024 * 1024}
+        if ws_url.startswith('wss://'):
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            kw['ssl'] = ctx
+        rel = row['path'].replace('/media/', '')
+        media_id = 'media-source://media_source/local/' + rel.lstrip('/')
+        async with websockets.connect(ws_url, **kw) as ws:
+            await ws.recv()
+            await ws.send(json.dumps({'type': 'auth', 'access_token': env('HA_TOKEN')}))
+            await ws.recv()
+            await ws.send(json.dumps({'id': 1, 'type': 'media_source/resolve_media',
+                                      'media_content_id': media_id}))
+            while True:
+                raw = json.loads(await ws.recv())
+                if raw.get('id') == 1:
+                    break
+        url = (raw.get('result') or {}).get('url')
+        if not url:
+            raise HTTPException(404, 'clip not resolvable')
+        if url.startswith('/'):
+            url = ha + url
+        _CLIP_URL_CACHE[visit_id] = (now, url)
+
+    rng = request.headers.get('range')
+    req = _u.Request(url, headers={'Range': rng} if rng else {})
+    try:
+        with _u.urlopen(req, timeout=90) as upstream:
+            body = upstream.read()
+            headers = {'Content-Type': 'video/mp4',
+                       'Accept-Ranges': 'bytes',
+                       'Cache-Control': 'no-store'}
+            for h in ('Content-Range', 'Content-Length'):
+                if upstream.headers.get(h):
+                    headers[h] = upstream.headers[h]
+            return Response(body, status_code=upstream.status, headers=headers)
+    except Exception as exc:
+        raise HTTPException(502, 'clip unavailable: %s' % type(exc).__name__)

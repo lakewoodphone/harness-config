@@ -528,3 +528,46 @@ the fresh one.
    now decides the camera.
 
 **Verified:** page 200, 48,772 bytes, 41 cards at local times, 1 open visit with its own wording, 40 with "too old".
+
+## Round 13: the first real clip — and why it would not play
+
+**The clip was recorded, and then failed.** The page showed a player; Chrome reported
+`MEDIA_ERR_SRC_NOT_SUPPORTED`; every check on my side said the file was fine (200, `video/mp4`, correct MP4
+header, 6.7 MB). Three separate causes, found in this order:
+
+1. **It was a 302 to an http tailnet address.** The page is https; Home Assistant's signature points at
+   `http://zabz-tech.tail93e6e6.ts.net:8123`. Chrome refuses that as mixed content, and iOS would refuse it again for
+   a different reason. The clip now streams **through this origin**.
+2. **No byte-range support.** iOS Safari will not play inline video without it. The route now answers **206** and
+   passes the `Range` header through.
+3. **The camera records HEVC.** This was the real one: the file contains `hev1` / `hvcC`, which Chrome cannot decode at
+   all. Safari on an iPhone can — so the clip may well have played for the owner and been broken for everyone else,
+   which is the worst version of this bug. `shop-clip-local.py` now pulls each clip onto the authority and transcodes
+   it to H.264 (`-preset veryfast -crf 23 -movflags +faststart`), and the page serves that copy from disk.
+
+**Measured after the fix:**
+
+```
+full  : 200  video/mp4  4,020,331 bytes   codec tag avc1 (h264)
+range : 206  2,048 bytes
+browser playback: readyState 4, currentTime 1.01s, duration 25.61s, 2560x1440, error null
+```
+
+**The recording rule was also wrong, and the traffic proved it.** Requiring the visit to have *started* within
+`CLIP_SECONDS + 90s` gave a **115-in-180** chance of catching any arrival against a 3-minute cycle, and the 18:01 visit
+fell straight through it. An **open** visit is still the visit — a recording started now genuinely belongs to it, it
+just begins part-way through — so open visits stay recordable for 20 minutes, and the offset is stored. The card says
+it in words:
+
+> *"Clip 0:25. The visit had not finished when it was recorded, so this is part of it, not all of it."*
+> *"Clip starts 7:46 into the visit — recording began after the visit did, so the arrival is not on it."*
+
+That second sentence is the point. A clip that begins seven minutes late must not be presented as the arrival.
+
+### The page caught a real event while I was testing it
+
+The render shows a red sticky banner: **DOOR OPEN WHILE AWAY — Nobody is meant to be here.** It is not a false
+positive. Read from the live states: `everyone_away` went **on at 18:10:54**, and
+`control_room_interior_door_contact` has read **on since 17:47:22** — the shop door has been open for 27 minutes,
+including the moment the house decided it was empty. That is exactly the class of event this page exists to surface,
+and it surfaced it unprompted.

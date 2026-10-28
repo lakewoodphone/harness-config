@@ -28,6 +28,11 @@ log "capturing stills for new visits"
 "$PY" /root/shop-capture.py --since 8h 2>&1 | tail -4
 
 log "recording clips for visits happening now"
-"$PY" /root/shop-clip.py --recent 4 2>&1 | tail -4
+"$PY" /root/shop-clip.py --recent 25 2>&1 | tail -3
+
+# the camera records HEVC, which Chrome cannot decode; this pulls the clip here and transcodes it
+# to H.264 so it plays on any phone
+log "bringing clips local and making them playable"
+"$PY" /root/shop-clip-local.py 2>&1 | tail -3
 
 echo "[$(date -u +%H:%M:%S)] done"

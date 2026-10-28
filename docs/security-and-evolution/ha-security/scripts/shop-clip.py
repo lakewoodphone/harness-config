@@ -36,6 +36,7 @@ MEDIA_DIR = '/media/shop'          # on the Home Assistant host, served via medi
 SHOP_DOOR_CAM = 'camera.cam_front_hallway_main'
 OUTSIDE_CAM = 'camera.reolink_video_doorbell_poe_clear'
 CLIP_SECONDS = 25                  # long enough to watch a person move, short enough to store
+OPEN_VISIT_MINUTES = 20            # an open visit stays recordable: the person may still be inside
 
 
 def env(key: str) -> str | None:
@@ -46,7 +47,16 @@ def env(key: str) -> str | None:
     return None
 
 
-def choose_camera(doors: list[str], has_person: int) -> str:
+def choose_camera(doors: list[str], has_person: int, subjects: list | None = None) -> str:
+    """The camera that would have seen this visit.
+
+    A keypad entry logged "at Interior" is the strongest evidence of where the person went, so it
+    beats a guess made from door contacts alone -- the same rule the page uses for thumbnails.
+    """
+    for sub in (subjects or []):
+        where = (sub.get('where') if isinstance(sub, dict) else '') or ''
+        if str(where).lower().startswith('int'):
+            return SHOP_DOOR_CAM
     if 'shop_door' in doors:
         return SHOP_DOOR_CAM
     return OUTSIDE_CAM
@@ -70,13 +80,23 @@ async def main() -> int:
             # began twenty minutes ago records an empty room and labels it with someone else's
             # arrival. Only visits that STARTED inside the last few minutes can honestly have a
             # clip; everything older gets an honest "no clip" instead.
+            # CATCH THE VISIT THAT IS STILL HAPPENING (2026-10-28). The first rule only recorded for
+            # visits that had STARTED within CLIP_SECONDS+90s. With a cycle every 180 s that is a
+            # 115-in-180 chance of catching any arrival, and the 18:01 visit fell straight through
+            # the gap and will never have a clip. A visit that is still OPEN is still the visit: a
+            # recording started now genuinely belongs to it, it simply begins part of the way
+            # through. The offset is stored so the page can say exactly that.
             now = datetime.now(timezone.utc)
             since = (now - timedelta(minutes=args.recent)).isoformat()
-            oldest_ok = (now - timedelta(seconds=CLIP_SECONDS + 90)).isoformat()
+            oldest_ok = (now - timedelta(minutes=OPEN_VISIT_MINUTES)).isoformat()
             rows = conn.execute(
-                "SELECT id, started_at, ended_at, doors, has_person FROM shop_visit "
-                "WHERE has_person=1 AND (ended_at IS NULL OR ended_at >= ?) AND started_at >= ? "
-                "ORDER BY started_at", (since, oldest_ok)).fetchall()
+                "SELECT id, started_at, ended_at, doors, has_person, subjects FROM shop_visit "
+                "WHERE has_person=1 AND ended_at IS NULL AND started_at >= ? "
+                "UNION "
+                "SELECT id, started_at, ended_at, doors, has_person, subjects FROM shop_visit "
+                "WHERE has_person=1 AND ended_at >= ? AND started_at >= ? "
+                "ORDER BY started_at",
+                (oldest_ok, since, (now - timedelta(seconds=CLIP_SECONDS + 90)).isoformat())).fetchall()
 
         already = {r[0] for r in conn.execute(
             "SELECT DISTINCT visit_id FROM shop_visit_media WHERE kind='clip' AND result='ok'")}
@@ -116,9 +136,13 @@ async def main() -> int:
                     if raw.get('id') == payload['id']:
                         return raw
 
-            for vid, started_at, ended_at, doors_json, has_person in todo:
+            for vid, started_at, ended_at, doors_json, has_person, subjects_json in todo:
                 doors = json.loads(doors_json or '[]')
-                cam = choose_camera(doors, has_person)
+                try:
+                    subs = json.loads(subjects_json or '[]')
+                except Exception:
+                    subs = []
+                cam = choose_camera(doors, has_person, subs)
                 target = '%s/%s.mp4' % (MEDIA_DIR, vid)
                 if args.dry:
                     print('  would record %s from %s -> %s' % (vid, cam, target))
@@ -137,6 +161,11 @@ async def main() -> int:
                     "VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (vid, cam, 'clip', target, None, None, now,
                      'ok' if ok else 'failed', err, CLIP_SECONDS if ok else None))
+                if ok:
+                    started = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+                    offset = int((datetime.now(timezone.utc) - started).total_seconds())
+                    conn.execute("UPDATE shop_visit_media SET clip_offset_s=? WHERE visit_id=? AND "
+                                 "kind='clip'", (max(0, offset), vid))
                 print('  %s -> %s : %s' % (vid, cam.split('.')[-1], 'recording' if ok else err))
                 # Home Assistant needs the recording to finish before the file exists
                 await asyncio.sleep(CLIP_SECONDS + 6)
