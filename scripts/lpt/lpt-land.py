@@ -73,6 +73,20 @@ def base_is_green(tok: str) -> tuple[bool, str]:
     achieves nothing except a queue of PRs that cannot merge - and nobody can tell which failure
     belongs to which branch. Fail closed with the reason, and let the next tick try again.
     """
+    # A BILLING BLOCK IS NOT A CODE RED (2026-10-28). lpt-ci-status.py already tells the two apart;
+    # asking it first stops this tool from writing "test head is RED" about a head whose jobs were
+    # never started, which is the sentence that sends the next session hunting a defect.
+    try:
+        import subprocess as _sp
+        out = _sp.run([sys.executable, "/root/bin/lpt-ci-status.py", "--json"],
+                      capture_output=True, text=True, timeout=240)
+        ci = json.loads(out.stdout or "{}")
+        state = ((ci.get("heads") or {}).get("test") or {}).get("checks", {}).get("state")
+        if state == "BILLING":
+            note = ((ci.get("heads") or {}).get("test") or {}).get("checks", {}).get("billing_note") or ""
+            return False, "test is BILLING-BLOCKED (GitHub refused to start jobs): %s" % note[:150]
+    except Exception:  # noqa: BLE001
+        pass
     try:
         head = api("/repos/%s/commits/test" % REPO, tok)["sha"]
         runs = api("/repos/%s/commits/%s/check-runs?per_page=100" % (REPO, head), tok).get("check_runs", [])
@@ -81,11 +95,36 @@ def base_is_green(tok: str) -> tuple[bool, str]:
     failed = ["%s=%s" % (r["name"], r.get("conclusion")) for r in runs
               if r.get("conclusion") not in ("success", "neutral", "skipped", None)]
     pending = [r["name"] for r in runs if r.get("conclusion") is None]
+    # ZERO check runs is not green. A head that has just been created has not been tested at all,
+    # and reading that as "green (0 checks)" would let the lander act on an untested base.
+    if not runs:
+        return False, "test head %s has no check runs yet" % head[:10]
     if failed:
         return False, "test head %s is RED: %s" % (head[:10], ", ".join(failed[:4]))
     if pending:
         return False, "test head %s has %d check(s) still running" % (head[:10], len(pending))
     return True, "test head %s is green (%d checks)" % (head[:10], len(runs))
+
+
+def deploy_quiet(tok: str) -> tuple[bool, str]:
+    """Has the deploy pipeline caught up with the last merge?
+
+    MEASURED 2026-10-28 00:1xZ: merging #693 and then #695 within minutes left the deployed test
+    bundle at 479ad9167c while the head was 9a683100ee - `lpt-deploy-status.py --live` reported
+    BEHIND/DIFFERENT, and a live check of /status was therefore testing the OLD build, which is how
+    a fix looks broken after it landed. A deploy run takes 10-20 minutes; merging faster than that
+    means the environment never catches up and nothing can be verified live.
+
+    So: never stack a merge on top of a deploy that has not finished. One merge per deploy cycle.
+    """
+    try:
+        runs = api("/repos/%s/actions/runs?branch=test&per_page=10" % REPO, tok).get("workflow_runs", [])
+    except Exception as exc:  # noqa: BLE001
+        return False, "cannot read the test branch's runs: %s: %s" % (type(exc).__name__, exc)
+    busy = [r["name"] for r in runs if r.get("status") in ("queued", "in_progress", "waiting", "pending")]
+    if busy:
+        return False, "a run is still going on test: %s" % ", ".join(sorted(set(busy))[:3])
+    return True, "no run is in flight on test"
 
 
 def open_prs() -> dict[str, dict]:
@@ -124,6 +163,10 @@ def main() -> int:
         print("lpt-land: not landing anything - %s" % why)
         return 0
     print("lpt-land: %s" % why)
+    quiet, why2 = deploy_quiet(tok)
+    if not quiet:
+        print("lpt-land: not landing anything - %s" % why2)
+        return 0
     rows = reconcile()
     if not rows:
         print("lpt-land: nothing waiting - every done item's work has landed")
