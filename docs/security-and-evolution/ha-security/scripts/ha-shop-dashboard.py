@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import ssl
 import sys
 
@@ -294,6 +295,29 @@ async def apply(url_path: str, dry: bool, use_target: bool) -> int:
                 return raw
 
     try:
+        # REFUSE TO SAVE A VIEW THAT POINTS AT SOMETHING THAT DOES NOT EXIST (2026-10-28).
+        # `lovelace/config/save` performs no schema validation at all: a wrong entity id is
+        # stored happily and renders "Entity not found" or an empty tile at run time, where
+        # nobody sees it until the owner opens the dashboard. One entity referenced by an
+        # earlier draft of this view (event.esphome.access_control_keypad_entry) did not exist
+        # at all. This gate costs one get_states call and makes that class of mistake
+        # impossible to ship.
+        _ENT = re.compile(r'\b((?:binary_sensor|sensor|camera|input_boolean|input_text|'
+                          r'input_number|event|switch|light|script|automation|person|'
+                          r'device_tracker|weather|sun|media_player|number|select|button|'
+                          r'scene|timer|calendar|update)\.[a-z0-9_]+)')
+        _states = (await call({'type': 'get_states'})).get('result') or []
+        _live = {x['entity_id'] for x in _states}
+        _used = set(_ENT.findall(json.dumps(cfg)))
+        _missing = sorted(_used - _live)
+        if _missing:
+            print('REFUSING TO SAVE: %d entity id(s) do not exist on this instance:' % len(_missing))
+            for _m in _missing:
+                print('   -', _m)
+            return 1
+        print('preflight: %d entity ids all present, %d custom card(s)'
+              % (len(_used), len([t for t in re.findall(r'"type": "(custom:[^"]+)"', json.dumps(cfg))])))
+
         have = {d.get('url_path') for d in ((await call({'type': 'lovelace/dashboards/list'})).get('result') or [])}
         if url_path not in have:
             made = await call({'type': 'lovelace/dashboards/create', 'url_path': url_path,

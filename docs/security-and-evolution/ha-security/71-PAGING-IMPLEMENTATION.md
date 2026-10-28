@@ -909,3 +909,39 @@ different questions, and only the first one needs to be above the fold.
 **Verified:** `save: True`, readback `7 cards: markdown, picture-glance, glance, markdown, history-graph, logbook,
 grid`. The 12-hour window over the two doors currently holds **3 rows**, so the list is light enough to read at a
 glance rather than another wall.
+
+## 26. Round 6: the generator now refuses to save a view that points at nothing — 2026-10-28
+
+**The gap this closes.** `lovelace/config/save` performs no schema validation whatsoever. A wrong entity id is stored
+happily and renders **"Entity not found"** or a blank tile at run time — and nothing in the apply path can see it,
+because the failure is in the browser, not the API. One entity referenced by an earlier draft of this view
+(`event.esphome.access_control_keypad_entry`) turned out not to exist at all, and the audit listed two more ids as
+UNCERTAIN. That is a whole class of defect that could only be found by the owner opening the dashboard.
+
+**The gate.** `apply()` now extracts every entity id from the config it is about to write, fetches `get_states` on the
+same websocket connection, and **refuses to save** if any id is missing — printing each one. It also reports the number
+of custom cards the view depends on, because a custom card is a dependency on a HACS resource and a missing resource
+becomes an error box.
+
+**Proven both ways**, which is the part that matters:
+
+```
+good config   -> preflight: 15 entity ids all present, 0 custom card(s)
+                 save: True   readback: 7 cards
+   with a typo -> REFUSING TO SAVE: 1 entity id(s) do not exist on this instance:
+                    - camera.this_does_not_exist
+                 exit code: 1
+   afterwards  -> live view: 7 cards, contains the typo? False, camera tiles intact? True
+```
+
+So the refusal is real, the exit code is 1, and the live dashboard was left exactly as it was.
+
+**Two facts about the current view worth recording:**
+- **All 15 referenced entities exist.** The audit had flagged `camera.reolink_video_doorbell_poe_clear` and the two
+  doorbell `binary_sensor.*` as UNCERTAIN; they are all present.
+- **The view depends on zero custom cards.** Every card is built-in — `markdown`, `picture-glance`, `glance`,
+  `history-graph`, `logbook`, `grid`, `picture-entity`. Nothing breaks if a HACS resource disappears or the owner
+  reloads without the add-on, which is a stronger property than any layout choice.
+
+**Second artifact:** `scripts/check-shop-entities.py`, a standalone preflight that names *which card* each missing
+entity is used by, for diagnosis without applying anything. The generator's gate uses the same rule but runs inline.
