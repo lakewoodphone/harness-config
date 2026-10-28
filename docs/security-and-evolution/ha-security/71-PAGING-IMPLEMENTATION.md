@@ -739,3 +739,40 @@ Applied and verified live: `save: True`, readback `8 cards`, and the live templa
 **Why this matters more than it looks:** a markdown card's template errors are *suppressed* outside the editor — the
 card goes blank or stale rather than showing an error — so an untested banner fails silently. This test is now the only
 thing standing between a template edit and a card that quietly says nothing.
+
+## 22. Round 2 of 20: the timeline was 95% doorbell noise — measured, then cut — 2026-10-28
+
+The timeline had never been measured against a real day. It is now, and the numbers changed the design.
+
+**Measured over 24 hours across the five door/doorbell entities: 230 logbook entries.**
+
+| entity | entries / 24 h |
+|---|---|
+| `binary_sensor.video_doorbell_person` | **126** |
+| `binary_sensor.phoenix_outside_door_contact` | 88 |
+| `binary_sensor.phoenix_control_room_interior_door_contact` (the shop door) | **7** |
+| `binary_sensor.video_doorbell_visitor` | 6 |
+| `binary_sensor.phoenix_control_room_exterior_door_contact` (apartment door) | 3 |
+
+The shop door — the thing the page exists for — is **7 rows a day**. The doorbell's person detector, which flaps
+whenever anyone walks past outside, was **126**. A timeline that is 95% doorbell flapping is a timeline nobody reads,
+and on 2025.10.3 there is no `state_filter` to thin it out (see §19). So the timeline is now **the two doors only**:
+
+```
+10 entries in 24h
+  10-27 22:06 off   10-27 22:32 off   10-28 00:43 on   10-28 00:44 off
+  10-28 00:44 on    10-28 00:44 off   10-28 00:48 on   10-28 01:05 off
+  10-28 15:36 on    10-28 15:37 off
+```
+
+That reads as a story rather than a table: a door opened and closed at 00:43, again at 00:44, then **open 00:48 →
+01:05** — a seventeen-minute visit — and 15:36 → 15:37. This is what "who came, and when they left" looks like when
+the noise is removed.
+
+**The doorbell did not disappear from the page.** It still announces itself live in the banner (`SOMEONE AT THE DOOR`,
+`person at door`) and still carries its icon on the shop-door picture. Live state is for *now*; a logbook is for
+*history*, and the two want different amounts of detail.
+
+**Also this round:** two fresh reviewers were dispatched against the **applied** config rather than the draft — one on
+mobile layout and first-screen content, one auditing every card property against 2025.10.3 for the silently-ignored
+class of bug that `state_filter` was.

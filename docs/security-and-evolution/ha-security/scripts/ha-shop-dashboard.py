@@ -175,7 +175,13 @@ def config(use_target: bool = False) -> dict:
         "type": "logbook",
         "title": "Doors and doorbell — last 12 hours",
         "hours_to_show": 12,
-        "target": {"entity_id": [DOORS[0], DOORS[1], DOORS[3]]},
+        # MEASURED, 2026-10-28: over 24 hours the five door/doorbell entities produce 230
+        # logbook entries -- and 126 of them are `video_doorbell_person`, which flaps every
+        # few minutes as people pass outside. The shop door itself produces SEVEN, and the
+        # apartment door three. A timeline that is 95% doorbell flapping is a timeline nobody
+        # reads, so it is the two doors only. The doorbell still announces itself live in the
+        # banner ("person at door") -- that is what live state is for.
+        "target": {"entity_id": [DOORS[0], DOORS[1]]},
     }
 
     return {
