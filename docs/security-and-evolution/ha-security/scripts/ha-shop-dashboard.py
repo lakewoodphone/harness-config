@@ -210,6 +210,28 @@ def config(use_target: bool = False) -> dict:
     }
     cards: list = [
         banner,
+        # PEOPLE, NOT ROOMS (2026-10-28). The owner asked why he never sees a picture of a
+        # person. The answer was that this page only showed LIVE cameras: an empty room at 10am
+        # is exactly what a live camera looks like. Home Assistant has been saving a named still
+        # for every person detection all along -- `latest_person_*.jpg`, rewritten on each event
+        # -- and nothing displayed them. Verified live before adding: the hallway file was
+        # written at 17:06:47, four minutes earlier.
+        #
+        # A 3-column grid with `square: false`, NOT a markdown row: inline flex styles are
+        # stripped by the markdown sanitiser (measured - the three images stacked full width and
+        # pushed the rest of the page 1,200 px down), and `square: true` letterboxes a portrait
+        # still inside a square cell leaving a white band (also measured). `square: false` keeps
+        # each image's own shape; tapping opens the full-size original, which is where a face
+        # actually becomes recognisable.
+        {"type": "markdown", "content": "### People - most recent capture"},
+        {"type": "grid", "columns": 3, "square": False, "cards": [
+            {"type": "picture", "image": "/local/snapshots/latest_person_hallway.jpg",
+             "tap_action": {"action": "url", "url": "/local/snapshots/latest_person_hallway.jpg"}},
+            {"type": "picture", "image": "/local/snapshots/latest_person_doorbell.jpg",
+             "tap_action": {"action": "url", "url": "/local/snapshots/latest_person_doorbell.jpg"}},
+            {"type": "picture", "image": "/local/snapshots/latest_person_waiting_room.jpg",
+             "tap_action": {"action": "url", "url": "/local/snapshots/latest_person_waiting_room.jpg"}},
+        ]},
         # the shop door: the threshold where customers appear, and the best face view
         {"type": "picture-glance", "title": "Shop door",
          "camera_image": "camera.cam_front_hallway_main",
