@@ -659,3 +659,37 @@ under the next morning.
   reach, *"The record starts later than this day — nothing was kept for it."*
 
 **Re-verified with the gate afterwards:** 20 checks, 20 passed, 4,588 px tall, no JS errors.
+
+## Round 17: the clip recorder works by itself — proven by traffic, not by a test
+
+The one thing left unproven was whether the 3-minute cycle records a clip **at the moment a visit begins**, unattended.
+Traffic answered it: a person arrived at **18:18:45**, and at 18:20:16 the cycle — with nobody touching anything —
+grouped the visit, captured three stills, recorded a 25-second clip, and transcribed nothing. Checked afterwards:
+
+```
+visit          started   clip   offset   local copy
+20261028T180136 18:01:36  ok     7:46     280 KB, h264, 1280 px
+20261028T181845 18:18:45  ok     2:01     3.4 MB, h264, 1280 px
+```
+
+The page counts two videos and the nav reads **Clips (2)**.
+
+### And the clips were far too heavy for a phone
+
+The first encode kept the camera's native size: **14 MB for 25 seconds** — 4.4 Mbit/s of mobile data to watch a person
+cross a hallway. Two changes:
+
+- transcode to **1280 px wide** (`scale=1280:-2`), CRF 26 — the stills keep full resolution, the moving picture does not
+  need it;
+- **size decides, not just codec.** My first rule skipped any file already H.264, which is how a 2560-pixel, 14 MB file
+  sailed through untouched. It now probes width as well, and re-encodes anything wider than 1280.
+
+| clip | before | after |
+|---|---|---|
+| 18:01 (quiet hallway) | 3.9 MB | **280 KB** |
+| 18:18 (more motion) | 14 MB | **3.4 MB** |
+
+**A false alarm of my own again, corrected before reporting:** I first read the stills table as "the same visit was
+photographed twice" (18:04 and 18:20). It was two different visits — 18:01 and 18:18 — each photographed minutes after
+it began. The query I used did not print `visit_id`, so two rows looked like one. Fifth time this session that a query
+told me something false about a working system; the fix each time is to select the identity, not just the evidence.

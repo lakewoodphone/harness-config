@@ -41,21 +41,30 @@ def env(key: str) -> str | None:
     return None
 
 
-def codec_of(path: str) -> str:
+def probe(path: str) -> tuple[str, int]:
+    """codec and width. Width matters as much as codec: an H.264 file can still be 14 MB of
+    2560-pixel video, which is 4.4 Mbit/s of mobile data to watch someone cross a hallway."""
     try:
         out = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-                              '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', path],
+                              '-show_entries', 'stream=codec_name,width', '-of', 'csv=p=0', path],
                              capture_output=True, text=True, timeout=60)
-        return (out.stdout or '').strip()
+        parts = (out.stdout or '').strip().split(',')
+        codec = parts[0].strip() if parts else ''
+        width = int(parts[1]) if len(parts) > 1 and parts[1].strip().isdigit() else 0
+        return codec, width
     except Exception:
-        return ''
+        return '', 0
 
 
 def transcode(src: str, dst: str) -> tuple[bool, str]:
     cmd = ['ffmpeg', '-hide_banner', '-nostdin', '-loglevel', 'error', '-y',
            '-i', src,
            '-map', '0:v:0',
-           '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+           # 1280 px wide, not 2560: a 25-second clip at full resolution measured 14 MB, which is
+           # 4.4 Mbit/s of mobile data to watch a person cross a hallway. Scale down, keep it sharp
+           # enough to recognise a face, and let the full-resolution stills carry the detail.
+           '-vf', 'scale=1280:-2',
+           '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-pix_fmt', 'yuv420p',
            '-movflags', '+faststart',
            dst]
     try:
@@ -127,10 +136,10 @@ async def main() -> int:
                 continue
             with urllib.request.urlopen(url, timeout=120) as r, open(src, 'wb') as fh:
                 fh.write(r.read())
-            codec = codec_of(src)
-            if codec == 'h264':
+            codec, width = probe(src)
+            if codec == 'h264' and 0 < width <= 1280:
                 os.replace(src, dst)
-                note = 'h264 already'
+                note = 'h264 %dpx already' % width
             else:
                 ok, err = transcode(src, dst)
                 os.remove(src) if os.path.exists(src) else None
@@ -138,7 +147,7 @@ async def main() -> int:
                     print('  %s: transcode failed %s' % (vid, err[:120]))
                     failed += 1
                     continue
-                note = '%s -> h264' % (codec or '?')
+                note = '%s %dpx -> h264 1280px' % (codec or '?', width)
             size = os.path.getsize(dst)
             conn.execute("UPDATE shop_visit_media SET local_path=? WHERE visit_id=? AND kind='clip'",
                          (dst, vid))
