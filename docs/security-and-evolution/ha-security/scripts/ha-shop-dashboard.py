@@ -185,7 +185,7 @@ def config(use_target: bool = False) -> dict:
         {"type": "picture-glance", "title": "Shop door",
          "camera_image": "camera.cam_front_hallway_main",
          "camera_view": "auto",
-         "entities": [{"entity": DOORS[0], "show_state": False}]},
+         "entities": [{"entity": DOORS[0]}]},
         # open/closed in WORDS, two-up. Built-in glance, so nothing depends on a custom card.
         {"type": "glance", "columns": 2, "show_state": True,
          "entities": [{"entity": DOORS[0], "name": "Shop door"},
@@ -199,11 +199,20 @@ def config(use_target: bool = False) -> dict:
          "hours_to_show": 24,
          "entities": [{"entity": DOORS[0], "name": "Shop"},
                       {"entity": DOORS[1], "name": "Apartment"}]},
-        # the other three cameras, one tap each
-        {"type": "glance", "columns": 3, "show_state": False,
-         "entities": [{"entity": "camera.cam_waiting_room_main", "name": "Drop-off"},
-                      {"entity": "camera.cam_deserted_exit_main", "name": "Control"},
-                      {"entity": "camera.cam_deserted_interior_main", "name": "Bench"}]},
+        # THE OTHER THREE CAMERAS, AS REAL CAMERA TILES (2026-10-28).
+        # A `glance` of camera entities is a trap on 2025.10.3: it has no camera branch, so it
+        # renders a 40x40 state badge fed by `entity_picture` -- an 80x80 crop, fetched once,
+        # with NO refresh interval. A dead camera and a live one look identical, and the state
+        # text that would say "unavailable" is hidden. `picture-entity` with the camera as its
+        # own entity polls the still every ~10 s, so a frozen frame cannot masquerade as live.
+        {"type": "grid", "columns": 3, "square": True, "cards": [
+            {"type": "picture-entity", "entity": "camera.cam_waiting_room_main",
+             "name": "Drop-off", "show_name": True, "show_state": False, "camera_view": "auto"},
+            {"type": "picture-entity", "entity": "camera.cam_deserted_exit_main",
+             "name": "Control", "show_name": True, "show_state": False, "camera_view": "auto"},
+            {"type": "picture-entity", "entity": "camera.cam_deserted_interior_main",
+             "name": "Bench", "show_name": True, "show_state": False, "camera_view": "auto"},
+        ]},
     ]
 
     # THE SENSOR-HEALTH CARD IS GONE (2026-10-28). Five rows plus a title card came to about

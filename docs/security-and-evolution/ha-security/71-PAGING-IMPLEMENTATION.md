@@ -825,3 +825,43 @@ Home Assistant. The banner's ten state tests still pass (10/10) and the live ban
 **Not yet done from the review:** folding "sensor stale" into the banner as a clause; the reviewer's suggestion to use
 `browser_mod` popups for one-tap fullscreen live video (deliberately deferred — it is a custom-card dependency the
 owner's phone would have to carry); and the correctness audit of every property, which is still running.
+
+## 24. Round 4: the correctness audit, and the camera shortcut that could not refresh — 2026-10-28
+
+I told the owner this report was lost. It was not — it arrived a minute later, and I was wrong to say otherwise.
+
+**The audit pinned everything to core `2025.10.3` → frontend `20251001.4`, Jinja2 `3.1.6`**, and returned a verdict per
+card. Two of its findings changed the config.
+
+**1. A `glance` of camera entities is a trap (fixed).** `glance` has no camera branch: it renders a **40×40 state
+badge** fed by the camera's `entity_picture` (an 80×80 crop), fetched **once**, with **no refresh interval** — unlike
+`hui-image`, which polls every ~10 s. With the state text hidden, **a dead camera and a live one look identical**. It
+is now a **`grid` of three `picture-entity` cards** with the camera as the entity itself, which polls its still every
+~10 s, so a frozen frame cannot masquerade as live.
+
+**2. The banner's bold was at risk, and the audit was right to flag the mechanism — but the template already guards
+it.** A block-set captures its surrounding newlines, and CommonMark will not open emphasis next to whitespace, so
+`**` would render literally. The deployed template uses dash-trimmed `{%- set prefix -%}` / `{%- endset -%}`, which is
+why the live render begins exactly `**DOORS OPEN**` with no whitespace inside the delimiter run. Verified by
+inspection and by the ten state tests, which assert `out.startswith('**' + prefix)`.
+
+**3. The sensor-health card's two traps are moot — it was already deleted** in round 3. Worth recording that the audit
+independently found the same two problems I removed the card to avoid: adding a `title` to an entities card auto-adds a
+**master header toggle** (one tap would flip all five safety inputs), and `secondary_info: last-changed` measures when
+a boolean last toggled, **not** when a sensor last reported — so it never measured "sensor health" at all.
+
+**4. The keypad card has a hard data limit, not a card limit.** `input_text` `max` is 255 here (confirmed in the
+entity's attributes), and a write longer than `max` is **not truncated** — it logs a warning and leaves the old value,
+while the state machine rejects a state over 255 characters. So the practical failure is that the log **freezes at its
+last good value** rather than showing a long history. Four lines is the honest ceiling; anything more needs a
+different backing store, not a different card.
+
+**5. `show_state: false` on a picture-glance chip is redundant** — the default is already off, and the chip never
+renders a name (it lives only in the tooltip). Removed, because a property that does nothing is a lie in the config.
+
+**Live proof this round:** the banner rendered `**DOORS OPEN** — siren live · shop door open 4 minutes · no doorbell.`
+— the `DOORS OPEN` branch added in round 1 firing on a real open door, which is exactly the state that used to print
+"BUILDING QUIET".
+
+**Applied and verified:** `6 cards: markdown, picture-glance, glance, markdown, history-graph, grid`; banner tests
+10/10.
