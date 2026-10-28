@@ -961,3 +961,43 @@ All six written at 19:05:23, 150–580 KB each, and the page shows them.
 correctly captured, correctly stored, showing a grey hallway with nobody in it. The gallery was honest and useless at
 the same time, because the cameras it used could not see the person. That distinction matters: the failure was coverage,
 not corruption.
+
+## Round 27: the pictures were there and the browser refused to look
+
+The owner: *"i walked all through the hallway, so it doesn't explain"* — and he was right. Camera coverage was only half
+of it. The other half was **caching**, and it is the more embarrassing defect because the system had done its job.
+
+**The measurement that found it:**
+
+```
+stored picture url   /full/20261028T190124/camera.cam_front_hallway_main?w=176     ← no version
+response header      cache-control: public, max-age=86400                          ← cached for a day
+page document        (no Cache-Control at all)                                     ← heuristically cacheable
+```
+
+Every stored picture was served with a **day-long cache and an unchanging URL**. So the first time the owner loaded a
+card, that frame was cached for a day; every later capture — including the ones with him in them — was written to the
+same URL, and his browser kept showing the old, empty room. The gallery looked broken precisely because it had started
+working.
+
+**Fixed and proven:**
+
+| before | after |
+|---|---|
+| `/full/<visit>/<camera>?w=176` | `/full/<visit>/<camera>?w=176&v=cee926c9` |
+| `cache-control: public, max-age=86400` | a new `v=` per capture, so a replaced picture is a new address |
+| page: no header | page: `no-store, must-revalidate` |
+
+Re-captured the same visit and measured the URL change: **`cee926c9` → `c0d74270`**. The browser cannot serve the old
+frame against a URL it has never seen.
+
+**Two checks added to the gate** so this cannot come back:
+
+```
+PASS picture urls are cache-busted    44 of 44 carry a version
+PASS page is not cached               no-store, must-revalidate
+19 checks, 19 passed
+```
+
+**A defect introduced and fixed on the way:** `still_for()` did not select `captured_at`, so building the version raised
+`IndexError` and the page answered 500 for about a minute. The traceback named the line; the column was added.

@@ -112,6 +112,16 @@ def main() -> int:
               'page shows %02d:xx, UTC is %02d:xx' % (shown, utc_hour))
     check('No image' not in html or 'class="thumb">No image' not in html,
           'no empty image boxes', '')
+    # A PICTURE URL MUST CHANGE WHEN THE PICTURE CHANGES (2026-10-28). These are served with a
+    # day-long cache; without a version in the URL the owner walked through the hallway, was
+    # photographed, and saw the empty frame his browser had stored hours earlier.
+    pics = re.findall(r'/full/[0-9T]+/[a-z0-9_.]+\?[^"\']*', html)
+    versioned = [u for u in pics if 'v=' in u]
+    check(bool(pics) and len(versioned) == len(pics), 'picture urls are cache-busted',
+          '%d of %d carry a version' % (len(versioned), len(pics)))
+    st_headers = dict((k.lower(), v) for k, v in fetch(page_url)[2].items())
+    check('no-store' in (st_headers.get('cache-control') or ''), 'page is not cached',
+          st_headers.get('cache-control', 'no header'))
 
     # ---------------------------------------------------------------- 3. the tiles are real pixels
     cams = ['cam_front_hallway_main', 'reolink_video_doorbell_poe_clear',

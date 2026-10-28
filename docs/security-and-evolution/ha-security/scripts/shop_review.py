@@ -278,7 +278,7 @@ def preferred_camera(doors: list[str], has_person: int, subjects: list | None = 
 def still_for(conn: sqlite3.Connection, visit_id: str,
               prefer: str | list[str] | None = None) -> sqlite3.Row | None:
     rows = conn.execute(
-        "SELECT camera_id, path, sha256, result FROM shop_visit_media "
+        "SELECT camera_id, path, sha256, result, captured_at FROM shop_visit_media "
         "WHERE visit_id=? AND kind='still' ORDER BY (result='ok') DESC, camera_id", (visit_id,)).fetchall()
     ok = [r for r in rows if r['result'] == 'ok' and r['path']]
     order = [prefer] if isinstance(prefer, str) else list(prefer or [])
@@ -422,9 +422,15 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
         # WRAPPED IN THE SIZED BOX (2026-10-28). Without the wrapper the image is a direct child
         # of <summary> and renders at its natural 2560 px: one event card filled an entire phone
         # screen. The box is what makes a thumbnail a thumbnail.
+        # A NEW CAPTURE MUST BE A NEW URL (2026-10-28). These are served with max-age=86400, so a
+        # card whose picture was replaced kept showing the FIRST frame the browser ever saw -- the
+        # owner walked through the hallway, was photographed, and saw an empty room for a day. The
+        # capture time is now part of the URL, so replacing the picture replaces the address.
+        import hashlib as _h
+        ver = _h.sha1(str(st['captured_at']).encode()).hexdigest()[:8]
         thumb = ('<div class="thumb"><img loading="lazy" decoding="async" '
-                 'src="/webhook/ha/shop/r/%s/full/%s/%s?w=176" alt=""></div>'
-                 % (token, v['id'], html.escape(st['camera_id'])))
+                 'src="/webhook/ha/shop/r/%s/full/%s/%s?w=176&v=%s" alt=""></div>'
+                 % (token, v['id'], html.escape(st['camera_id']), ver))
     else:
         # ONE ROW GEOMETRY (2026-10-28). Removing the empty box fixed the "broken image" look but
         # left two row heights and two left edges in the same list. The slot now always exists and
@@ -490,12 +496,15 @@ def render_visit(conn: sqlite3.Connection, v: sqlite3.Row, token: str) -> str:
                          "visit_id=? AND kind='still' AND result='ok' ORDER BY camera_id",
                          (v['id'],)).fetchall()
     if shots:
-        cells = ''.join('<a href="/webhook/ha/shop/r/%s/full/%s/%s"><img loading="lazy" '
-                        'src="/webhook/ha/shop/r/%s/full/%s/%s?w=320">'
-                        '<span class="shotat">%s</span></a>'
-                        % (token, v['id'], html.escape(sh['camera_id']), token, v['id'],
-                           html.escape(sh['camera_id']), clock(sh['captured_at']))
-                        for sh in shots)
+        import hashlib as _h2
+        def _shot(sh):
+            ver = _h2.sha1(str(sh['captured_at']).encode()).hexdigest()[:8]
+            return ('<a href="/webhook/ha/shop/r/%s/full/%s/%s?v=%s"><img loading="lazy" '
+                    'src="/webhook/ha/shop/r/%s/full/%s/%s?w=320&v=%s">'
+                    '<span class="shotat">%s</span></a>'
+                    % (token, v['id'], html.escape(sh['camera_id']), ver, token, v['id'],
+                       html.escape(sh['camera_id']), ver, clock(sh['captured_at'])))
+        cells = ''.join(_shot(sh) for sh in shots)
         parts.append('<div class="shots">%s</div>' % cells)
     else:
         parts.append('<p class="note">No picture — none was captured when this began.</p>')
@@ -602,10 +611,12 @@ async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse
             st = still_for(conn, v['id'], order)
             if not st:
                 return ''
+            import hashlib as _h3
+            rver = _h3.sha1(str(st['captured_at']).encode()).hexdigest()[:8]
             return ('<a href="#%s"><img loading="lazy" '
-                    'src="/webhook/ha/shop/r/%s/full/%s/%s?w=176">'
+                    'src="/webhook/ha/shop/r/%s/full/%s/%s?w=176&v=%s">'
                     '<span class="t">%s %s</span></a>'
-                    % (v['id'], token, v['id'], html.escape(st['camera_id']),
+                    % (v['id'], token, v['id'], html.escape(st['camera_id']), rver,
                        clock(v['started_at']), html.escape(visit_title(v))))
         recent = ''.join(_recent_card(v) for v in recent_rows)
 
@@ -677,7 +688,7 @@ async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse
                 % (len(visits), len(by_day), nav, st['level'], html.escape(st['head']),
                    html.escape(st['detail']), st['checked'], tiles, as_of,
                    recent or '<div class="empty">Nothing yet.</div>', ''.join(blocks)))
-        return HTMLResponse('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        resp = HTMLResponse('<!doctype html><html lang="en"><head><meta charset="utf-8">'
                             '<meta name="viewport" content="width=device-width,initial-scale=1">'
                             '<title>Shop — review</title><style>%s</style></head><body>%s'
                             '<script>(function(){'
@@ -703,6 +714,9 @@ async def shop_review(token: str, days: int = 7, clips: int = 0) -> HTMLResponse
                             'if(!document.hidden)tick();});'
                             '})();</script></body></html>'
                             % (CSS, body, token))
+        # the page states the situation at a moment; a cached copy of it is a stale claim
+        resp.headers['Cache-Control'] = 'no-store, must-revalidate'
+        return resp
     finally:
         conn.close()
 
