@@ -523,3 +523,5 @@ L2784bc	lessons	L2784b	identity duplicate inside entries/	2026-10-20	ZABZ-YOGA	f
 L3767	lessons	L3764	identity duplicate inside entries/	2026-10-20	ZABZ-YOGA	631ae9b18417d55a	archive/duplicates/lessons/L3767.md
 L9536	lessons	L9535	identity duplicate inside entries/	2026-10-20	ZABZ-YOGA	ced135e376352e10	archive/duplicates/lessons/L9536.md
 P2561bc	pain	P2561b	identity duplicate inside entries/	2026-10-20	ZABZ-YOGA	1f807751f6a013ee	archive/duplicates/pain/P2561bc.md
+D10073	decisions	D10074	body mangled by PowerShell backtick interpolation on write (backtick-e and backtick-t eaten); re-filed verbatim as D10074	2026-10-27	-	-	-
+H14385	handoff	H14386	body mangled by PowerShell backtick interpolation on write (backtick-n became a newline mid-sentence) and its sha did not match; re-filed verbatim as H14386	2026-10-27	-	-	-

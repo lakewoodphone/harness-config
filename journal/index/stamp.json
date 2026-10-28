@@ -1,32 +1,32 @@
 {
- "built": "2026-10-25 04:39 UTC",
+ "built": "2026-10-28 03:30 UTC",
  "cache_version": 2,
  "ceiling": {
-  "decisions": 10049,
-  "handoff": 13353,
-  "lessons": 13505,
-  "pain": 12107,
-  "wins": 7140
+  "decisions": 10080,
+  "handoff": 14398,
+  "lessons": 13564,
+  "pain": 12112,
+  "wins": 7265
  },
  "db": "journal.db + fts5",
  "db_error": null,
- "drift_measured": "2026-10-25 04:39 UTC",
- "entries": 4909,
- "entries_count": 4909,
- "entries_sig": "eff64040fb458dc8ff8ebb6a0da52a79d6819ac2",
+ "drift_measured": "2026-10-28 03:31 UTC",
+ "entries": 5083,
+ "entries_count": 5083,
+ "entries_sig": "64db0027de50856b76a67c4078cdf1c3631d7934",
  "fetch_rc": 0,
- "fetched_at": 1792902889.920628,
+ "fetched_at": 1793158232.81958,
  "flat_sig": "fbebfc3a7b8e3f2d4f30fd7a2290b1b003d00cc4",
  "git_ceiling": {
   "decisions": 9857,
-  "handoff": 12396,
-  "lessons": 12287,
-  "pain": 9869,
+  "handoff": 14318,
+  "lessons": 12397,
+  "pain": 9995,
   "wins": 7140
  },
  "ledger_ceiling": {
   "decisions": 9984,
-  "handoff": 12968,
+  "handoff": 14379,
   "lessons": 13373,
   "pain": 12106,
   "wins": 7258
@@ -35,13 +35,13 @@
  "log_sig": "b3990b53ecb4ee05a54fd63c6a8c7790ae1fee84",
  "parse_problems": 0,
  "remote_ids": {
-  "refs_sig": "e90173623cd0f42a77a0e59ada623f6ca11da88f",
-  "scanned_at": "2026-10-25 04:35 UTC",
+  "refs_sig": "ed98ce6b32a9da2894fa9ed44eac4d96d97238ac",
+  "scanned_at": "2026-10-28 03:31 UTC",
   "tops": {
    "decisions": 9314,
-   "handoff": 12396,
-   "lessons": 12287,
-   "pain": 9869,
+   "handoff": 14318,
+   "lessons": 12397,
+   "pain": 9995,
    "wins": 7140
   }
  },

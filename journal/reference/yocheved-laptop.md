@@ -469,3 +469,98 @@ the repairing session was looking at; the fourth was invisible precisely because
 of anyone. **Verify a fleet fix by asserting the ABSENCE OF THE DEFECT on every machine, not by
 listing the machines you repaired** — and remember that a profile defect is silent until the next
 engine start, so a machine only reveals it when it reboots.
+
+
+---
+
+## 13. WHY IT "STOPS WORKING EVERY FEW DAYS" — measured and repaired 2026-10-28
+**Measured on DESKTOP-FGV6KMH and repaired the same night.** She reported the assistant dead; the
+engine had been unable to boot since **2026-10-21 10:46** (when a config written for a newer engine
+landed on a machine pinned to an older one) and was finally wedged for good by a reboot at
+**22:33:51 local** on 2026-10-27.
+
+## The two causes, each measured
+
+### 1. Config outran the engine (the fatal one)
+
+Her engine store is `C:\Users\cheve\dsh` (`package.json`: `"@deepseek-ai/dsh": "^0.1.5-rc.1"`,
+installed 2026-09-14). The estate's profile (`profiles/web/cordis.patch.yml`, delivered by
+harness-sync every 15 minutes) is written for **≥0.1.7**. The boot stderr, captured by hand:
+
+```
+Error: dsh: plugin tree failed to load: failed to apply loader entry include (cordis:include)
+Error: failed to import loader entry preset-yocheved (@deepseek-ai/dsh-agent-preset):
+       Cannot find package '@deepseek-ai/dsh-agent-preset' imported from C:\Users\cheve\.dsh\profiles\web\
+```
+
+`@deepseek-ai/dsh-agent-preset` **does not exist on the 0.1.5 line** — it has only
+`dsh-agent-presets` (plural, the old interface). The repo's own comment at
+`profiles/web/cordis.patch.yml:284` predicts exactly this: *"the id `agent-preset-registry` does
+not exist on the 0.1.5 line, so this entry ships WITH the engine bump"*. **The engine bump never
+happened on this machine.** So every restart after 2026-10-21 died; a running engine proved nothing,
+because the profile is read at boot.
+
+### 2. The engine bump had only ever been half-done
+
+After installing 0.2.0-rc.2 the boot still failed, because the profile's package layer is **240
+junctions** from `C:\Users\cheve\.dsh\profiles\node_modules\@deepseek-ai\*` into
+`C:\Users\cheve\dsh\node_modules\@deepseek-ai\*`, and the new engine needs **349 packages that had
+no junction at all**. Created 293 under `@deepseek-ai` and 56 top-level; the engine then booted in
+under a minute.
+
+### 3. What turned a broken boot into a storm
+
+`engine-recovery.log` for 2026-10-27 22:36–23:00 records **paired** `attempt 1/3` lines a second
+apart and `silent to two patient probes - reclaiming from pid …` against each other, and at 23:00
+there were **eight** `node … web --port 3099` processes alive (ages 13–32 min), one bound, none
+serving. Four supervisors call `dshw.ps1 ensure` on timers — `DSH Engine Watchdog (1m)`,
+`DSH Window Fleet Watchdog (5m)`, `DSH Engine Vitals (5m)` and `Yocheved DSH Window` — and **her
+copy of `dshw.ps1` had no single-boot mutex**:
+
+| | bytes | md5 | has `dsh-engine-ensure` |
+|---|---|---|---|
+| her working tree | 190,535 | `49DEF1F4…` | **no** |
+| repo / ZABZ-YOGA | 211,798 | `3D8104ED…` | yes |
+
+Upstream added that mutex on 2026-09-30 (`709e174d`, adopted as `ded4edbe`) expressly for this
+fault. Her clone is on **`master` at `f4458d92`, where `ded4edbe` is not an ancestor**, with
+**1,528 uncommitted lines** of its own in `dshw.ps1` — a divergent lineage that has never received
+a launcher fix since. `git pull --rebase --autostash` cannot reconcile that, so it stays behind.
+
+## The repair, and the proof
+
+1. `npm install @deepseek-ai/dsh@0.2.0-rc.2 --prefix C:\Users\cheve\dsh` → `bin.js --version` → **0.2.0-rc.2**.
+2. 349 missing profile junctions created.
+3. Mutex adopted into her `dshw.ps1` locally (3,029 bytes added around `Ensure-Engine`); backup at
+   `multi-window\dshw.ps1.bak-20261028-2330` (190,535 B, md5 `49DEF1F4…`); parse **0 errors**;
+   `launch.cmd ensure` → exit 0, `engine is answering on 3099`, engine count unchanged at 1.
+4. **The race test:** engine killed, then TWO `ensure` calls fired in the same second. Result:
+   **one** engine (pid 9612), **one** boot attempt in the recovery log. Before the patch this
+   scenario produced a pile of engines and mutual reclaims.
+5. Engine booted through the documented task; `state.json` records pid 9612 with a fresh token;
+   `GET http://127.0.0.1:3099/?token=…` → **HTTP 200, 35,846 bytes**; headless acceptance
+   (`--profile headless 'Reply with exactly this and nothing else: MANAGER_READY'`) → **exit 0,
+   `MANAGER_READY`** (so: filter traversed, CA trusted, route selected, key resolved, model answered).
+6. Her stale window (created 23:12:40 on the dead token) closed; the window task reopened
+   pid 11692 on the live token. One engine.
+
+## Still open, and what would close it
+
+1. **Nothing watches this box for "engine dead".** P3168 is unchanged: `PRESENCE_ALIASES` has no
+   `desktop-fgv6kmh` entry, there is no `next_stage_node_reports` row, and `updated_at` age measures
+   *new work*, not contact. Tonight was found only because the owner asked.
+2. **`--dump-config` is not a boot test.** It exits **0** on this box while printing
+   `patch: entry "agent-preset-registry" not found` on stderr, so `DSH Profile Gate (15m)` — the one
+   instrument meant to catch a machine that cannot boot — reported nothing all night. The gate has
+   to test a real boot (or at least fail on patch/import errors), not config composition.
+3. **Two lineages of `dshw.ps1`.** Hers has 1,528 uncommitted lines and no mutex; the repo's has the
+   mutex. Until that is reconciled the next launcher fix will also miss this machine. Her clone also
+   fetches from `authority` = `secratary-ts:`, the **frozen** office box.
+4. **`npm install` during the repair never exited** (pid 8412, still running 20+ min after the tree
+   was complete, no output). The tree is correct; the process is stale. Not investigated.
+
+## The lesson, in one line
+
+*"Stops working every few days" is a machine whose config is newer than its engine: it breaks on the
+next restart, not on the day the config arrives, and it looks idle rather than broken.*
+
