@@ -432,3 +432,29 @@ warning on the page was gone.
 **Two false alarms of my own on the way**, both the same shape: I called the event thumbnails "broken" twice because a
 viewport screenshot catches lazy images mid-load. The network log settled it — every image returned **200**, the four
 tiles at 360 px and the thumbnails at 2560 px. That last number was the real defect, and it is the one now fixed.
+
+## Round 10: one arrival was four cards — the grouping window, measured
+
+A review of the live page found a single arrival split across four cards (21:11 / 21:16 / 21:24 / 21:28) and ten
+cards covering 17:39–18:40. The gap that ends a visit was **150 seconds**, which in a shop is shorter than a person
+walks around.
+
+Measured across 72 hours of record, by gap:
+
+| gap | cards |
+|---|---|
+| 150 s (was) | **53** |
+| **300 s (now)** | **40** |
+| 600 s | 33 |
+
+**Chosen: 300 seconds.** It removes a quarter of the cards, and the longest resulting span is **19 minutes** — a shop
+visit, not two people glued together. Ten minutes would give 33 cards, but a ten-minute quiet gap in a shop can
+separate a customer leaving from the owner arriving, and a merged card would then show one person's name over another
+person's actions. Fewer cards is worth less than a card that means one thing.
+
+**The page after the rebuild:** `Today · Wed 28 Oct — 14 visits · 8 with a person`, `Yesterday · Tue 27 Oct — 23
+visits · 22 with a person`, `Mon 26 Oct — 3 visits`, 40 cards, 8 of them with a picture, and 8 visits re-named from
+the access log.
+
+**One measurement of my own to distrust:** my first card count said "1", because `grep -c` counts *lines* and this page
+is a single line of HTML. The real count is 40 — checked with `<details` occurrences rather than trusting the tool.

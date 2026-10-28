@@ -29,7 +29,13 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 DB = '/root/authority.db'
-GAP_SECONDS = 150          # a pause longer than this ends a visit
+GAP_SECONDS = 300          # a pause longer than this ends a visit
+
+# MEASURED, 2026-10-28: at 150 s the record produced 53 cards for 72 hours, and a review of the live
+# page found one arrival split across four of them (21:11 / 21:16 / 21:24 / 21:28). At 300 s it is 40
+# cards, and the longest resulting span is 19 minutes -- a shop visit, not two people glued together.
+# At 600 s it is 33, but a ten-minute gap in a shop can separate a customer leaving from the owner
+# arriving, so 300 s is the conservative middle: fewer cards, no invented merges.
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS shop_visit (
