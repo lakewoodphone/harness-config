@@ -59,36 +59,36 @@ def A(name, aliases, cap, songs):
 # cap = slots this artist gets. `songs` is priority order AND the wanted list; a title that
 # does not exist under that artist is simply skipped, and the next one takes the slot.
 ARTISTS = [
- A("Shlomo Carlebach", ["shlomo carlebach"], 16, [
+ A("Shlomo Carlebach", ["shlomo carlebach"], 14, [
    "L'cha Dodi", "Bo'i V'shalom", "Mimkomcho", "Esah Einai", "Od Yishama", "Am Yisrael Chai",
    "Ki Va Moed", "Shalom Aleichem/Eyshet Chayil", "Haneshama Lach", "Nachamu Nachamu Ami",
    "Eliyahu Hanavi", "Mizmor Shir", "Shrei Shabbos", "Od Avinu Chai", "Ya Ribon Olam",
    "Ahavas Olam", "Meloch", "Yism'chu", "Melech Rachaman", "V'eneynu Tirena",
    "Pischu Li", "Kol Ha'olam Kulo", "Tov Lehodos", "Shabbos HaMalka", "Hinei Ma Tov"]),
- A("Yehuda Green", ["yehuda green"], 10, [
+ A("Yehuda Green", ["yehuda green"], 9, [
    "Nishmas Kol Chai", "Hashiveinu", "Nigun Moshe", "Rebi Rebi", "The Barditchever Nigun",
    "Bnei Beischa", "Reb Shlomo's Havdallah", "Yedid Nefesh", "Im Eshkachech", "Mimkomcha",
    "Shema Koleinu", "Haneshama", "Nigun Neshama", "Shuvu Eilai", "Aneinu Avinu",
    "Baruch Kel Elyon", "Vetaher Libeinu", "L'Dovid Mizmor", "Keil Adon", "Shiru LaMelech"]),
- A("Zusha", ["zusha"], 11, [
+ A("Zusha", ["zusha"], 10, [
    "Lecha Dodi", "Pischu Li", "Yoel's Niggun", "Hareini Mechavein", "Baruch Hashem", "Shuva",
    "Karov", "Mi LaShem Elai", "All Worlds", "Ad Shetehe", "Melech Malchaya", "Ashrei",
    "Tree of Life", "Choose Life", "Everything Can Change", "Brighter", "Roof Over My Head",
    "From the Narrow Place"]),
- A("Eitan Katz", ["eitan katz"], 11, [
+ A("Eitan Katz", ["eitan katz"], 10, [
    "Ki Karov", "L'maancha", "Ashrey", "Ani L'dodi", "Yom Shabboson", "Podah B'Shalom",
    "Nigun Neshama", "The Dminor Nigun", "Barcheinu Avinu", "Karvah", "Achoseinu", "V'nacha",
    "Elul Nigun", "K'moifes", "Eishes Chayil", "Boruch Hu"]),
- A("Yaakov Shwekey", ["shwekey"], 8, [
+ A("Yaakov Shwekey", ["shwekey"], 7, [
    "Yedid", "Im Eshkocheich", "Shomaati", "Shema", "Malachim", "Rochem", "Tefilat Kallah",
    "Chasoif", "Elul", "Kolot", "Sameach"]),
- A("Yosef Karduner", ["karduner"], 7, [
+ A("Yosef Karduner", ["karduner"], 6, [
    "Mikimi", "Hashem Melech", "Adon Olam", "Tzaddik Katamar", "Shir L'maalot",
    "V'taher Libeinu", "Kavei", "Shir LaMelech", "Mekimi"]),
- A("Thank You Hashem", ["thank you hashem", "tyh"], 6, [
+ A("Thank You Hashem", ["thank you hashem", "tyh"], 5, [
    "Mizmor Letoda", "Hashivenu", "Spread Light", "Thank You Hashem", "Yismach Moshe",
    "Chassidus", "Father", "Stars", "Billionaire"]),
- A("Ishay Ribo", ["ishay ribo", "ריבו"], 7, [
+ A("Ishay Ribo", ["ishay ribo", "ריבו"], 6, [
    "הלב שלי", "זוכר אני", "הבוקר יעלה", "יגדל", "כל הזמן", "קול דודי", "בן אדם", "לולא היותך",
    "מקשה אחת זהב", "נפשי", "סיבת הסיבות"]),
  A("Avraham Fried", ["avraham fried"], 5, [
@@ -110,9 +110,10 @@ ARTISTS = [
    "Niggun of the Birds", "Kol Rina", "Nachamu", "An Everlasting Love", "Berosh Hashana"]),
  A("Meilech Kohn", ["meilech kohn"], 4, [
    "Hareyni", "Gedavent", "Yoimom", "Ein Trop Vaaser", "Likvod Shabbat", "VeUhavtu", "Menagen"]),
- A("Naftali Kempeh", ["kempeh"], 4, [
-   "L'maancha", "Menucha V'simcha", "Ochila", "Anim Zmirot", "Lecha Dodi", "Kodesh",
-   "Toameha", "V'chol Maminim", "Chamol"]),
+ A("Naftali Kempeh", ["kempeh"], 8, [
+   "L'maancha", "Ochila", "Chamol", "Lecha Dodi", "Sharei Shomayim", "Emes Malkeinu",
+   "Ya'aleh", "Melech Rachaman", "Ba'avur Avoseinu", "Kol Hanechalim", "Kehoda'ato",
+   "Ani Yeshayna", "Ushpizin", "Tefilat Chana"]),
  A("Shulem", ["shulem", "lemmer"], 3, [
    "October Rain", "Esa Einai", "Avinu Malkeinu", "Hineni", "Kol Zman"]),
  A("Akiva", ["akiva"], 3, ["Vehi She'amda", "יש בך הכל", "Irreversible", "ניגון השתטחות"]),
@@ -121,8 +122,10 @@ ARTISTS = [
  A("Simcha Leiner", ["leiner"], 3, [
    "Tefilas Haneiros", "Mi Bon Siach", "Kol Hakavod", "Mi Adir", "Nafshi"]),
  A("Shmueli Ungar", ["ungar"], 3, ["Shulem", "Kol Dodi", "Bnei Heichala", "Mach A Bracha", "Koily"]),
- A("8th Day", ["8th day"], 3, [
-   "It's Shabbos Now", "One of a Kind", "By My Side", "Slow Down", "Ya'alili"]),
+ A("8th Day", ["8th day"], 8, [
+   "It's Shabbos Now", "One of a Kind", "By My Side", "Ya'alili", "May You Be Blessed",
+   "Avraham", "Tatenyu", "B'zeh Hashaar", "Slow Down", "Harmony", "Baal Shem Tov",
+   "Celebrate"]),
  A("Joey Newcomb", ["joey newcomb"], 3, ["Thank You Hashem", "Toi'ameha", "Just Love Them"]),
  A("Shloime Gertner", ["gertner"], 3, ["Shabbos Hayom", "Kol Haolam", "Ata Echad", "Kodesh"]),
  A("Yonatan Razel", ["yonatan razel"], 2, ["והיא שעמדה", "אחת שאלתי", "קטנתי"]),
@@ -149,8 +152,9 @@ TRIM_ORDER = [
  "Freilach Band", "Yonina", "L'Chaim OG", "Dedi", "Yitzchak Meir Helfgot", "Chaim Dovid",
  "Miami Boys Choir", "Mendy Wald", "Yeedle", "Moshav Band", "Sruly Green", "Ohad Moskowitz",
  "Ari Goldwag", "Beri Weber", "Neshama Carlebach", "Eli Schwebel", "Yonatan Razel",
- "Shloime Gertner", "Joey Newcomb", "8th Day", "Shmueli Ungar",
- "Simcha Leiner", "Motty Steinmetz", "Akiva", "Shulem", "Naftali Kempeh", "Meilech Kohn",
+ "Shloime Gertner", "Joey Newcomb", "Shmueli Ungar",
+ "Simcha Leiner", "Motty Steinmetz", "Akiva", "Shulem", "Meilech Kohn",
+ "Naftali Kempeh", "8th Day",
 ]
 
 
