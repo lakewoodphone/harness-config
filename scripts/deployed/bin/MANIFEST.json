@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "generated_utc": "2026-10-16T04:11:54Z",
+  "generated_utc": "2026-10-31T16:41:49Z",
   "authority": {
     "ssh_alias": "secratary-cloud",
     "address": "100.73.176.126",
@@ -140,14 +140,14 @@
       "name": "work.py",
       "deployed_path": "/home/zabz/bin/work.py",
       "repo_path": "scripts/deployed/bin/work.py",
-      "deployed_bytes": 70411,
-      "deployed_sha256": "1e3def7a9a9372b78db6479a1829bb0ffc8619e7345366009efd99e453b46231",
-      "sha256_at_first_read": "1e3def7a9a9372b78db6479a1829bb0ffc8619e7345366009efd99e453b46231",
-      "size_at_first_read": 70411,
-      "fetched_utc": "2026-10-13T03:18:42Z",
+      "deployed_bytes": 186457,
+      "deployed_sha256": "f6b3432d1de090a56fadddcdff89140b1c7b53566190e26a0a1efdeef04198f7",
+      "sha256_at_first_read": "f6b3432d1de090a56fadddcdff89140b1c7b53566190e26a0a1efdeef04198f7",
+      "size_at_first_read": 186457,
+      "fetched_utc": "2026-10-31T16:41:49Z",
       "in_flux": false,
       "in_flux_note": null,
-      "sha256_at_second_read": "1e3def7a9a9372b78db6479a1829bb0ffc8619e7345366009efd99e453b46231",
+      "sha256_at_second_read": "f6b3432d1de090a56fadddcdff89140b1c7b53566190e26a0a1efdeef04198f7",
       "byte_identical_at_capture": true
     },
     {
